@@ -1,3 +1,4 @@
+import { api } from '../api.js';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { Home } from './Home.js';
@@ -7,11 +8,12 @@ const second = '00000000-0000-4000-8000-000000000002';
 const saved = { tv: { host: '192.168.1.20', identity: { model: 'Synthetic television' } }, connection: 'unavailable', operation: null };
 const device = (tvId = first, status: unknown = saved) => ({ tvId, platform: 'webos', status });
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
+beforeEach(() => { vi.spyOn(api, 'getProfile').mockResolvedValue({ username: 'synthetic-owner', displayName: 'synthetic-owner', avatarId: null }); });
 beforeEach(() => Object.defineProperties(HTMLDialogElement.prototype, {
   showModal: { configurable: true, value: function () { this.open = true; } },
   close: { configurable: true, value: function () { this.open = false; } },
 }));
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 function home(expired = vi.fn()) { return <Home username="synthetic-owner" csrfToken={'c'.repeat(43)} tvActive busy={false} error={null} onLogout={vi.fn()} onSessionExpired={expired} />; }
 async function mount(devices: unknown[] = [device()]) {
   const fetch = vi.fn(async (path: string) => response(path === '/api/tvs' ? { devices } : path.endsWith('/power')

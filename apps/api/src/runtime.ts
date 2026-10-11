@@ -1,3 +1,4 @@
+import { createProfileRepository } from './profile/repository.js';
 import { buildApp } from './app.js';
 import type { AppConfig } from './config.js';
 import type { FastifyInstance } from 'fastify';
@@ -81,6 +82,7 @@ export async function createApiRuntime(config: AppConfig, options: {
       tvs,
       ...(options.logStream ? { logStream: options.logStream } : {}),
       ...(options.webRoot ? { webRoot: options.webRoot } : {}),
+      profile: createProfileRepository(database.sqlite),
       getSetupState: async () => repository.getSetupState(),
       auth: {
         setup: createOwnerSetupService({ repository, ...options }),

@@ -29,3 +29,13 @@ test('interaction lock blocks navigation and collapse', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Свернуть меню' }));
   expect(open).not.toHaveBeenCalled(); expect(toggle).not.toHaveBeenCalled();
 });
+test('profile opens from both menu states and has current state', () => {
+  const openProfile = vi.fn();
+  const { rerender } = render(<AppSidebar collapsed={false} onToggleCollapsed={vi.fn()} username="QA Team" avatarId="robot" activeSection="profile" disabled={false} onOpenTelevisions={vi.fn()} onOpenProfile={openProfile} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Мой профиль: QA Team' }));
+  expect(openProfile).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('button', { name: 'Мой профиль: QA Team' }).getAttribute('aria-current')).toBe('page');
+  rerender(<AppSidebar collapsed onToggleCollapsed={vi.fn()} username="QA Team" avatarId="robot" activeSection="profile" disabled onOpenTelevisions={vi.fn()} onOpenProfile={openProfile} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Мой профиль: QA Team' }));
+  expect(openProfile).toHaveBeenCalledTimes(1);
+});

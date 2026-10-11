@@ -38,7 +38,7 @@ test('upgrades a v1 database with a recovery backup while preserving owner and s
   try {
     expect(database.sqlite.prepare('SELECT username FROM owner').get()).toEqual({ username: 'synthetic-owner' });
     expect(database.sqlite.prepare('SELECT token_hash FROM sessions').get()).toEqual({ token_hash: 'synthetic-token' });
-    expect(database.sqlite.prepare('SELECT version, applied_at FROM migration_version ORDER BY version').all()).toEqual([{ version: 1, applied_at: 100 }, { version: 2, applied_at: 200 }, { version: 3, applied_at: 200 }, { version: 4, applied_at: 200 }, { version: 5, applied_at: 200 }]);
+    expect(database.sqlite.prepare('SELECT version, applied_at FROM migration_version ORDER BY version').all()).toEqual([{ version: 1, applied_at: 100 }, { version: 2, applied_at: 200 }, { version: 3, applied_at: 200 }, { version: 4, applied_at: 200 }, { version: 5, applied_at: 200 }, { version: 6, applied_at: 200 }]);
     expect(createTvRepository(database.sqlite).load()).toBeNull();
     const backups = await readdir(join(dataDir, 'backups'));
     expect(backups).toHaveLength(1);

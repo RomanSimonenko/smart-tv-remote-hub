@@ -5,3 +5,5 @@ export * from './tv-command.js';
 export * from './tv-actions.js';
 export * from './tv-power.js';
 export * from './tv-devices.js';
+
+export * from './profile.js';

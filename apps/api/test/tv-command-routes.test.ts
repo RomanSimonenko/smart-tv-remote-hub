@@ -392,3 +392,33 @@ test('Wink uses the protected command route and missing app returns a validated 
   expect(missing.statusCode).toBe(422); expect(tvCommandResultSchema.parse(missing.json())).toMatchObject({ outcome: 'rejected', error: { code: 'APP_NOT_AVAILABLE' } });
   expect(launched).toEqual(['synthetic.wink']);
 });
+
+test('password change releases another session native hold through real auth and TV route subscribers', async () => {
+  const { app, h, sessions, login, headersFor } = await fixture();
+  const other = (await sessions.login('owner', 'synthetic password 123'))!;
+  const frames: string[] = [];
+  Object.assign(h.adapters[0]!, {
+    nativeHoldButtons: ['RIGHT'],
+    pressButton: async () => { frames.push('Press'); },
+    releaseButton: async () => { frames.push('Release'); },
+  });
+  const held = await app.inject({ method: 'POST', url: '/api/tv/holds', headers: headersFor(other.token), payload: { ...command, button: 'RIGHT', phase: 'press' } });
+  expect(held.statusCode).toBe(200); expect(frames).toEqual(['Press']);
+  const changed = await sessions.changePassword(login.token, 'synthetic password 123', 'new123');
+  expect(changed.cleanupWarning).toBe(false);
+  expect(frames).toEqual(['Press', 'Release']);
+  expect(sessions.authenticate(other.token)).toBeUndefined();
+  expect(sessions.authenticate(changed.token)).toBeDefined();
+});
+
+test('password change reports failed hold cleanup through the full route subscription path', async () => {
+  const { app, h, sessions, login, headersFor } = await fixture();
+  const other = (await sessions.login('owner', 'synthetic password 123'))!;
+  Object.assign(h.adapters[0]!, { nativeHoldButtons: ['RIGHT'], pressButton: async () => {}, releaseButton: async () => {} });
+  expect((await app.inject({ method: 'POST', url: '/api/tv/holds', headers: headersFor(other.token), payload: { ...command, button: 'RIGHT', phase: 'press' } })).statusCode).toBe(200);
+  vi.spyOn(h.service, 'cancelOwnedHold').mockRejectedValue(new Error('synthetic cleanup failure'));
+  const result = await sessions.changePassword(login.token, 'synthetic password 123', 'new123');
+  expect(result.cleanupWarning).toBe(true);
+  expect(sessions.authenticate(result.token)).toBeDefined();
+  expect(sessions.authenticate(other.token)).toBeUndefined();
+});

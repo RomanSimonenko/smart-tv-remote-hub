@@ -2,7 +2,10 @@ import { timingSafeEqual } from 'node:crypto';
 
 import type Database from 'better-sqlite3';
 
+interface SessionRecord { readonly tokenHash: string; readonly csrfHash: string; readonly now: number; readonly expiresAt: number }
 export interface OwnerRepository {
+  createSessionIfCredentialsMatch(input: SessionRecord & { readonly username: string; readonly expectedPasswordHash: string }): boolean;
+  changePasswordAndRotateSession(input: SessionRecord & { readonly username: string; readonly expectedPasswordHash: string; readonly passwordHash: string; readonly previousTokenHash: string }): boolean;
   getSetupState(): 'claimed' | 'unclaimed';
   replaceSetupToken(tokenHash: string, expiresAt: number): boolean;
   claimOwner(input: { readonly tokenHash: string; readonly username: string; readonly passwordHash: string; readonly now: number }): boolean;
@@ -28,7 +31,27 @@ export function createOwnerRepository(sqlite: Database.Database): OwnerRepositor
   const selectSession = sqlite.prepare('SELECT owner.username, sessions.csrf_hash, sessions.created_at, sessions.expires_at FROM sessions JOIN owner ON sessions.owner_id = owner.id WHERE sessions.token_hash = ?');
   const deleteSession = sqlite.prepare('DELETE FROM sessions WHERE token_hash = ?');
 
+  const updatePassword = sqlite.prepare('UPDATE owner SET password_hash = ? WHERE id = 1 AND username = ? AND password_hash = ?');
+  const deleteAllSessions = sqlite.prepare('DELETE FROM sessions WHERE owner_id = 1');
   return {
+    createSessionIfCredentialsMatch(input) {
+      return sqlite.transaction(() => {
+        const owner = selectOwner.get(input.username) as { password_hash: string } | undefined;
+        if (!owner || owner.password_hash !== input.expectedPasswordHash) return false;
+        insertSession.run(input.tokenHash, input.now, input.expiresAt, input.csrfHash);
+        return true;
+      }).immediate();
+    },
+    changePasswordAndRotateSession(input) {
+      return sqlite.transaction(() => {
+        const session = selectSession.get(input.previousTokenHash) as { created_at: number; expires_at: number } | undefined;
+        if (!session || session.created_at > input.now || session.expires_at <= input.now) return false;
+        if (updatePassword.run(input.passwordHash, input.username, input.expectedPasswordHash).changes !== 1) return false;
+        deleteAllSessions.run();
+        insertSession.run(input.tokenHash, input.now, input.expiresAt, input.csrfHash);
+        return true;
+      }).immediate();
+    },
     getSetupState: () => ownerExists.get() ? 'claimed' : 'unclaimed',
     replaceSetupToken(tokenHash, expiresAt) {
       return sqlite.transaction(() => {

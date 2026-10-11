@@ -13,7 +13,7 @@ export function Login({ busy, error, feedback, credentialsInvalid = false, onEdi
     const parsed = loginRequestSchema.safeParse({ username, password });
     if (!parsed.success) {
       const invalid = new Set(parsed.error.issues.map((issue) => issue.path[0]));
-      setFields({ username: invalid.has('username') ? (username ? 'Логин: от 1 до 64 символов.' : 'Введите логин.') : '', password: invalid.has('password') ? (password ? 'Пароль: от 12 до 128 символов.' : 'Введите пароль.') : '' });
+      setFields({ username: invalid.has('username') ? (username ? 'Логин: от 1 до 64 символов.' : 'Введите логин.') : '', password: invalid.has('password') ? (password ? 'Пароль: от 6 до 128 символов.' : 'Введите пароль.') : '' });
       (invalid.has('username') ? usernameRef : passwordRef).current?.focus(); return;
     }
     setFields({ username: '', password: '' }); onSubmit(parsed.data);

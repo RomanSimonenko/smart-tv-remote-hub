@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SessionResponse } from '@remote-webos-tv/contracts';
+import type { PasswordChangeRequest, SessionResponse } from '@remote-webos-tv/contracts';
 import { api, ApiFailure, friendlyError } from './api.js';
 import { Setup } from './pages/Setup.js';
 import { Login } from './pages/Login.js';
@@ -11,7 +11,7 @@ function loginError(cause: unknown): string {
   if (cause instanceof ApiFailure) {
     if (cause.status === 401 && cause.code === 'INVALID_CREDENTIALS') return 'Неверный логин или пароль.';
     if (cause.code === 'INVALID_RESPONSE') return 'Не удалось подтвердить вход: сервер вернул некорректный ответ. Попробуйте снова.';
-    if (cause.status === 400) return 'Проверьте логин и пароль: логин — 1–64 символа, пароль — 12–128.';
+    if (cause.status === 400) return 'Проверьте логин и пароль: логин — 1–64 символа, пароль — 6–128.';
     if (cause.status === 403) return 'Вход отклонён сервером. Обновите страницу и попробуйте снова.';
   }
   return friendlyError(cause);
@@ -25,9 +25,11 @@ export function App() {
   const [credentialsInvalid, setCredentialsInvalid] = useState(false);
   const [tvActive, setTvActive] = useState(true);
   const pending = useRef(false);
+  const passwordPending = useRef(false);
+  const sessionVersion = useRef(0);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const expireSession = useCallback(() => {
-    setSession(null); setView('login'); setTvActive(false);
+    sessionVersion.current++; setSession(null); setView('login'); setTvActive(false);
     setMessage('Сессия истекла. Войдите снова.');
   }, []);
 
@@ -54,6 +56,50 @@ export function App() {
     void initialize();
     return () => { active = false; };
   }, []);
+
+  // Another tab shares the cookie but keeps its own CSRF in memory.
+  useEffect(() => {
+    if (view !== 'home') return;
+    let active = true;
+    const refresh = async () => {
+      if (passwordPending.current || pending.current) return;
+      const version = sessionVersion.current;
+      try {
+        const current = await api.session();
+        if (active && version === sessionVersion.current && !passwordPending.current) setSession(current);
+      } catch (cause) {
+        if (active && version === sessionVersion.current && !passwordPending.current) {
+          if (cause instanceof ApiFailure && cause.status === 401) expireSession();
+          else setMessage(friendlyError(cause));
+        }
+      }
+    };
+    window.addEventListener('focus', refresh);
+    return () => { active = false; window.removeEventListener('focus', refresh); };
+  }, [view, expireSession]);
+
+  async function changePassword(input: PasswordChangeRequest) {
+    if (!session || passwordPending.current) throw new ApiFailure(409, 'PASSWORD_CHANGE_BUSY');
+    passwordPending.current = true;
+    sessionVersion.current++;
+    try {
+      const result = await api.changePassword(input, session.csrfToken);
+      setSession({ username: result.username, csrfToken: result.csrfToken });
+      return result;
+    } catch (cause) {
+      if (cause instanceof ApiFailure && (cause.code === 'NETWORK_ERROR' || cause.code === 'INVALID_RESPONSE' || cause.status >= 500)) {
+        try { setSession(await api.session()); }
+        catch (recovery) {
+          if (recovery instanceof ApiFailure && recovery.status === 401) {
+            expireSession(); setMessage('Пароль мог измениться. Войдите с новым паролем.');
+          } else setMessage('Не удалось проверить сессию. Обновите страницу перед продолжением.');
+        }
+        throw new ApiFailure(0, 'PASSWORD_CHANGE_UNCERTAIN');
+      }
+      if (cause instanceof ApiFailure && cause.status === 401) expireSession();
+      throw cause;
+    } finally { sessionVersion.current++; passwordPending.current = false; }
+  }
 
   async function submit(action: () => Promise<void>, formatError = friendlyError) {
     if (pending.current) return;
@@ -89,7 +135,7 @@ export function App() {
       setTvActive(true);
       setView('home');
     }, loginError)} />}
-    {view === 'home' && session && <Home username={session.username} csrfToken={session.csrfToken} tvActive={tvActive} busy={busy} error={error} onSessionExpired={expireSession} onLogout={() => submit(async () => {
+    {view === 'home' && session && <Home onPasswordChange={changePassword} username={session.username} csrfToken={session.csrfToken} tvActive={tvActive} busy={busy} error={error} onSessionExpired={expireSession} onLogout={() => submit(async () => {
       setTvActive(false);
       try { await api.logout(session.csrfToken); }
       catch (cause) { if (!(cause instanceof ApiFailure && cause.status === 401)) setTvActive(true); throw cause; }

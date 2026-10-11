@@ -89,7 +89,7 @@ test('CLI token claims one owner and browser session survives reload until logou
   await page.getByLabel('Пароль').fill('short');
   await page.getByRole('button', { name: 'Войти' }).click();
   await expect(page.getByText('Введите логин.', { exact: true })).toBeVisible();
-  await expect(page.getByText('Пароль: от 12 до 128 символов.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Пароль: от 6 до 128 символов.', { exact: true })).toBeVisible();
   await page.getByLabel('Логин').fill('alice');
   await page.getByLabel('Пароль').fill('wrong synthetic password');
   await page.getByRole('button', { name: 'Войти' }).click();

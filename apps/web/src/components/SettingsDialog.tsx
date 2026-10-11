@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { IconX } from '@tabler/icons-react';
 
-interface Props { open: boolean; onClose(): void; children: ReactNode; title?: string; closeLabel?: string }
+interface Props { busy?: boolean; open: boolean; onClose(): void; children: ReactNode; title?: string; closeLabel?: string }
 
-export function SettingsDialog({ open, onClose, children, title = 'Настройки телевизора', closeLabel = 'Закрыть настройки' }: Props) {
+export function SettingsDialog({ open, onClose, children, title = 'Настройки телевизора', closeLabel = 'Закрыть настройки', busy = false }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -19,12 +19,20 @@ export function SettingsDialog({ open, onClose, children, title = 'Настро�
       if (opener.current?.isConnected) opener.current.focus();
     }
   }, [open]);
+  useLayoutEffect(() => {
+    const element = dialog.current;
+    return () => {
+      if (!element?.open) return;
+      element.close();
+      if (opener.current?.isConnected) opener.current.focus();
+    };
+  }, []);
   return <dialog ref={dialog} tabIndex={0} aria-label={title} className="settings-dialog" onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => {
     if (event.target !== event.currentTarget) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
   }}>
-    <div className="settings-heading"><h2>{title}</h2><button ref={closeButton} type="button" aria-label={closeLabel} onClick={onClose}><IconX aria-hidden="true" /></button></div>
+    <div className="settings-heading"><h2>{title}</h2><button ref={closeButton} type="button" aria-label={closeLabel} disabled={busy} onClick={onClose}><IconX aria-hidden="true" /></button></div>
     <div className="settings-content">{children}</div>
   </dialog>;
 }

@@ -5,8 +5,8 @@ import { Login } from './Login.js';
 afterEach(cleanup);
 test.each([
   ['', '', 'Введите логин.', 'Введите пароль.'],
-  ['a'.repeat(65), 'short', 'Логин: от 1 до 64 символов.', 'Пароль: от 12 до 128 символов.'],
-  ['alice', 'a'.repeat(129), null, 'Пароль: от 12 до 128 символов.'],
+  ['a'.repeat(65), 'short', 'Логин: от 1 до 64 символов.', 'Пароль: от 6 до 128 символов.'],
+  ['alice', 'a'.repeat(129), null, 'Пароль: от 6 до 128 символов.'],
 ])('invalid fields stay local and point to the relevant inputs', (username, password, loginError, passwordError) => {
   const submit = vi.fn(); render(<Login busy={false} error={null} onSubmit={submit} />);
   fireEvent.change(screen.getByLabelText('Логин'), { target: { value: username } });

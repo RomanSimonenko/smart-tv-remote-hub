@@ -31,10 +31,22 @@ export function registerTvCommandRoutes(app: FastifyInstance, { service: default
   const heldOwners = new Map<TvService, { owner: string; id: string }>();
   const unsubscribe = sessions.onRevoke((token) => {
     for (const [controller, owner] of owned) if (owner === token) controller.abort();
+    const cleanups: Promise<void>[] = [];
     for (const [service, { owner }] of heldOwners) if (owner === token) {
       heldOwners.delete(service);
-      void service.cancelOwnedHold(token).catch((cause: unknown) => app.log.error({ err: cause }, 'TV hold cleanup failed'));
+      // Return cleanup to the revocation owner so logout/password rotation can
+      // observe failure. Initiate every release before awaiting any of them.
+      try { cleanups.push(service.cancelOwnedHold(token)); }
+      catch (cause) { cleanups.push(Promise.reject(cause)); }
     }
+    return Promise.allSettled(cleanups).then(results => {
+      const failures = results.filter(result => result.status === 'rejected').map(result => result.reason as unknown);
+      if (failures.length) {
+        const cause = new AggregateError(failures, 'TV hold cleanup failed');
+        app.log.error({ err: cause }, 'TV hold cleanup failed');
+        throw cause;
+      }
+    });
   });
   // Fastify drains HTTP requests before onClose. Cancel here so that draining
   // cannot wait for a command whose HTTP caller is still waiting for its result.

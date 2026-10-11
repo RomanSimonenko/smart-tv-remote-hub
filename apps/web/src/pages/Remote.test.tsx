@@ -553,3 +553,17 @@ test('missing Wink shows a specific error and never retries', async () => {
   await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
   expect(view.commands()).toHaveLength(1); expect(screen.getByRole('alert').textContent).not.toContain('private');
 });
+
+test('opening profile stops a held command without sending commands to another screen', async () => {
+  vi.spyOn(api, 'getProfile').mockResolvedValue({ username: 'alice', displayName: 'Alice QA', avatarId: 'robot' });
+  vi.useFakeTimers();
+  const view = await mount();
+  pointer(screen.getByRole('button', { name: 'Вверх' }), 'pointerdown');
+  await act(async () => {});
+  fireEvent.click(screen.getByRole('button', { name: 'Мой профиль: Alice QA' }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+  expect(screen.getByRole('heading', { name: 'Мой профиль' })).toBeTruthy();
+  expect(screen.queryByRole('group', { name: 'Пульт' })).toBeNull();
+  expect(view.commands()).toHaveLength(1);
+  expect(view.fetch.mock.calls.some(([path]) => path.endsWith('/cancel'))).toBe(false);
+});

@@ -104,4 +104,10 @@ export const schemaMigrations: readonly Migration[] = [
       if (defaultTv) sqlite.prepare('INSERT INTO tv_default VALUES (1, ?)').run(defaultTv.tv_id);
     },
   },
+  {
+    version: 6,
+    up(sqlite) {
+      sqlite.exec('ALTER TABLE owner ADD COLUMN display_name TEXT; ALTER TABLE owner ADD COLUMN avatar_id TEXT;');
+    },
+  },
 ];

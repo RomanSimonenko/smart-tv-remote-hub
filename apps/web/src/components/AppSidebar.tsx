@@ -1,8 +1,11 @@
-import { IconHome, IconDeviceDesktop, IconFileText, IconPlayerPlay, IconSettings, IconChevronsLeft, IconChevronsRight, IconUser } from '@tabler/icons-react';
+import type { OwnerProfile } from '@remote-webos-tv/contracts';
+import { ProfileAvatar } from './ProfileAvatar.js';
+import { IconHome, IconDeviceDesktop, IconFileText, IconPlayerPlay, IconSettings, IconChevronsLeft, IconChevronsRight } from '@tabler/icons-react';
 
 interface Props {
   collapsed: boolean; onToggleCollapsed(): void; username: string;
-  activeSection: 'televisions'; disabled: boolean; onOpenTelevisions(): void;
+  activeSection: 'televisions' | 'profile'; disabled: boolean; onOpenTelevisions(): void;
+  avatarId?: OwnerProfile['avatarId']; onOpenProfile?(): void;
 }
 const sections = [
   { id: 'overview', label: 'Обзор', Icon: IconHome },
@@ -11,7 +14,7 @@ const sections = [
   { id: 'runs', label: 'Запуски', Icon: IconPlayerPlay },
   { id: 'settings', label: 'Настройки', Icon: IconSettings },
 ] as const;
-export function AppSidebar({ collapsed, onToggleCollapsed, username, activeSection, disabled, onOpenTelevisions }: Props) {
+export function AppSidebar({ collapsed, onToggleCollapsed, username, activeSection, disabled, onOpenTelevisions, avatarId = null, onOpenProfile }: Props) {
   const toggleLabel = collapsed ? 'Развернуть меню' : 'Свернуть меню';
   return <aside className="app-sidebar" data-collapsed={collapsed} aria-label="Боковое меню">
     <div className="sidebar-heading">
@@ -21,6 +24,6 @@ export function AppSidebar({ collapsed, onToggleCollapsed, username, activeSecti
     <nav id="app-navigation" aria-label="Основная навигация">
       {sections.map(({ id, label, Icon }) => <button key={id} type="button" aria-label={id === 'televisions' ? label : `${label} — появится позже`} aria-current={id === activeSection ? 'page' : undefined} title={id === 'televisions' ? label : `${label} — появится позже`} disabled={disabled || id !== 'televisions'} onClick={id === 'televisions' ? onOpenTelevisions : undefined}><Icon aria-hidden="true" /><span>{label}</span></button>)}
     </nav>
-    <div className="sidebar-profile" title={username}><IconUser aria-hidden="true" /><span>{username}</span></div>
+    <button type="button" className="sidebar-profile" title={username} aria-label={`Мой профиль: ${username}`} aria-current={activeSection === 'profile' ? 'page' : undefined} disabled={disabled || !onOpenProfile} onClick={onOpenProfile}><ProfileAvatar avatarId={avatarId} displayName={username} /><span>{username}</span></button>
   </aside>;
 }

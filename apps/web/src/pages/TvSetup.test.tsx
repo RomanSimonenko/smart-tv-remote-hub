@@ -1,9 +1,11 @@
+import { api } from '../api.js';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { TvSetup } from './TvSetup.js';
 import { Home } from './Home.js';
 const deviceList = (status: unknown) => ({ devices: [{ tvId: '00000000-0000-4000-8000-000000000001', platform: 'webos', status }] });
 
+beforeEach(() => { vi.spyOn(api, 'getProfile').mockResolvedValue({ username: 'synthetic-owner', displayName: 'synthetic-owner', avatarId: null }); });
 beforeEach(() => {
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: { configurable: true, value: vi.fn(function (this: HTMLDialogElement) { this.open = true; }) },
