@@ -115,6 +115,61 @@ describe('owned TV power operations', () => {
       expect(h.powerAdapters.reduce((n, adapter) => n + adapter.pairs, 0)).toBe(1);
     } finally { await h.service.close(); await h.base.service.close(); }
   });
+  test.each(['unknown', 'network failure'] as const)('Samsung startup physical wake survives repeated %s observations', async failure => {
+    const h = await samsung('standby');
+    try {
+      h.read(async () => {
+        if (failure === 'network failure') throw new WebOsError('NETWORK_UNREACHABLE', 'synthetic power observation failure');
+        return 'unknown';
+      });
+      for (let read = 0; read < 2; read++) {
+        await h.service.status(); await drain();
+        expect(h.service.powerState().observedPower).toBe('unknown');
+        expect(h.service.powerState().operation).toBeNull();
+      }
+      h.read(async () => 'on');
+      await h.service.status(); await drain();
+      expect((await h.service.status()).connection).toBe('available');
+      expect(h.service.remoteState().enabled).toBe(true);
+      expect(h.service.powerState().operation).toMatchObject({ action: 'recover', status: 'succeeded' });
+      expect(h.requests).toEqual([]);
+      expect(h.powerAdapters.reduce((n, adapter) => n + adapter.pairs, 0)).toBe(1);
+    } finally { await h.service.close(); await h.base.service.close(); }
+  });
+  test.each(['unknown', 'network failure'] as const)('Samsung physical wake after shutdown survives repeated %s observations', async failure => {
+    const h = await samsung();
+    try {
+      h.service.start({ action: 'reconnect' }); await drain();
+      h.service.startPower(off, 'owner'); await drain();
+      h.powerAdapters.at(-1)!.readSnapshot = async () => { throw new WebOsError('CONNECTION_LOST', 'synthetic standby socket loss'); };
+      await h.service.status(); await drain();
+      h.read(async () => {
+        if (failure === 'network failure') throw new WebOsError('NETWORK_UNREACHABLE', 'synthetic power observation failure');
+        return 'unknown';
+      });
+      for (let read = 0; read < 2; read++) { await h.service.status(); await drain(); }
+      expect(h.service.powerState().observedPower).toBe('unknown');
+      h.read(async () => 'on');
+      await h.service.status(); await drain();
+      expect((await h.service.status()).connection).toBe('available');
+      expect(h.service.remoteState().enabled).toBe(true);
+      expect(h.requests).toHaveLength(1);
+      expect(h.powerAdapters.reduce((n, adapter) => n + adapter.pairs, 0)).toBe(2);
+    } finally { await h.service.close(); await h.base.service.close(); }
+  });
+  test('Samsung cancelled explicit reconnect clears standby history before later on observations', async () => {
+    const h = await samsung('standby');
+    try {
+      h.observe('unknown'); await h.service.status(); await drain();
+      const operation = h.service.start({ action: 'reconnect' });
+      h.service.cancel(operation.id); await drain();
+      h.observe('on'); await h.service.status(); await drain();
+      expect((await h.service.status()).connection).toBe('unavailable');
+      expect(h.service.powerState().operation).toBeNull();
+      expect(h.requests).toEqual([]);
+      expect(h.powerAdapters.every(adapter => adapter.pairs === 0)).toBe(true);
+    } finally { await h.service.close(); await h.base.service.close(); }
+  });
   test('Samsung physical wake rechecks on before pairing and never wakes a TV returned to standby', async () => {
     const h = await samsung('standby');
     try {

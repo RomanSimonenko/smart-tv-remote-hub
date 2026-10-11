@@ -9,6 +9,31 @@ async function ready() {
 }
 
 describe('TV commands', () => {
+  test('native hold owns the command gate and close releases it', async () => {
+    const h = await ready(); const adapter = h.adapters[0]!;
+    const frames: string[] = [];
+    Object.assign(adapter, { nativeHoldButtons: ['RIGHT'], pressButton: async () => { frames.push('Press'); }, releaseButton: async () => { frames.push('Release'); } });
+    const hold = { ...input, button: 'RIGHT' as const, phase: 'press' as const };
+    expect(h.service.remoteState()).toMatchObject({ nativeHoldButtons: ['RIGHT'] });
+    expect(await h.service.hold(hold, 'owner', signal())).toMatchObject({ outcome: 'sent' });
+    expect(await h.service.sendCommand(input, signal())).toMatchObject({ outcome: 'rejected', error: { code: 'TV_BUSY' } });
+    expect(() => h.service.start({ action: 'repair' })).toThrowError(expect.objectContaining({ statusCode: 409 }));
+    expect(await h.service.hold(hold, 'owner', signal())).toMatchObject({ outcome: 'sent' });
+    expect(await h.service.hold({ ...hold, phase: 'release' }, 'foreign', signal())).toMatchObject({ outcome: 'rejected' });
+    await h.service.close(); expect(frames).toEqual(['Press', 'Release']);
+  });
+  test.each(['busy', 'closed'] as const)('an expired hold id must pass fresh admission when the service is %s', async state => {
+    const h = await ready(); const adapter = h.adapters[0]!; const frames: string[] = [];
+    Object.assign(adapter, { nativeHoldButtons: ['RIGHT'], pressButton: async () => { frames.push('Press'); }, releaseButton: async () => { frames.push('Release'); } });
+    const hold = { ...input, button: 'RIGHT' as const, phase: 'press' as const };
+    await h.service.hold(hold, 'owner', signal()); await h.service.hold({ ...hold, phase: 'release' }, 'owner', signal());
+    h.scheduler.advance(60_000);
+    const gate = barrier<void>(); let command: Promise<unknown> | undefined;
+    if (state === 'busy') { adapter.sendResult = gate.promise; command = h.service.sendCommand(input, signal()); await adapter.enteredSend.promise; }
+    else await h.service.close();
+    expect(await h.service.hold(hold, 'owner', signal())).toMatchObject({ outcome: 'rejected', error: { code: state === 'busy' ? 'TV_BUSY' : 'TV_UNAVAILABLE' } });
+    expect(frames).toEqual(['Press', 'Release']); gate.resolve(); await command; await h.service.close();
+  });
   test('invalid runtime requests fail strict validation before adapter use', async () => {
     const h = await ready();
     for (const value of [{ ...input, button: 'EXIT' }, { ...input, extra: true }, { ...input, id: '' }]) {

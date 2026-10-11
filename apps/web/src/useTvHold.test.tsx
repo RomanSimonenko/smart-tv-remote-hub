@@ -1,0 +1,40 @@
+import { act, cleanup, renderHook } from '@testing-library/react';
+import { afterEach, expect, test, vi } from 'vitest';
+import { api } from './api.js';
+import { useTvHold } from './useTvHold.js';
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+test('early release waits for Press and uses one id and a fresh Release signal', async () => {
+  let resolve!: (value: { id: string; outcome: 'sent' }) => void;
+  const pending = new Promise<{ id: string; outcome: 'sent' }>(done => { resolve = done; });
+  const send = vi.spyOn(api, 'holdTvButton').mockImplementation(async input => input.phase === 'press' ? pending : { id: input.id, outcome: 'sent' });
+  const result = vi.fn();
+  const view = renderHook(() => useTvHold({ csrfToken: 'c'.repeat(43), onResult: result, onBusy: vi.fn() }));
+  act(() => { view.result.current.start('RIGHT'); view.result.current.stop(); view.result.current.stop(); });
+  expect(send).toHaveBeenCalledTimes(1);
+  await act(async () => { resolve({ id: send.mock.calls[0]![0].id, outcome: 'sent' }); });
+  expect(send).toHaveBeenCalledTimes(2);
+  expect(send.mock.calls[1]![0]).toEqual({ ...send.mock.calls[0]![0], phase: 'release' });
+  expect(send.mock.calls[1]![2]).not.toBe(send.mock.calls[0]![2]);
+  expect(result).toHaveBeenLastCalledWith({ id: send.mock.calls[0]![0].id, outcome: 'sent' });
+});
+test('unmount releases an admitted hold exactly once', async () => {
+  const send = vi.spyOn(api, 'holdTvButton').mockImplementation(async input => ({ id: input.id, outcome: 'sent' }));
+  const view = renderHook(() => useTvHold({ csrfToken: 'c'.repeat(43), onResult: vi.fn(), onBusy: vi.fn() }));
+  await act(async () => { view.result.current.start('RIGHT'); });
+  await act(async () => { view.unmount(); });
+  expect(send.mock.calls.map(([input]) => input.phase)).toEqual(['press', 'release']);
+});
+test.each(['tv', 'session'] as const)('switching %s during Press releases the original owner without stale feedback', async target => {
+  let resolve!: (value: { id: string; outcome: 'sent' }) => void;
+  const pending = new Promise<{ id: string; outcome: 'sent' }>(done => { resolve = done; });
+  const send = vi.spyOn(api, 'holdTvButton').mockImplementation(async input => input.phase === 'press' ? pending : { id: input.id, outcome: 'sent' });
+  const onResult = vi.fn(), onBusy = vi.fn();
+  const props = { csrfToken: 'c'.repeat(43), tvId: '00000000-0000-4000-8000-000000000001', onResult, onBusy };
+  const view = renderHook(options => useTvHold(options), { initialProps: props });
+  act(() => { view.result.current.start('RIGHT'); });
+  view.rerender({ ...props, ...(target === 'tv' ? { tvId: '00000000-0000-4000-8000-000000000002' } : { csrfToken: 'd'.repeat(43) }) });
+  await act(async () => { resolve({ id: send.mock.calls[0]![0].id, outcome: 'sent' }); });
+  expect(send.mock.calls.map(([input]) => input.phase)).toEqual(['press', 'release']);
+  expect(send.mock.calls[1]![1]).toBe(props.csrfToken); expect(send.mock.calls[1]![3]).toBe(props.tvId);
+  expect(onResult).not.toHaveBeenCalled(); expect(onBusy.mock.calls).toEqual([[true]]);
+});

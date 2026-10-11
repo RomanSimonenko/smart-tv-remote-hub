@@ -88,6 +88,24 @@ test('strict command schema keeps existing requestId errors, no-store and does n
   expect(h.adapters[0]!.sent).toEqual([]);
 });
 
+test('hold routes enforce authentication and ownership, deduplicate phases, and revoke releases', async () => {
+  const { app, h, headers, sessions, login, headersFor } = await fixture();
+  const frames: string[] = [];
+  Object.assign(h.adapters[0]!, { nativeHoldButtons: ['RIGHT'], pressButton: async () => { frames.push('Press'); }, releaseButton: async () => { frames.push('Release'); } });
+  const input = { ...command, button: 'RIGHT', phase: 'press' };
+  const post = (payload = input, supplied: Record<string, string> = headers) => app.inject({ method: 'POST', url: '/api/tv/holds', headers: supplied, payload });
+  expect((await post(input, { origin })).statusCode).toBe(401);
+  expect((await post(input, { cookie: headers.cookie, origin })).statusCode).toBe(403);
+  expect((await post({ ...input, id: 'bad' })).statusCode).toBe(400);
+  expect((await post()).statusCode).toBe(200);
+  expect((await post()).statusCode).toBe(200);
+  const other = (await sessions.login('owner', 'synthetic password 123'))!;
+  expect((await post({ ...input, phase: 'release' }, headersFor(other.token))).statusCode).toBe(503);
+  expect(frames).toEqual(['Press']);
+  sessions.revoke(login.token); await drain();
+  expect(frames).toEqual(['Press', 'Release']);
+});
+
 test('all twenty buttons send once across two windows; owner budget spans source addresses and sessions and expires at 1000ms', async () => {
   const { app, h, headers, sessions, headersFor } = await fixture();
   let now = 1_000_000;

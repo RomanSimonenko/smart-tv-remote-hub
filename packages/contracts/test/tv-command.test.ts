@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   basicTvButtonSchema,
   tvCommandRequestSchema,
+  tvHoldRequestSchema,
   tvCommandResultSchema,
   tvRemoteStateSchema,
 } from '../src/index.js';
@@ -10,6 +11,12 @@ import {
 const id = '123e4567-e89b-42d3-a456-426614174000';
 
 describe('basic remote command contracts', () => {
+  test('hold phases require strict UUID/button/phase and runtime capability is optional', () => {
+    for (const phase of ['press', 'release']) expect(tvHoldRequestSchema.parse({ id, button: 'RIGHT', phase })).toEqual({ id, button: 'RIGHT', phase });
+    for (const input of [{ id: 'bad', button: 'RIGHT', phase: 'press' }, { id, button: 'POWER', phase: 'press' }, { id, button: 'RIGHT', phase: 'Click' }, { id, button: 'RIGHT', phase: 'press', extra: true }]) expect(tvHoldRequestSchema.safeParse(input).success).toBe(false);
+    expect(tvRemoteStateSchema.parse({ enabled: true, reason: null, nativeHoldButtons: ['RIGHT'] })).toMatchObject({ nativeHoldButtons: ['RIGHT'] });
+    expect(tvRemoteStateSchema.safeParse({ enabled: true, reason: null, nativeHoldButtons: ['POWER'] }).success).toBe(false);
+  });
   test.each([
     'UP', 'DOWN', 'LEFT', 'RIGHT', 'ENTER', 'BACK', 'HOME',
     'VOLUME_UP', 'VOLUME_DOWN', 'MUTE',

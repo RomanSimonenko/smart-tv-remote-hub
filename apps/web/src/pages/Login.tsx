@@ -9,6 +9,7 @@ export function Login({ busy, error, feedback, credentialsInvalid = false, onEdi
   const usernameRef = useRef<HTMLInputElement>(null), passwordRef = useRef<HTMLInputElement>(null);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return;
+    onEdit?.();
     const parsed = loginRequestSchema.safeParse({ username, password });
     if (!parsed.success) {
       const invalid = new Set(parsed.error.issues.map((issue) => issue.path[0]));

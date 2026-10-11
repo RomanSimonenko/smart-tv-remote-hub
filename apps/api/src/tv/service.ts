@@ -7,6 +7,8 @@ import { createStagingKeyStore } from './staging-key-store.js';
 import { abortable, cleanupFailure, failedConnection, hasCleanupFailure, projectTvError, TvServiceError, type PublicTvError } from './operation.js';
 import { executeTvCommand, rejectTvCommand, TvCommandAdmissionError, unknownTvCommand } from './commands.js';
 import { isTransientTvFailure, recoveryAttemptBudget, recoveryCooldown, waitForTv } from './recovery.js';
+import { basicTvButtonSchema, tvHoldRequestSchema, type BasicTvButton, type TvHoldRequest } from '@remote-webos-tv/contracts';
+import { createTvHold } from './hold.js';
 
 export { TvServiceError, projectTvError } from './operation.js';
 export { TvCommandAdmissionError } from './commands.js';
@@ -47,6 +49,10 @@ export interface TvService {
   remoteState(): TvRemoteState;
   assertCanSendCommand(input: TvCommandRequest): TvCommandRequest;
   sendCommand(input: TvCommandRequest, signal: AbortSignal): Promise<TvCommandResult>;
+  assertCanHold(input: TvHoldRequest, owner: string): TvHoldRequest;
+  hold(input: TvHoldRequest, owner: string, signal: AbortSignal): Promise<TvCommandResult>;
+  cancelOwnedHold(owner: string): Promise<void>;
+  isHolding(id: string, owner: string): boolean;
   assertCanStart(input: StartTvOperation): StartTvOperation;
   start(input: StartTvOperation, owner?: string): TvOperation;
   status(): Promise<TvStatusResponse>;
@@ -94,6 +100,8 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
   let power: Power | undefined;
   let intentionalOff = false;
   let observedPower: 'on' | 'standby' | 'unknown' = 'unknown';
+  // An inconclusive read must not erase the confirmed standby-to-on transition.
+  let standbyBeforeUnknown = false;
   let recoverAfterProbe = false;
   let recoveryFailure: unknown;
   const serverOwner = Symbol('automatic TV recovery');
@@ -103,6 +111,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
   let closing: Promise<void> | undefined;
   let unsafeCleanup: unknown;
   const powerFinishedListeners = new Set<(operation: TvPowerOperation, owner: string | symbol) => void>();
+  const holding = createTvHold({ scheduler, onUnsafe: (adapter) => disconnect(adapter, false) });
 
   const view = (): TvStatusResponse => ({
     tv: saved ? { host: saved.host, identity: platform === 'tizen' && !currentTizenVersion
@@ -116,7 +125,11 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     if (hasCleanupFailure(cause)) unsafeCleanup ??= new TvServiceError('CLEANUP_FAILED', 500, { cause });
   }
 
-  function disconnect(adapter: TvAdapter): Promise<void> {
+  function disconnect(adapter: TvAdapter, releaseHold = true): Promise<void> {
+    if (releaseHold && holding.busy()) {
+      const wasActive = activeAdapter === adapter;
+      return holding.stop().then(() => { if (!wasActive || activeAdapter === adapter) return disconnect(adapter, false); });
+    }
     if (metadata?.adapter === adapter) metadata.controller.abort(new TvServiceError('CANCELLED'));
     if (cleanup?.adapter === adapter) return cleanup.promise;
     if (activeAdapter === adapter) {
@@ -369,7 +382,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
   function assertCanStart(input: StartTvOperation): StartTvOperation {
     if (closed) throw new TvServiceError('SERVICE_CLOSED', 409);
     if (unsafeCleanup) throw new TvServiceError('CLEANUP_FAILED', 409, { cause: unsafeCleanup });
-    if (work || cleanup || command) throw new TvServiceError('OPERATION_CONFLICT', 409);
+    if (work || cleanup || command || holding.busy()) throw new TvServiceError('OPERATION_CONFLICT', 409);
     const parsed = startTvOperationSchema.safeParse(input);
     if (!parsed.success) throw new TvServiceError('INVALID_REQUEST', 400);
     input = parsed.data;
@@ -387,7 +400,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     const context: Attempt = { operation, controller, timer, expiresAt: scheduler.now() + budget, ...(owner === undefined ? {} : { owner }) };
     intentionalOff = false; recoverAfterProbe = false;
     attempt = context; generation++;
-    observedPower = 'unknown';
+    observedPower = 'unknown'; standbyBeforeUnknown = false;
     currentTizenVersion = false;
     metadata?.controller.abort(new TvServiceError('CANCELLED'));
     remoteCapability = undefined;
@@ -445,7 +458,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
   }
 
   async function status(): Promise<TvStatusResponse> {
-    if (!closed && !work && !command && !cleanup && (activeAdapter || platform === 'tizen' && saved)) {
+    if (!closed && !work && !command && !cleanup && !holding.busy() && (activeAdapter || platform === 'tizen' && saved)) {
       if (!probe) {
         const controller = new AbortController();
         const pending = platform === 'tizen' ? readSamsungStatus(controller, generation) : readStatus(activeAdapter!, controller, generation);
@@ -455,7 +468,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
       await probe.promise;
     }
     const result = view();
-    if (recoverAfterProbe && (platform !== 'tizen' || observedPower === 'on') && !closed && !work && !command && !probe && !unsafeCleanup && saved) {
+    if (recoverAfterProbe && (platform !== 'tizen' || observedPower === 'on') && !closed && !work && !command && !holding.busy() && !probe && !unsafeCleanup && saved) {
       beginPower({ id: dependencies.newId(), action: 'recover' }, serverOwner);
     }
     return result;
@@ -471,15 +484,15 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
       reading = adapter.readPowerState(controller.signal);
       const state = await abortable(reading, controller.signal);
       if (state === 'unknown') throw unknownPowerObservation();
-      const physicallyWoke = observedPower === 'standby' && state === 'on';
-      if (!closed && generation === version && !controller.signal.aborted) { observedPower = state; if (!recoverAfterProbe) error = undefined; }
+      const physicallyWoke = (observedPower === 'standby' || standbyBeforeUnknown) && state === 'on';
+      if (!closed && generation === version && !controller.signal.aborted) { observedPower = state; standbyBeforeUnknown = false; if (!recoverAfterProbe) error = undefined; }
       if (!temporary && !controller.signal.aborted) await readStatus(adapter, controller, version);
       if (physicallyWoke && !closed && generation === version && !controller.signal.aborted) {
         intentionalOff = false;
         if (connection === 'unavailable') recoverAfterProbe = true;
       }
     } catch (cause) {
-      if (!closed && generation === version) { observedPower = 'unknown'; if (!recoverAfterProbe) error = projectTvError(controller.signal.aborted ? controller.signal.reason : cause); }
+      if (!closed && generation === version) { standbyBeforeUnknown ||= observedPower === 'standby'; observedPower = 'unknown'; if (!recoverAfterProbe) error = projectTvError(controller.signal.aborted ? controller.signal.reason : cause); }
     } finally {
       scheduler.clearTimeout(timer);
       if (reading) await reading.catch(() => undefined);
@@ -494,19 +507,19 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
   function assertIdle(): void {
     if (closed) throw new TvServiceError('SERVICE_CLOSED', 409);
     if (unsafeCleanup) throw new TvServiceError('CLEANUP_FAILED', 409, { cause: unsafeCleanup });
-    if (work || cleanup || command || probe) throw new TvServiceError('OPERATION_CONFLICT', 409);
+    if (work || cleanup || command || probe || holding.busy()) throw new TvServiceError('OPERATION_CONFLICT', 409);
   }
 
   function canReplaceReconnect(): boolean {
-    return !closed && !unsafeCleanup && !command && !probe && !!work && attempt?.operation.status === 'running'
+    return !closed && !unsafeCleanup && !command && !holding.busy() && !probe && !!work && attempt?.operation.status === 'running'
       && (connection === 'connecting' || connection === 'unavailable')
       && attempt.operation.action === 'reconnect' && (!attempt.power || attempt.power.operation.action === 'recover');
   }
 
   function powerState(): TvPowerState {
-    const idle = !closed && !unsafeCleanup && !work && !cleanup && !command && !probe;
+    const idle = !closed && !unsafeCleanup && !work && !cleanup && !command && !probe && !holding.busy();
     return {
-      busy: !!(work || cleanup || command || probe),
+      busy: !!(work || cleanup || command || probe || holding.busy()),
       mac: saved?.macAddress ?? null,
       wakeSupported: supportsWake(),
       ...(platform === 'tizen' ? { observedPower } : {}),
@@ -769,10 +782,32 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
   function remoteState(): TvRemoteState {
     // Background reads do not disable the remote. An admitted command retains
     // ownership while awaiting their result before touching the transport.
-    if (work || cleanup || command) return { enabled: false, reason: 'BUSY' };
+    if (work || cleanup || command || holding.busy()) return { enabled: false, reason: 'BUSY' };
     if (closed || unsafeCleanup || connection !== 'available' || !activeAdapter || remoteCapability?.generation !== generation) return { enabled: false, reason: 'UNAVAILABLE' };
     if (remoteCapability.buttons !== true) return { enabled: false, reason: 'UNSUPPORTED' };
-    return { enabled: true, reason: null, apps: remoteCapability.apps };
+    return { enabled: true, reason: null, apps: remoteCapability.apps,
+      ...(activeAdapter.pressButton && activeAdapter.releaseButton && activeAdapter.nativeHoldButtons ? { nativeHoldButtons: activeAdapter.nativeHoldButtons.filter((button): button is BasicTvButton => basicTvButtonSchema.safeParse(button).success) } : {}) };
+  }
+
+  function assertCanHold(input: TvHoldRequest, owner: string): TvHoldRequest {
+    const parsed = tvHoldRequestSchema.safeParse(input);
+    if (!parsed.success) throw new TvServiceError('INVALID_REQUEST', 400);
+    if (parsed.data.phase === 'release' || holding.has(parsed.data, owner)) return parsed.data;
+    assertNewHold(parsed.data);
+    return parsed.data;
+  }
+
+  function assertNewHold(input: TvHoldRequest): void {
+    assertCanSendCommand({ id: input.id, button: input.button });
+    if (probe) throw new TvCommandAdmissionError('TV_BUSY');
+  }
+
+  async function hold(input: TvHoldRequest, owner: string, signal: AbortSignal): Promise<TvCommandResult> {
+    try {
+      input = assertCanHold(input, owner);
+      return input.phase === 'release' ? holding.release(input, owner) : holding.press(input, owner, activeAdapter!, signal, () => assertNewHold(input));
+    }
+    catch (cause) { if (cause instanceof TvCommandAdmissionError) return rejectTvCommand(input.id, cause.code); throw cause; }
   }
 
   function assertCanSendCommand(input: TvCommandRequest): TvCommandRequest {
@@ -853,6 +888,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     probe?.controller.abort(new TvServiceError('CANCELLED'));
     command?.controller.abort(new TvServiceError('CANCELLED'));
     closing = (async () => {
+      await holding.stop();
       await command?.promise;
       await metadata?.promise;
       await work; await probe?.promise;
@@ -863,7 +899,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     return closing;
   }
   return {
-    assertCanStart, start, status, cancel, initialize, close, remoteState, assertCanSendCommand, sendCommand, powerState, setMac, assertCanStartPower, startPower, cancelPower, cancelOwnedPower,
+    assertCanStart, start, status, cancel, initialize, close, remoteState, assertCanSendCommand, sendCommand, powerState, setMac, assertCanStartPower, startPower, cancelPower, cancelOwnedPower, assertCanHold, hold, cancelOwnedHold: (owner) => holding.stop(owner), isHolding: holding.isHolding,
     onPowerFinished(listener) { powerFinishedListeners.add(listener); return () => { powerFinishedListeners.delete(listener); }; },
   };
 }

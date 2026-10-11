@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { tvCommandRequestSchema, tvCommandResultSchema, tvRemoteStateSchema, type TvCommandResult } from '@remote-webos-tv/contracts';
+import { tvCommandRequestSchema, tvCommandResultSchema, tvHoldRequestSchema, tvRemoteStateSchema, type TvHoldRequest, type TvCommandRequest, type TvCommandResult } from '@remote-webos-tv/contracts';
 import type { AuthSessionService } from '../auth/sessions.js';
 import type { TvService } from './service.js';
 import { rejectTvCommand, TvCommandAdmissionError } from './commands.js';
@@ -28,8 +28,13 @@ export function registerTvCommandRoutes(app: FastifyInstance, { service: default
   let admission = Promise.resolve();
   let closing = false;
   const owned = new Map<AbortController, string>();
+  const heldOwners = new Map<TvService, { owner: string; id: string }>();
   const unsubscribe = sessions.onRevoke((token) => {
     for (const [controller, owner] of owned) if (owner === token) controller.abort();
+    for (const [service, { owner }] of heldOwners) if (owner === token) {
+      heldOwners.delete(service);
+      void service.cancelOwnedHold(token).catch((cause: unknown) => app.log.error({ err: cause }, 'TV hold cleanup failed'));
+    }
   });
   // Fastify drains HTTP requests before onClose. Cancel here so that draining
   // cannot wait for a command whose HTTP caller is still waiting for its result.
@@ -39,13 +44,16 @@ export function registerTvCommandRoutes(app: FastifyInstance, { service: default
     // A disconnected caller can still be inside an asynchronous limiter peek.
     // Settle that admission before runtime onClose disposes session storage.
     await admission;
+    await Promise.all([...heldOwners].map(([service, { owner }]) => service.cancelOwnedHold(owner)));
+    heldOwners.clear();
   });
   app.addHook('onClose', async () => { unsubscribe(); });
   for (const prefix of prefixes) {
   app.get(`${prefix}/remote`, async (request) => tvRemoteStateSchema.parse((resolveService?.(request) ?? defaultService).remoteState()));
-  app.post(`${prefix}/commands`, async (request, reply) => {
+  for (const kind of ['commands', 'holds'] as const) {
+  app.post(`${prefix}/${kind}`, async (request, reply) => {
     const service = resolveService?.(request) ?? defaultService;
-    const parsed = tvCommandRequestSchema.safeParse(request.body);
+    const parsed = (kind === 'holds' ? tvHoldRequestSchema : tvCommandRequestSchema).safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ code: 'BAD_REQUEST', message: 'Bad request', requestId: request.id });
     if (closing) return reply.code(503).send(rejectTvCommand(parsed.data.id, 'COMMAND_NOT_SENT'));
     const token = sessionForRequest(request);
@@ -59,6 +67,7 @@ export function registerTvCommandRoutes(app: FastifyInstance, { service: default
     reply.raw.once('close', responseClosed);
     if (request.raw.aborted || closing) abort();
     const respond = (result: TvCommandResult) => reply.code(resultStatus(result)).send(tvCommandResultSchema.parse(result));
+    const assertAdmission = () => kind === 'holds' ? service.assertCanHold(parsed.data as TvHoldRequest, token) : service.assertCanSendCommand(parsed.data as TvCommandRequest);
     try {
       const previous = admission;
       let release!: () => void;
@@ -68,14 +77,22 @@ export function registerTvCommandRoutes(app: FastifyInstance, { service: default
         await previous;
         if (!sessions.authenticate(token)) return unauthorized();
         if (controller.signal.aborted) return respond(rejectTvCommand(parsed.data.id, 'COMMAND_NOT_SENT'));
-        service.assertCanSendCommand(parsed.data);
+        assertAdmission();
         const charge = await beforeCommandAttempt(request, reply, parsed.data.id);
         if (!charge) return reply;
         // Peek can yield: logout and lifecycle changes still own admission.
         if (!sessions.authenticate(token)) return unauthorized();
         if (controller.signal.aborted) return respond(rejectTvCommand(parsed.data.id, 'COMMAND_NOT_SENT'));
-        service.assertCanSendCommand(parsed.data);
-        pending = service.sendCommand(parsed.data, controller.signal);
+        assertAdmission();
+        if (kind === 'holds') {
+          const input = parsed.data as TvHoldRequest;
+          pending = service.hold(input, token, controller.signal);
+          if (input.phase === 'press') {
+            void pending.then((result) => { if (result.outcome === 'sent' && service.isHolding(input.id, token)) heldOwners.set(service, { owner: token, id: input.id }); });
+          } else {
+            void pending.then(() => { const held = heldOwners.get(service); if (held?.owner === token && held.id === input.id) heldOwners.delete(service); });
+          }
+        } else pending = service.sendCommand(parsed.data as TvCommandRequest, controller.signal);
         await charge();
       } catch (cause) {
         if (!(cause instanceof TvCommandAdmissionError)) throw cause;
@@ -90,5 +107,6 @@ export function registerTvCommandRoutes(app: FastifyInstance, { service: default
       owned.delete(controller);
     }
   });
+  }
   }
 }
