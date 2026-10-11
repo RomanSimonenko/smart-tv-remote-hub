@@ -79,17 +79,20 @@ test('a quick status response cancels the delayed loading announcement', async (
   expect(screen.queryByText('Загрузка телевизора…')).toBeNull();
   expect(screen.getByRole('heading', { name: 'Телевизор ещё не настроен' })).toBeTruthy();
 });
-test('pairing prioritizes the confirmation instruction without a passive power warning', async () => {
+test('saved TV pairing keeps instructions and cancellation in settings, outside the remote workspace', async () => {
   vi.stubGlobal('fetch', vi.fn((path: string) => Promise.resolve(response(path === '/api/tv'
     ? { ...saved, connection: 'pairing', operation: { id: '00000000-0000-4000-8000-000000000001', action: 'repair', status: 'running', startedAt: Date.now(), deadlineAt: Date.now() + 60000 } }
     : path === '/api/tv/power' ? { mac: '02:00:00:00:00:01', canPowerOff: false, canWake: false, operation: null }
     : { enabled: false, reason: 'UNAVAILABLE' }))));
-  render(<TvSetup csrfToken={csrfToken} onCloseSettings={vi.fn()} onSessionExpired={vi.fn()} settingsOpen={false} />);
+  const view = render(<TvSetup csrfToken={csrfToken} onCloseSettings={vi.fn()} onSessionExpired={vi.fn()} settingsOpen={false} />);
   await act(async () => {});
   expect(screen.queryByText('Питание сейчас недоступно. Обновите статус.')).toBeNull();
-  const instruction = screen.getByText('Подтвердите доступ на экране телевизора.');
-  const remote = screen.getByRole('group', { name: /^Пульт$/ });
-  expect(instruction.compareDocumentPosition(remote) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.queryByText('Подтвердите доступ на экране телевизора.')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Отменить' })).toBeNull();
+  view.rerender(<TvSetup csrfToken={csrfToken} onCloseSettings={vi.fn()} onSessionExpired={vi.fn()} settingsOpen />);
+  const settings = screen.getByRole('dialog', { name: 'Настройки телевизора' });
+  expect(within(settings).getByText('Подтвердите доступ на экране телевизора.')).toBeTruthy();
+  expect(within(settings).getByRole('button', { name: 'Отменить' })).toBeTruthy();
 });
 test.each(['available', 'reconnecting', 'connecting'] as const)('wake does not announce a stale remote unavailable state while connection is %s', async (connection) => {
   vi.stubGlobal('fetch', vi.fn((path: string) => Promise.resolve(response(path === '/api/tv'

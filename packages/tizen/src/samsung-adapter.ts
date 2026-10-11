@@ -1,4 +1,4 @@
-import { localTvHostSchema, tvButtonSchema, type TvButton, type TvIdentity, type TvCapabilities } from '@remote-webos-tv/contracts';
+import { localTvHostSchema, tvButtonSchema, tvActionCatalog, type TvButton, type TvIdentity, type TvCapabilities } from '@remote-webos-tv/contracts';
 import { TvButtonSendError, TvPowerSendError, WebOsCleanupError, WebOsError, type PairingRequest, type PairingResult, type TvAdapter, type TvObservedPower, type TvPowerSetRequest, type TvPowerSetResult } from '@remote-webos-tv/tv-adapter';
 import { createSamsungSocket, requestSamsungIdentity } from './transport.js';
 import { parseSamsungEvent, parseSamsungIdentity, parseSamsungPowerState } from './response-parsers.js';
@@ -36,6 +36,10 @@ const capabilities: TvCapabilities = Object.freeze({
   buttons: true, ssap: false, pointer: false, apps: false, inputs: false,
   powerOff: true, wakeOnLan: false, textInput: false, notifications: false,
 });
+
+const nativeHoldButtons: readonly TvButton[] = Object.freeze(tvActionCatalog
+  .filter(action => action.kind === 'button' && action.holdByPlatform.tizen === 'native')
+  .map(action => tvButtonSchema.parse(action.id)));
 
 const keys = {
   UP: 'KEY_UP', DOWN: 'KEY_DOWN', LEFT: 'KEY_LEFT', RIGHT: 'KEY_RIGHT', ENTER: 'KEY_ENTER',
@@ -246,13 +250,18 @@ export function createSamsungAdapter(dependencies: SamsungAdapterDependencies): 
     return sendKey(keys[parsed.data], signal, 'button');
   }
 
-  async function sendKey(key: string, signal: AbortSignal, operation: 'button' | 'power'): Promise<void> {
+  async function holdButton(button: TvButton, signal: AbortSignal, phase: 'Press' | 'Release'): Promise<void> {
+    if (!nativeHoldButtons.includes(button)) throw new TvButtonSendError('UNSUPPORTED_CAPABILITY', 'not_sent', 'Samsung native hold is not supported for this button');
+    return sendKey(keys[button], signal, 'button', phase);
+  }
+
+  async function sendKey(key: string, signal: AbortSignal, operation: 'button' | 'power', cmd: 'Click' | 'Press' | 'Release' = 'Click'): Promise<void> {
     const SendError = operation === 'power' ? TvPowerSendError : TvButtonSendError;
     let connection: Connection;
     try { connection = requireReady(signal); }
     catch (cause) { throw new SendError('CONNECTION_LOST', 'not_sent', `Samsung ${operation} was not sent`, { cause }); }
     const frame = JSON.stringify({ method: 'ms.remote.control', params: {
-      Cmd: 'Click', DataOfCmd: key, Option: 'false', TypeOfRemote: 'SendRemoteKey',
+      Cmd: cmd, DataOfCmd: key, Option: 'false', TypeOfRemote: 'SendRemoteKey',
     } });
     return new Promise<void>((resolve, reject) => {
       let settled = false;
@@ -285,6 +294,9 @@ export function createSamsungAdapter(dependencies: SamsungAdapterDependencies): 
   }
 
   return {
+    nativeHoldButtons,
+    pressButton: (button, signal) => holdButton(button, signal, 'Press'),
+    releaseButton: (button, signal) => holdButton(button, signal, 'Release'),
     pair,
     readPowerState,
     setPowerState,

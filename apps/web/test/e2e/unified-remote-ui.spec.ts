@@ -9,6 +9,22 @@ const longError = 'Синтетическая ошибка соединения:
 const remote = (page: Page) => page.getByRole('group', { name: 'Пульт', exact: true });
 const settings = (page: Page) => page.getByRole('dialog', { name: 'Настройки телевизора', exact: true });
 
+test('Samsung pointer hold sends native phases with one id and no extra click', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const { mutations } = await fixture(page, 'native-hold');
+  const button = remote(page).getByRole('button', { name: 'Вправо', exact: true });
+  await button.hover(); await page.mouse.down();
+  await expect.poll(() => mutations.length).toBe(1);
+  await page.clock.runFor(800);
+  expect(mutations).toHaveLength(1);
+  await page.mouse.up();
+  await expect.poll(() => mutations.length).toBe(2);
+  const press = mutations[0]!.data as { id: string; button: string; phase: string };
+  expect(press).toMatchObject({ button: 'RIGHT', phase: 'press' });
+  expect(mutations[1]!.data).toEqual({ ...press, phase: 'release' });
+  expect(mutations.map(item => item.path)).toEqual(Array(2).fill('/api/tvs/00000000-0000-4000-8000-000000000001/holds'));
+});
+
 for (const width of [1280]) test(`logout requires confirmation, cancels safely and sends one authenticated logout at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 800 });
   const { mutations } = await fixture(page);
@@ -58,6 +74,7 @@ async function fixture(page: Page, mode = 'idle') {
   if (mode === 'version-missing') status.tv = { host: '192.168.50.20', identity: { model: 'Synthetic TV', firmwareVersion: '99.8' } };
   if (mode === 'long-model') status.tv = { host: '192.168.50.20', identity: { model: 'Synthetic Television Model With A Very Long Identifier' } };
   const power: { -readonly [Key in keyof TvPowerState]: TvPowerState[Key] } = { mac: '02:00:00:00:00:03', canPowerOff: true, canWake: false, operation: null };
+  if (mode === 'native-hold') power.observedPower = 'on';
   if (mode === 'power-busy') { power.busy = true; power.canPowerOff = false; }
   if (mode === 'connection-running') {
     // The last snapshot can remain available while a new operation runs.
@@ -77,16 +94,20 @@ async function fixture(page: Page, mode = 'idle') {
     if (path.startsWith('/api/')) {
       if (route.request().method() !== 'GET') {
         mutations.push({ path, data: route.request().postDataJSON() });
+        if (mode === 'native-hold' && path.endsWith('/holds')) {
+          await route.fulfill({ status: 200, json: { id: route.request().postDataJSON().id, outcome: 'sent' } });
+          return;
+        }
         await route.fulfill({ status: 503, json: { code: 'SYNTHETIC_FAILURE', message: 'Синтетический отказ' } });
         return;
       }
       reads.push(path);
       const data: Record<string, unknown> = {
-        '/api/tvs': { devices: [{ tvId: '00000000-0000-4000-8000-000000000001', platform: 'webos', status }] },
+        '/api/tvs': { devices: [{ tvId: '00000000-0000-4000-8000-000000000001', platform: mode === 'native-hold' ? 'tizen' : 'webos', status }] },
         '/api/setup/status': { state: mode === 'setup' ? 'unclaimed' : 'claimed' },
         '/api/auth/session': { username: 'synthetic-owner', csrfToken: 'c'.repeat(43) },
         '/api/tvs/00000000-0000-4000-8000-000000000001': status,
-        '/api/tvs/00000000-0000-4000-8000-000000000001/remote': { enabled: true, reason: null },
+        '/api/tvs/00000000-0000-4000-8000-000000000001/remote': { enabled: true, reason: null, ...(mode === 'native-hold' ? { nativeHoldButtons: ['RIGHT'] } : {}) },
         '/api/tvs/00000000-0000-4000-8000-000000000001/power': power,
       };
       await route.fulfill({ status: mode === 'login' && path === '/api/auth/session' ? 401 : 200, json: data[path] });
@@ -430,9 +451,9 @@ for (const width of [1280]) {
       await expect(activity.getByRole('status', { name: 'Соединение с телевизором', exact: true })).toHaveCount(0);
       if (mode.endsWith('error')) await expect(activity.getByRole('alert')).toContainText(longError);
       if (mode === 'connection-running') {
-        const progress = page.locator('.connection-progress');
-        await expect(progress.getByText(/Осталось:/)).toBeVisible();
-        expect((await progress.boundingBox())!.y + (await progress.boundingBox())!.height).toBeLessThanOrEqual((await card.boundingBox())!.y);
+        await expect(page.getByText(/Осталось:/)).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Отменить', exact: true })).toHaveCount(0);
+        expect((await card.boundingBox())!.y).toBe((await page.locator('.webcam-card').boundingBox())!.y);
       }
       if (mode === 'power-running') await expect(activity.getByText(/Осталось:/)).toHaveCount(0);
       expect((await activity.boundingBox())!.y).toBeGreaterThanOrEqual((await card.boundingBox())!.y + (await card.boundingBox())!.height);
@@ -444,6 +465,10 @@ for (const width of [1280]) {
       const initialReads = [...reads];
       await page.getByRole('button', { name: 'Настройки', exact: true }).click();
       await expect(settings(page)).toBeVisible();
+      if (mode === 'connection-running') {
+        await expect(settings(page).getByText(/Осталось:/)).toBeVisible();
+        await expect(settings(page).getByRole('button', { name: 'Отменить', exact: true })).toBeVisible();
+      }
       expect([await card.boundingBox(), await remote(page).boundingBox()]).toEqual(before);
       await noOverflow(page);
       if (mode.endsWith('error')) {

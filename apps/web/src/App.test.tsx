@@ -124,6 +124,11 @@ test('expired session returns to login when an authenticated operation is reject
   fireEvent.click(within(screen.getByRole('dialog', { name: 'Выйти из приложения?' })).getByRole('button', { name: 'Выйти' }));
   expect(await screen.findByRole('heading', { name: 'Вход' })).toBeTruthy();
   expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Сессия истекла. Войдите снова.');
+  fireEvent.submit(screen.getByRole('button', { name: 'Войти' }).closest('form')!);
+  expect(screen.queryByText('Сессия истекла. Войдите снова.')).toBeNull();
+  expect(screen.getByText('Введите логин.')).toBeTruthy();
+  expect(screen.getByText('Введите пароль.')).toBeTruthy();
+  expect(fetch).toHaveBeenCalledTimes(4);
 });
 
 test('authenticated reload reads TV list without starting a new pairing', async () => {

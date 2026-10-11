@@ -1,6 +1,7 @@
 import { apiErrorSchema, loginResponseSchema, sessionResponseSchema, setupStatusSchema, tvStatusResponseSchema, tvOperationSchema, tvCommandResultSchema, tvRemoteStateSchema, type LoginRequest, type SetupRequest, type StartTvOperation, type TvOperation, type TvStatusResponse, type TvCommandRequest, type TvCommandResult, type TvRemoteState } from '@remote-webos-tv/contracts';
 import { tvPowerStateSchema, tvPowerOperationSchema, type TvPowerRequest } from '@remote-webos-tv/contracts';
 import { tvDevicesResponseSchema, addTvResponseSchema, type TvId, type AddTvRequest } from '@remote-webos-tv/contracts';
+import type { TvHoldRequest } from '@remote-webos-tv/contracts';
 
 export class ApiFailure extends Error {
   constructor(readonly status: number, readonly code: string) { super('API request failed'); }
@@ -29,7 +30,7 @@ async function request(path: string, init?: RequestInit, resultStatuses: readonl
       const parsed = apiErrorSchema.safeParse(await response.json());
       if (parsed.success) {
         code = parsed.data.code;
-        commandRejected = /^\/(?:tv|tvs\/[^/]+)\/commands$/.test(path) && ((response.status === 400 && code === 'BAD_REQUEST') || (response.status === 403 && code === 'FORBIDDEN'));
+        commandRejected = /^\/(?:tv|tvs\/[^/]+)\/(?:commands|holds)$/.test(path) && ((response.status === 400 && code === 'BAD_REQUEST') || (response.status === 403 && code === 'FORBIDDEN'));
         powerRejected = /^\/(?:tv|tvs\/[^/]+)\/power$/.test(path) && init?.method === 'POST' && !!powerRejections[response.status]?.includes(code);
       }
     } catch { /* Malformed responses remain generic API failures. */ }
@@ -48,6 +49,15 @@ async function parsed<T>(response: Response, schema: { parse(value: unknown): T 
 
 const jsonHeaders = { 'content-type': 'application/json' };
 const tvPath = (tvId?: TvId) => tvId ? `/tvs/${encodeURIComponent(tvId)}` : '/tv';
+async function dispatchCommand(kind: 'commands' | 'holds', input: TvCommandRequest | TvHoldRequest, csrfToken: string, signal?: AbortSignal, tvId?: TvId): Promise<TvCommandResult> {
+  const response = await request(`${tvPath(tvId)}/${kind}`, { method: 'POST', headers: { ...jsonHeaders, 'x-csrf-token': csrfToken }, body: JSON.stringify(input), signal: signal ?? null }, [409, 422, 429, 503, 504]);
+  const result = await parsed(response, tvCommandResultSchema);
+  const expectedStatus = result.outcome === 'sent' ? 200 : result.outcome === 'unknown' ? 504 : {
+    TV_UNAVAILABLE: 409, TV_BUSY: 409, UNSUPPORTED_CAPABILITY: 422, APP_NOT_AVAILABLE: 422, APP_LIST_UNAVAILABLE: 503, COMMAND_NOT_SENT: 503, RATE_LIMITED: 429,
+  }[result.error.code];
+  if (result.id !== input.id || response.status !== expectedStatus) throw new ApiFailure(response.status, 'INVALID_RESPONSE');
+  return result;
+}
 export const api = {
   async tvDevices(signal?: AbortSignal) { return parsed(await request('/tvs', { signal: signal ?? null }), tvDevicesResponseSchema); },
   async deleteTv(tvId: TvId, csrfToken: string, signal: AbortSignal) {
@@ -95,13 +105,10 @@ export const api = {
   async sendCommand(input: TvCommandRequest, csrfToken: string, signal?: AbortSignal, tvId?: TvId): Promise<TvCommandResult> {
     // Only this route carries a command result on these non-success statuses.
     // Auth/schema errors continue through the shared API-error handling.
-    const response = await request(`${tvPath(tvId)}/commands`, { method: 'POST', headers: { ...jsonHeaders, 'x-csrf-token': csrfToken }, body: JSON.stringify(input), signal: signal ?? null }, [409, 422, 429, 503, 504]);
-    const result = await parsed(response, tvCommandResultSchema);
-    const expectedStatus = result.outcome === 'sent' ? 200 : result.outcome === 'unknown' ? 504 : {
-      TV_UNAVAILABLE: 409, TV_BUSY: 409, UNSUPPORTED_CAPABILITY: 422, APP_NOT_AVAILABLE: 422, APP_LIST_UNAVAILABLE: 503, COMMAND_NOT_SENT: 503, RATE_LIMITED: 429,
-    }[result.error.code];
-    if (result.id !== input.id || response.status !== expectedStatus) throw new ApiFailure(response.status, 'INVALID_RESPONSE');
-    return result;
+    return dispatchCommand('commands', input, csrfToken, signal, tvId);
+  },
+  async holdTvButton(input: TvHoldRequest, csrfToken: string, signal: AbortSignal, tvId?: TvId): Promise<TvCommandResult> {
+    return dispatchCommand('holds', input, csrfToken, signal, tvId);
   },
 };
 

@@ -34,6 +34,32 @@ const csrfToken = 'c'.repeat(43);
 const saved = { tv: { host: '192.168.1.20', identity: { model: 'Synthetic TV' } }, connection: 'available', operation: null };
 const deviceList = (status: unknown) => ({ devices: [{ tvId: '00000000-0000-4000-8000-000000000001', platform: 'webos', status }] });
 const ready = { enabled: true, reason: null };
+for (const [button, key] of [['UP', 'ArrowUp'], ['DOWN', 'ArrowDown'], ['LEFT', 'ArrowLeft'], ['RIGHT', 'ArrowRight'], ['VOLUME_UP', '+'], ['VOLUME_DOWN', '-']] as const)
+test.each(['keyup', 'blur', 'settings', 'unmount'] as const)(`Samsung native ${button} has no Click or repeat and releases on %s`, async ending => {
+  vi.useFakeTimers();
+  const requests: Array<{ id: string; button: string; phase: string }> = [];
+  vi.stubGlobal('fetch', vi.fn(async (path: string, init?: RequestInit) => {
+    if (path.endsWith('/remote')) return response({ ...ready, nativeHoldButtons: [button] });
+    expect(path.endsWith('/holds')).toBe(true);
+    const input = JSON.parse(init!.body as string); requests.push(input);
+    return response({ id: input.id, outcome: 'sent' });
+  }));
+  const props = { csrfToken, active: true, platform: 'tizen' as const, onSessionExpired: vi.fn() };
+  const view = render(<Remote {...props} />); await act(async () => {});
+  const group = screen.getByRole('group', { name: 'Пульт' }); group.focus();
+  fireEvent.keyDown(group, { key }); await act(async () => {});
+  fireEvent.keyDown(group, { key, repeat: true });
+  await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+  expect(requests.map(input => input.phase)).toEqual(['press']);
+  expect(requests[0]!.button).toBe(button);
+  if (ending === 'keyup') fireEvent.keyUp(window, { key });
+  if (ending === 'blur') fireEvent.blur(window);
+  if (ending === 'settings') view.rerender(<Remote {...props} interactionBlocked />);
+  if (ending === 'unmount') view.unmount();
+  await act(async () => {});
+  expect(requests.map(input => input.phase)).toEqual(['press', 'release']);
+  expect(requests[1]!.id).toBe(requests[0]!.id);
+});
 test('unsupportedWinkAndPowerAreUnavailable', async () => {
   const requests: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (path: string, init?: RequestInit) => {

@@ -18,6 +18,13 @@ export type BasicTvButton = z.infer<typeof basicTvButtonSchema>;
 
 const commandIdSchema = z.uuid();
 
+export const tvHoldRequestSchema = z.strictObject({
+  id: commandIdSchema,
+  button: basicTvButtonSchema,
+  phase: z.enum(['press', 'release']),
+});
+export type TvHoldRequest = Readonly<z.infer<typeof tvHoldRequestSchema>>;
+
 export const tvCommandRequestSchema = z.union([
   z.strictObject({ id: commandIdSchema, button: basicTvButtonSchema }),
   z.strictObject({ id: commandIdSchema, app: z.literal('wink') }),
@@ -60,7 +67,7 @@ export const tvCommandResultSchema = z.discriminatedUnion('outcome', [
 export type TvCommandResult = Readonly<z.infer<typeof tvCommandResultSchema>>;
 
 export const tvRemoteStateSchema = z.discriminatedUnion('enabled', [
-  z.strictObject({ enabled: z.literal(true), reason: z.null(), apps: z.boolean().optional() }),
+  z.strictObject({ enabled: z.literal(true), reason: z.null(), apps: z.boolean().optional(), nativeHoldButtons: z.array(basicTvButtonSchema).optional() }),
   z.strictObject({
     enabled: z.literal(false),
     reason: z.enum(['UNAVAILABLE', 'BUSY', 'UNSUPPORTED']),

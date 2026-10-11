@@ -44,6 +44,9 @@ export interface TvAdapter {
   readSnapshot(signal: AbortSignal): Promise<TvSnapshot>;
   prepareRemote(signal: AbortSignal): Promise<void>;
   sendButton(button: TvButton, signal: AbortSignal): Promise<void>;
+  readonly nativeHoldButtons?: readonly TvButton[];
+  pressButton?(button: TvButton, signal: AbortSignal): Promise<void>;
+  releaseButton?(button: TvButton, signal: AbortSignal): Promise<void>;
   disconnect(): Promise<void>;
   /** Optional metadata acquisition; at most one wire attempt per connection. */
   readPlatformVersion?(signal: AbortSignal): Promise<PlatformVersionResult>;

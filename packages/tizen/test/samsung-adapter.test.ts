@@ -183,6 +183,40 @@ test('buttonFrameMatchesProtocolAndNeverUsesPointer', async () => {
   ]);
 });
 
+test.each([
+  ['UP', 'KEY_UP'], ['DOWN', 'KEY_DOWN'], ['LEFT', 'KEY_LEFT'], ['RIGHT', 'KEY_RIGHT'],
+  ['VOLUME_UP', 'KEY_VOLUP'], ['VOLUME_DOWN', 'KEY_VOLDOWN'],
+] as const)('native %s hold sends Press and Release without Click', async (button, key) => {
+  const h = harness(); const socket = await h.connect();
+  expect([...h.adapter.nativeHoldButtons!].sort()).toEqual(['DOWN', 'LEFT', 'RIGHT', 'UP', 'VOLUME_DOWN', 'VOLUME_UP']);
+  await h.adapter.pressButton!(button, h.signal);
+  await h.adapter.releaseButton!(button, h.signal);
+  expect(socket.frames.map(frame => JSON.parse(frame).params)).toEqual([
+    { Cmd: 'Press', DataOfCmd: key, Option: 'false', TypeOfRemote: 'SendRemoteKey' },
+    { Cmd: 'Release', DataOfCmd: key, Option: 'false', TypeOfRemote: 'SendRemoteKey' },
+  ]);
+  await expect(h.adapter.pressButton!('HOME', h.signal)).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY', delivery: 'not_sent' });
+  expect(socket.frames).toHaveLength(2);
+});
+
+test.each(['HOME', 'BACK', 'ENTER', 'CHANNEL_UP', 'CHANNEL_DOWN', 'MUTE', '1', 'RED'] as const)('native hold rejects %s without transport writes', async button => {
+  const h = harness(); const socket = await h.connect();
+  await expect(h.adapter.pressButton!(button, h.signal)).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY', delivery: 'not_sent' });
+  await expect(h.adapter.releaseButton!(button, h.signal)).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY', delivery: 'not_sent' });
+  expect(socket.frames).toEqual([]);
+});
+
+test('native release uses a fresh signal after press cancellation', async () => {
+  const h = harness(); const socket = await h.connect(); socket.deferSend = true;
+  const controller = new AbortController();
+  const pending = h.adapter.pressButton!('RIGHT', controller.signal);
+  controller.abort();
+  await expect(pending).rejects.toMatchObject({ delivery: 'unknown' });
+  socket.deferSend = false;
+  await h.adapter.releaseButton!('RIGHT', h.signal);
+  expect(JSON.parse(socket.frames[1]!).params.Cmd).toBe('Release');
+});
+
 test('failedSendIsNeverRetried', async () => {
   const h = harness(); const socket = await h.connect(); socket.deferSend = true;
   const pending = h.adapter.sendButton('UP', h.signal);

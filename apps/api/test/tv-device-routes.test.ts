@@ -119,7 +119,7 @@ test('final logout releases watched services so later sessions do not revisit di
 test('lgAndSamsungRemainConnectedWhenSelectionChanges', async () => {
   const h = await fixture(true); const lg = await h.add(100, '10.2.3.4'); const samsung = await h.add(101, '10.2.3.5', 'tizen');
   for (const tvId of [lg, samsung, lg, samsung]) {
-    expect((await h.app.inject({ url: `/api/tvs/${tvId}/remote`, headers: h.headers })).json()).toEqual({ enabled: true, reason: null, apps: tvId === lg });
+    expect((await h.app.inject({ url: `/api/tvs/${tvId}/remote`, headers: h.headers })).json()).toEqual({ enabled: true, reason: null, apps: tvId === lg, ...(tvId === samsung ? { nativeHoldButtons: ['UP', 'LEFT', 'RIGHT', 'DOWN', 'VOLUME_DOWN', 'VOLUME_UP'] } : {}) });
     expect((await h.app.inject({ url: `/api/tvs/${tvId}`, headers: h.headers })).json().connection).toBe('available');
   }
   expect(h.transports.lg.activeSocketCount).toBe(1); expect(h.transports.sockets[0]!.terminateCount).toBe(0);
