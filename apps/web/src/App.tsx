@@ -73,7 +73,7 @@ export function App() {
   }
 
   const error = message ? <p id="app-error" ref={errorRef} tabIndex={-1} role="alert" className="error">{message}</p> : null;
-  return <main className={`shell${view !== 'home' ? ' auth-screen' : ''}`}>
+  return <main className={`shell${view !== 'home' ? ' auth-screen' : ' workspace-shell'}`}>
     {view !== 'home' && <header className="auth-header"><p className="eyebrow">Smart TV Remote Hub</p></header>}
     {view === 'loading' && <p className="form-card" role="status">Загрузка…</p>}
     {view === 'error' && <section className="form-card"><h1>Не удалось загрузить приложение</h1>{error}<button type="button" onClick={() => window.location.reload()}>Повторить</button></section>}

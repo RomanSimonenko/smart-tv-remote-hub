@@ -15,11 +15,11 @@ test('Add TV keeps the platform arrow inset and opens shared account settings', 
   await select.selectOption('tizen');
   await expect(select).toHaveValue('tizen');
   await page.screenshot({ path: testInfo.outputPath('add-tv-platform.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Аккаунт', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Настройки аккаунта' })).toBeVisible();
   await expect(page.getByLabel('MAC-адрес телевизора')).toHaveCount(0);
   await page.getByRole('button', { name: 'Закрыть настройки' }).click();
-  await expect(page.getByRole('button', { name: 'Настройки', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Аккаунт', exact: true })).toBeFocused();
 });
 
 test('dashboard adds the first TV, opens remote and returns without another pairing or TV mutation', async ({ page, tv }) => {
@@ -39,7 +39,7 @@ test('dashboard adds the first TV, opens remote and returns without another pair
   await expect(page.locator('.device-card').getByRole('button', { name: /^Открыть телевизор / })).toHaveCount(1);
   await expect(page.locator('.device-card').getByRole('button', { name: /^Удалить телевизор / })).toHaveCount(1);
   await card.hover();
-  await expect(card).toHaveCSS('border-color', 'rgb(131, 189, 206)');
+  await expect(card).toHaveCSS('border-color', 'rgb(121, 228, 147)');
   await expect(page.getByRole('heading', { name: 'Телевизоры', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Добавить ТВ' })).toBeVisible();
   const badge = page.locator('.platform-badge');
@@ -68,10 +68,10 @@ test('dashboard adds the first TV, opens remote and returns without another pair
   page.on('request', (request) => { if (request.method() !== 'GET') mutations.push(request.url()); });
   await openTvWorkspace(page);
   await expect(page.getByRole('button', { name: 'Вверх', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: 'Телевизоры', exact: true }).click();
+  await page.getByRole('button', { name: 'К списку телевизоров', exact: true }).click();
   await expect(page.getByRole('group', { name: 'Пульт', exact: true })).toHaveCount(0);
   await page.keyboard.press('ArrowUp');
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Аккаунт', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Настройки аккаунта' })).toBeVisible();
   await expect(page.getByLabel('MAC-адрес телевизора')).toHaveCount(0);
   await page.keyboard.press('Escape');

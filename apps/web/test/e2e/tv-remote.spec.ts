@@ -81,7 +81,7 @@ test('all ten browser controls reach the pointer once; saved TV remains usable a
   await openTvWorkspace(page);
   await expect(page.getByRole('status', { name: 'Соединение с телевизором' })).toHaveText('Нет соединения');
   expect(tv.tv.activeSocketCount).toBe(0);
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   await page.getByRole('button', { name: 'Подключиться снова', exact: true }).click();
   await page.getByRole('button', { name: 'Закрыть настройки', exact: true }).click();
   await ready(page);
@@ -150,7 +150,7 @@ test('native keyboard maps ten controls with one Enter owner and ignores modifie
   page.on('request', (request) => {
     if (request.url() === `${tv.origin}${tv.tvPath}/commands` && request.method() === 'POST') requests.push(request.postData()!);
   });
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   await page.getByLabel('IP-адрес телевизора').focus();
   await page.keyboard.press('ArrowUp');
   await page.getByRole('button', { name: 'Обновить статус', exact: true }).focus();
@@ -248,7 +248,7 @@ test('offline remote disables commands and reconnect never replays offline input
   expect(rejected.status()).toBe(409);
   expect(await rejected.json()).toMatchObject({ id: '33333333-3333-4333-8333-333333333333', outcome: 'rejected', error: { code: 'TV_UNAVAILABLE' } });
   await tv.replaceTv({ kind: 'success' });
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   await page.getByRole('button', { name: 'Подключиться снова', exact: true }).click();
   await page.keyboard.press('Escape');
   await ready(page);
@@ -284,7 +284,7 @@ test('lost genuine command response after pointer receipt shows uncertainty and 
     await tv.expireUnavailableRecovery(page);
     await expect(page.getByRole('status', { name: 'Соединение с телевизором' })).toHaveText('Нет соединения');
     await tv.replaceTv({ kind: 'success' });
-    await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+    await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
     await page.getByRole('button', { name: 'Подключиться снова', exact: true }).click();
     await page.keyboard.press('Escape');
     await ready(page);

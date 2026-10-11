@@ -26,7 +26,7 @@ async function startPair(page: Page, tv: TvFixture) {
 
 async function savedTv(page: Page) {
   await expect(page.locator('.tv-info').getByText('43UP76906LE', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Настройки телевизора', exact: true }).getByText(`Сохранённый IP: ${tvHost}`, { exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
 }
@@ -150,7 +150,7 @@ test('unavailable TV and failed address change keep the saved identity through r
   await expect(page.getByRole('status', { name: 'Соединение с телевизором' })).toHaveText('Нет соединения');
   await savedTv(page);
 
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   await page.getByLabel('IP-адрес телевизора').fill(failedHost);
   await page.getByRole('button', { name: 'Изменить адрес', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: /^Телевизор недоступен по сети\.$/ })).toBeVisible();
@@ -192,7 +192,7 @@ test('revoked saved key requires explicit repair and reload never starts another
   const permission = gate();
   await tv.replaceTv({ kind: 'deferred-pairing', gate: permission.promise });
   try {
-    await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+    await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
     await page.getByRole('dialog', { name: 'Настройки телевизора', exact: true }).locator('.settings-advanced summary').click();
     await page.getByRole('button', { name: 'Повторить сопряжение', exact: true }).click();
     await tv.tv.waitForRequestCount(1);
@@ -208,7 +208,7 @@ test('revoked saved key requires explicit repair and reload never starts another
 
 test('a delayed accepted operation in one tab yields to a fresh operation completed in another tab', async ({ page, context, tv }) => {
   await pairSuccessfully(page, tv);
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   await page.locator('.settings-advanced summary').click();
   const permission = gate();
   await tv.replaceTv({ kind: 'deferred-pairing', gate: permission.promise });
@@ -234,7 +234,7 @@ test('a delayed accepted operation in one tab yields to a fresh operation comple
     const firstId = (await tv.status(page)).operation!.id;
     await second.goto(tv.origin);
     await openTvWorkspace(second);
-    await second.getByRole('button', { name: 'Настройки', exact: true }).click();
+    await second.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
     await second.getByRole('button', { name: 'Отменить', exact: true }).click();
     await tv.tv.waitForActiveSocketCount(0);
     await second.locator('.settings-advanced summary').click();

@@ -49,7 +49,7 @@ test('two tabs control different TVs and keyboard/hold stay with the selected TV
     expect(tv.secondTv.pointerFrames).toEqual(['type:button\nname:DOWN\n\n']);
     await page.clock.install();
     const up = page.getByRole('button', { name: 'Вверх', exact: true }); await up.focus(); await page.keyboard.down('ArrowUp'); await tv.tv.waitForPointerFrameCount(2);
-    await page.getByRole('button', { name: 'Телевизоры', exact: true }).click(); await page.keyboard.up('ArrowUp');
+    await page.getByRole('button', { name: 'К списку телевизоров', exact: true }).click(); await page.keyboard.up('ArrowUp');
     await page.clock.runFor(2000);
     expect(tv.tv.pointerFrames).toHaveLength(2); expect(tv.secondTv.pointerFrames).toHaveLength(1);
     await open(page, 1); await page.getByRole('button', { name: 'OK', exact: true }).click(); await tv.secondTv.waitForPointerFrameCount(2);
@@ -63,7 +63,7 @@ test('failed addition preserves the first saved card', async ({ page, tv }) => {
   await expect(page.locator('.device-card')).toHaveCount(1);
   await add(page, failedHost);
   await expect(page.getByRole('alert')).toContainText('Телевизор недоступен');
-  await page.getByRole('button', { name: 'Телевизоры', exact: true }).click();
+  await page.getByRole('button', { name: 'К списку телевизоров', exact: true }).click();
   await expect(page.locator('.device-card')).toHaveCount(1);
   const list = await page.request.get(`${tv.origin}/api/tvs`);
   expect((await list.json()).devices.map((device: { tvId: string }) => device.tvId)).toEqual([first]);
@@ -95,7 +95,7 @@ test('LG and Samsung tabs route keyboard and hold independently and switching st
     await page.clock.install();
     await page.getByRole('button', { name: 'Вверх', exact: true }).focus(); await page.keyboard.down('ArrowUp'); await tv.tv.waitForPointerFrameCount(2);
     await page.clock.runFor(400); await tv.tv.waitForPointerFrameCount(3);
-    await page.getByRole('button', { name: 'Телевизоры', exact: true }).click(); await page.keyboard.up('ArrowUp'); await open(page, 1);
+    await page.getByRole('button', { name: 'К списку телевизоров', exact: true }).click(); await page.keyboard.up('ArrowUp'); await open(page, 1);
     await page.clock.runFor(1000);
     expect(tv.tv.pointerFrames).toHaveLength(3); expect(tv.samsungSockets[0]!.frames).toHaveLength(2);
     await page.getByRole('button', { name: 'OK', exact: true }).click();
@@ -115,7 +115,7 @@ test('mixed restart preserves IDs and credentials without another LG or Samsung 
   expect((await list.json()).devices.map((device: { tvId: string; platform: string }) => [device.tvId, device.platform])).toEqual([[ids.first, 'webos'], [ids.second, 'tizen']]);
   await open(page, 1); await page.getByRole('button', { name: 'Назад', exact: true }).click();
   await expect.poll(() => tv.samsungSockets.at(-1)!.frames).toEqual(['{"method":"ms.remote.control","params":{"Cmd":"Click","DataOfCmd":"KEY_RETURN","Option":"false","TypeOfRemote":"SendRemoteKey"}}']);
-  await page.getByRole('button', { name: 'Телевизоры', exact: true }).click(); await open(page, 0);
+  await page.getByRole('button', { name: 'К списку телевизоров', exact: true }).click(); await open(page, 0);
   await page.getByRole('button', { name: 'OK', exact: true }).click(); await tv.tv.waitForPointerFrameCount(1);
   expect(tv.promptCount).toBe(prompts);
   expect(tv.samsungConnections).toEqual([{ prompted: true }, { prompted: false }]);
@@ -148,7 +148,7 @@ test('Samsung uses shared desktop geometry, unsupported controls and camera clea
   await page.screenshot({ path: testInfo.outputPath('mixed-dashboard.png'), fullPage: true });
   await open(page, 0);
   const lgGeometry = await page.locator('.tv-card').boundingBox();
-  await page.getByRole('button', { name: 'Телевизоры', exact: true }).click(); await open(page, 1);
+  await page.getByRole('button', { name: 'К списку телевизоров', exact: true }).click(); await open(page, 1);
   const samsungGeometry = await page.locator('.tv-card').boundingBox();
   expect(samsungGeometry).toEqual(lgGeometry);
   expect((await page.locator('.webcam-actions').boundingBox())!.height).toBe(44);
@@ -157,7 +157,7 @@ test('Samsung uses shared desktop geometry, unsupported controls and camera clea
   await expect(page.getByRole('img', { name: 'LG', exact: true })).toHaveCount(0);
   await expect(page.locator('.tv-info')).toContainText('Samsung');
   const posts: string[] = []; page.on('request', request => { if (request.method() === 'POST') posts.push(request.url()); });
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Tizen');
   await expect(page.getByRole('dialog')).not.toContainText('2.0.25');
   await expect(page.getByRole('dialog').getByRole('heading', { name: 'Включение по сети' })).toHaveCount(0);
@@ -167,7 +167,7 @@ test('Samsung uses shared desktop geometry, unsupported controls and camera clea
   await page.getByRole('button', { name: 'Включить', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Выключить', exact: true })).toBeEnabled();
   await page.screenshot({ path: testInfo.outputPath('samsung-shared-desktop.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Телевизоры', exact: true }).click();
+  await page.getByRole('button', { name: 'К списку телевизоров', exact: true }).click();
   expect(await page.evaluate(() => (window as unknown as { syntheticCamera: MediaStream }).syntheticCamera.getTracks().every(track => track.readyState === 'ended'))).toBe(true);
   expect(posts).toEqual([]);
 });
@@ -188,7 +188,7 @@ test('only final session logout closes both TVs and next login reconnects saved 
     expect(tv.samsungSockets).toHaveLength(1); expect(tv.tv.activeSocketCount).toBe(0);
     await page.getByRole('button', { name: /^Открыть телевизор / }).nth(1).click();
     await expect(page.getByRole('button', { name: 'OK', exact: true })).toBeDisabled();
-    await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+    await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
     await page.getByRole('button', { name: 'Подключиться снова', exact: true }).click();
     await page.getByRole('button', { name: 'Закрыть настройки', exact: true }).click();
     await expect(page.getByRole('button', { name: 'OK', exact: true })).toBeEnabled();

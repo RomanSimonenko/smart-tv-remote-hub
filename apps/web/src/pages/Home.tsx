@@ -8,6 +8,8 @@ import { Dashboard } from './Dashboard.js';
 import { useTvDevices } from '../useTvDevices.js';
 import type { TvId, TvPlatform } from '@remote-webos-tv/contracts';
 import { AddTv } from './AddTv.js';
+import { AppSidebar } from '../components/AppSidebar.js';
+import { useUiPreferences } from '../useUiPreferences.js';
 import { api, ApiFailure } from '../api.js';
 
 interface Props { username: string; csrfToken: string; tvActive: boolean; busy: boolean; error: ReactNode; onLogout(): void; onSessionExpired(): void }
@@ -16,6 +18,7 @@ export function Home({ username, csrfToken, tvActive, busy, error, onLogout, onS
   return <HomeContent {...props} />;
 }
 function HomeContent({ username, csrfToken, tvActive, busy, error, onLogout, onSessionExpired }: Props) {
+  const preferences = useUiPreferences();
   const [screen, setScreen] = useState<'dashboard' | 'add' | 'remote'>('dashboard');
   const [tvId, setTvId] = useState<TvId | null>(null);
   const [platform, setPlatform] = useState<TvPlatform>('webos');
@@ -41,9 +44,12 @@ function HomeContent({ username, csrfToken, tvActive, busy, error, onLogout, onS
     setSettingsOpen(false); setConfirmingPower(false); setScreen(next);
     if (help.current) help.current.open = false;
   }
-  return <section className={screen === 'dashboard' ? 'dashboard-screen' : undefined}>
+  return <div className="app-workspace" data-collapsed={preferences.collapsed}>
+    <AppSidebar collapsed={preferences.collapsed} onToggleCollapsed={() => preferences.setCollapsed(!preferences.collapsed)} username={username} activeSection="televisions" disabled={!tvActive || busy || settingsOpen || confirmingPower || confirmingLogout} onOpenTelevisions={() => { if (screen !== 'dashboard') navigate('dashboard'); }} />
+    <section className="app-content">
+    {preferences.persistenceError && <p className="preferences-warning" role="status">{preferences.persistenceError}</p>}
     <header className="app-header">
-      <div className="header-identity"><p className="eyebrow">Smart TV Remote Hub</p><div ref={setIdentityTarget} /></div>
+      <div className="header-identity"><div ref={setIdentityTarget} /></div>
       <div className="header-actions">
         {screen === 'remote' && <details ref={help} className="keyboard-help"><summary aria-label="Управление с клавиатуры" title="Управление с клавиатуры"><IconInfoCircle aria-hidden="true" /></summary><div id="remote-help" className="help-panel">
           <p>Нажмите Tab, чтобы перейти к пульту, или нажмите на свободное место внутри него.</p>
@@ -57,7 +63,7 @@ function HomeContent({ username, csrfToken, tvActive, busy, error, onLogout, onS
             <div><dt><kbd>M</kbd></dt><dd>Без звука</dd></div>
           </dl>
         </div></details>}
-        <button ref={settingsButton} type="button" aria-label="Настройки" title="Настройки" aria-haspopup="dialog" disabled={!tvActive || confirmingPower} onClick={() => { settingsButton.current?.focus(); setSettingsOpen(true); }}><IconSettings aria-hidden="true" /></button>
+        <button ref={settingsButton} type="button" aria-label={screen === 'remote' ? 'Настройки ТВ' : 'Аккаунт'} title={screen === 'remote' ? 'Настройки ТВ' : 'Аккаунт'} aria-haspopup="dialog" disabled={!tvActive || confirmingPower} onClick={() => { settingsButton.current?.focus(); setSettingsOpen(true); }}><IconSettings aria-hidden="true" /><span>{screen === 'remote' ? 'Настройки ТВ' : 'Аккаунт'}</span></button>
         <button ref={logoutButton} type="button" aria-haspopup="dialog" disabled={busy || confirmingPower} onClick={() => { setSettingsOpen(false); setConfirmingLogout(true); }}>{busy ? 'Выход…' : 'Выйти'}</button>
       </div>
     </header>
@@ -68,10 +74,10 @@ function HomeContent({ username, csrfToken, tvActive, busy, error, onLogout, onS
         catch (cause) { devicesState.refresh(); if (cause instanceof ApiFailure && cause.status === 401) onSessionExpired(); throw cause; }
       }} />
     </> : <>
-      <nav className="tv-navigation" aria-label="Телевизоры"><button type="button" disabled={confirmingPower} onClick={() => navigate('dashboard')}><IconArrowLeft aria-hidden="true" />Телевизоры</button></nav>
+      <nav className="tv-navigation" aria-label="Телевизоры"><button type="button" disabled={confirmingPower} onClick={() => navigate('dashboard')}><IconArrowLeft aria-hidden="true" />К списку телевизоров</button></nav>
       {screen === 'add' ? <AddTv csrfToken={csrfToken} onSessionExpired={onSessionExpired} onReady={() => navigate('dashboard')} /> : tvId && <TvSetup key={tvId} tvId={tvId} platform={platform} username={username} csrfToken={csrfToken} identityTarget={identityTarget} statusState={statusState} settingsOpen={settingsOpen} onCloseSettings={() => setSettingsOpen(false)} onConfirmationChange={setConfirmingPower} onSessionExpired={onSessionExpired} />}
     </>)}
     {tvActive && screen !== 'remote' && <SettingsDialog title="Настройки аккаунта" open={settingsOpen} onClose={() => setSettingsOpen(false)}><p className="session-caption">Вы вошли как {username}.</p></SettingsDialog>}
     {error}
-  </section>;
+  </section></div>;
 }

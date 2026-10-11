@@ -25,7 +25,7 @@ test('opens the exact selected card and returns without mutations', async () => 
   fireEvent.click(screen.getByRole('button', { name: 'Открыть телевизор Second TV' })); await act(async () => {});
   expect(screen.getByRole('group', { name: 'Пульт' })).toBeTruthy();
   expect(fetch.mock.calls.map(([path]) => path)).toEqual(['/api/tvs', `/api/tvs/${second}`, `/api/tvs/${second}/power`, `/api/tvs/${second}/remote`]);
-  fireEvent.click(screen.getByRole('button', { name: 'Телевизоры' })); await act(async () => {});
+  fireEvent.click(screen.getByRole('button', { name: 'К списку телевизоров' })); await act(async () => {});
   expect(screen.queryByRole('group', { name: 'Пульт' })).toBeNull();
   expect(fetch.mock.calls.at(-1)?.[0]).toBe('/api/tvs');
 });
@@ -70,7 +70,7 @@ test('list failure is not an empty state', async () => {
   expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
 });
 test('account settings remain separate from TV settings', async () => {
-  await mount(); fireEvent.click(screen.getByRole('button', { name: 'Настройки' }));
+  await mount(); fireEvent.click(screen.getByRole('button', { name: 'Аккаунт' }));
   expect(screen.getByRole('dialog', { name: 'Настройки аккаунта' })).toBeTruthy();
   expect(screen.getByText('Вы вошли как synthetic-owner.')).toBeTruthy();
 });
@@ -127,7 +127,7 @@ test('selected Tizen uses Samsung identity and OS label in shared settings', asy
   fireEvent.click(screen.getByRole('button', { name: 'Открыть телевизор Synthetic Samsung' })); await act(async () => {});
   expect(screen.queryByRole('img', { name: 'LG' })).toBeNull();
   expect(screen.getByText('Samsung')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Настройки' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Настройки ТВ' }));
   const dialog = screen.getByRole('dialog', { name: 'Настройки телевизора' });
   expect(within(dialog).getByText('Tizen')).toBeTruthy();
   expect(dialog.textContent).not.toContain('2.0.25');
@@ -144,4 +144,24 @@ test('rejected session expires once and stops polling', async () => {
   vi.stubGlobal('fetch', fetch); render(home(expired)); await act(async () => {});
   await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
   expect(expired).toHaveBeenCalledTimes(1); expect(fetch).toHaveBeenCalledTimes(2);
+});
+
+test('sidebar collapse preserves selected TV without requests and navigation returns to list', async () => {
+  const fetch = await mount();
+  fireEvent.click(screen.getByRole('button', { name: /^Открыть телевизор / })); await act(async () => {});
+  const calls = fetch.mock.calls.length;
+  fireEvent.click(screen.getByRole('button', { name: 'Свернуть меню' }));
+  expect(screen.getByRole('group', { name: 'Пульт' })).toBeTruthy();
+  expect(fetch.mock.calls.length).toBe(calls);
+  fireEvent.click(within(screen.getByRole('navigation', { name: 'Основная навигация' })).getByRole('button', { name: 'Телевизоры' })); await act(async () => {});
+  expect(screen.queryByRole('group', { name: 'Пульт' })).toBeNull();
+  expect(fetch.mock.calls.slice(calls).map(([path]) => path)).toEqual(['/api/tvs']);
+  localStorage.clear();
+});
+
+test('header settings accessible name matches its visible account or TV action', async () => {
+  await mount();
+  expect(screen.getByRole('button', { name: 'Аккаунт' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /^Открыть телевизор / })); await act(async () => {});
+  expect(screen.getByRole('button', { name: 'Настройки ТВ' })).toBeTruthy();
 });

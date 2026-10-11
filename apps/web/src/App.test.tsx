@@ -98,7 +98,7 @@ test('account settings open on Add TV and close before returning to dashboard', 
   render(<App />);
   await screen.findByRole('heading', { name: 'Пока нет телевизоров' });
   fireEvent.click(screen.getByRole('button', { name: 'Добавить ТВ' }));
-  const settings = screen.getByRole('button', { name: 'Настройки' });
+  const settings = screen.getByRole('button', { name: 'Аккаунт' });
   fireEvent.click(settings);
   const dialog = screen.getByRole('dialog', { name: 'Настройки аккаунта' });
   expect(dialog).toHaveProperty('open', true);
@@ -108,7 +108,7 @@ test('account settings open on Add TV and close before returning to dashboard', 
   expect(dialog).toHaveProperty('open', false);
   expect(document.activeElement).toBe(settings);
   fireEvent.click(settings);
-  fireEvent.click(screen.getByRole('button', { name: 'Телевизоры' }));
+  fireEvent.click(screen.getByRole('button', { name: 'К списку телевизоров' }));
   expect(dialog).toHaveProperty('open', false);
 });
 
@@ -142,7 +142,7 @@ test('authenticated reload reads TV list without starting a new pairing', async 
   expect(await screen.findByText('Synthetic TV')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: /^Открыть телевизор / }));
   await act(async () => {});
-  const gear = screen.getByRole('button', { name: 'Настройки' });
+  const gear = screen.getByRole('button', { name: 'Настройки ТВ' });
   expect(gear.closest('header')).toBe(screen.getByRole('button', { name: 'Выйти' }).closest('header'));
   expect(screen.queryByRole('textbox', { name: 'IP-адрес телевизора' })).toBeNull();
   expect(screen.queryByRole('textbox', { name: 'MAC-адрес телевизора' })).toBeNull();

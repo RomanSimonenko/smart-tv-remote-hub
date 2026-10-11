@@ -131,7 +131,7 @@ async function noOverflow(page: Page) {
 test('settings pairs related controls and confines scroll to content below its heading', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await fixture(page);
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   const dialog = settings(page);
   const content = dialog.locator('.settings-content');
   await expect(content).toBeVisible();
@@ -156,7 +156,7 @@ test('settings pairs related controls and confines scroll to content below its h
 test('settings keeps its heading visible while scrolling and hides repair behind advanced controls', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await fixture(page);
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   const dialog = settings(page);
   await expect(dialog.getByRole('button', { name: 'Повторить сопряжение' })).toBeHidden();
   await dialog.getByText('Дополнительно', { exact: true }).click();
@@ -173,7 +173,7 @@ for (const width of [1280]) {
   test(`settings sections and controls stay consistent at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 960 });
     const { mutations } = await fixture(page);
-    await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+    await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
     const dialog = settings(page);
     await dialog.getByText('Дополнительно', { exact: true }).click();
     const close = dialog.getByRole('button', { name: 'Закрыть настройки' });
@@ -207,7 +207,7 @@ for (const width of [1280]) {
   test(`network wake tooltip follows hover and keyboard focus at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 960 });
     const { mutations } = await fixture(page, 'version-known');
-    await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+    await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
     const dialog = settings(page);
     const info = dialog.getByRole('button', { name: 'О включении по сети', exact: true });
     await expect(info).toHaveCount(1);
@@ -234,7 +234,7 @@ for (const width of [1280]) {
     await dialog.getByRole('button', { name: 'Закрыть настройки' }).focus();
     await expect(tooltip).toBeHidden();
     await dialog.getByRole('button', { name: 'Закрыть настройки' }).click();
-    await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+    await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
     await expect(tooltip).toBeHidden();
     const identity = dialog.locator('.settings-identity');
     await expect(identity).toContainText('Модель: Synthetic TV');
@@ -415,7 +415,7 @@ for (const width of [1280]) {
       if (await button.locator('svg').count() === 0) continue;
       const control = (await button.boundingBox())!;
       const icon = (await button.locator('svg').boundingBox())!;
-      if (await button.evaluate((element) => element.closest('.channels') !== null)) {
+      if (await button.evaluate((element) => element.closest('.channels') !== null || element.getAttribute('aria-label') === 'Настройки ТВ')) {
         const content = await button.evaluate((element) => {
           const range = document.createRange(); range.selectNodeContents(element);
           const bounds = range.getBoundingClientRect(); return { x: bounds.x, width: bounds.width };
@@ -431,7 +431,7 @@ for (const width of [1280]) {
     await expect(page.locator('.app-header').getByRole('img', { name: 'LG', exact: true })).toBeVisible();
     await expect(card).not.toContainText('192.168.50.20', { useInnerText: true });
     await expect(card).not.toContainText('02:00:00:00:00:03', { useInnerText: true });
-    expect(await card.getByRole('button', { name: 'Настройки', exact: true }).count()).toBe(0);
+    expect(await card.getByRole('button', { name: 'Настройки ТВ', exact: true }).count()).toBe(0);
     const screenshot = testInfo.outputPath(`compact-${width}.png`);
     await page.screenshot({ path: screenshot });
     await testInfo.attach(`compact-${width}`, { path: screenshot, contentType: 'image/png' });
@@ -463,7 +463,7 @@ for (const width of [1280]) {
       await page.evaluate(() => window.scrollTo(0, 0));
       const before = [await card.boundingBox(), await remote(page).boundingBox()];
       const initialReads = [...reads];
-      await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+      await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
       await expect(settings(page)).toBeVisible();
       if (mode === 'connection-running') {
         await expect(settings(page).getByText(/Осталось:/)).toBeVisible();
@@ -521,7 +521,7 @@ for (const activation of ['pointer', 'keyboard']) {
     const help = page.locator('.app-header details');
     await help.locator('summary').click();
     await expect(help).toHaveJSProperty('open', true);
-    const settings = page.getByRole('button', { name: 'Настройки', exact: true });
+    const settings = page.getByRole('button', { name: 'Настройки ТВ', exact: true });
     if (activation === 'pointer') await settings.click();
     else { await settings.focus(); await page.keyboard.press('Enter'); }
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -533,13 +533,13 @@ for (const activation of ['pointer', 'keyboard']) {
 }
 test('settings retain inside clicks but dismiss on free background', async ({ page }) => {
   const { mutations } = await fixture(page);
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('heading', { name: 'Настройки телевизора', exact: true }).click();
   await expect(dialog).toBeVisible();
   await page.mouse.click(5, 300);
   await expect(dialog).not.toBeVisible();
-  await expect(page.getByRole('button', { name: 'Настройки', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Настройки ТВ', exact: true })).toBeFocused();
   expect(mutations).toEqual([]);
 });
 test('help retains inside clicks but dismisses on free background', async ({ page }) => {
@@ -582,7 +582,7 @@ for (const [mode, text] of [['version-known', 'webOS 6.5.3'], ['version-missing'
     await expect(info).not.toContainText('99.8');
     const box = (await info.boundingBox())!;
     expect(box.y + box.height).toBeLessThan((await page.locator('.tv-card').boundingBox())!.y);
-    await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+    await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
     await expect(settings(page).getByText(text, { exact: true })).toBeVisible();
     await expect(settings(page).getByText('Вы вошли как synthetic-owner.', { exact: true })).toHaveCount(0);
     await expect(settings(page)).not.toContainText('99.8');
@@ -597,7 +597,7 @@ test('connection indicator explains its state on hover and keyboard focus withou
   await led.hover();
   await expect(tooltip).toBeVisible();
   await expect(tooltip).toContainText('Подключён');
-  await page.locator('.eyebrow').hover();
+  await page.locator('.sidebar-brand').hover();
   await expect(tooltip).not.toBeVisible();
   await page.keyboard.press('Tab');
   await led.focus();
@@ -607,8 +607,8 @@ test('connection indicator explains its state on hover and keyboard focus withou
   expect(mutations).toEqual([]);
 });
 
-test('header keyboard help stays readable inside a 1280px viewport without sending commands', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 960 });
+for (const width of [1280, 320]) test(`header keyboard help stays readable inside a ${width}px viewport without sending commands`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 960 });
   const { mutations } = await fixture(page);
   await page.locator('.app-header summary').click();
   const help = page.locator('#remote-help');
@@ -617,7 +617,7 @@ test('header keyboard help stays readable inside a 1280px viewport without sendi
   await expect(help).toContainText('Нажмите Tab');
   const box = (await help.boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(0);
-  expect(box.x + box.width).toBeLessThanOrEqual(1280);
+  expect(box.x + box.width).toBeLessThanOrEqual(width);
   await noOverflow(page);
   expect(mutations).toEqual([]);
 });
@@ -632,7 +632,7 @@ test('remote command failure remains visible below the controls and never retrie
 
 test('native settings trap focus, block pointer and TV keys, then restore gear focus', async ({ page }) => {
   const { mutations } = await fixture(page);
-  const gear = page.getByRole('button', { name: 'Настройки', exact: true });
+  const gear = page.getByRole('button', { name: 'Настройки ТВ', exact: true });
   await gear.click();
   await expect(settings(page).getByRole('button', { name: 'Закрыть настройки' })).toBeFocused();
   for (let index = 0; index < 18; index++) {
@@ -657,7 +657,7 @@ test('native settings trap focus, block pointer and TV keys, then restore gear f
 
 test('power confirmation excludes settings and sends only the explicitly confirmed power POST', async ({ page }) => {
   const { mutations } = await fixture(page);
-  const gear = page.getByRole('button', { name: 'Настройки', exact: true });
+  const gear = page.getByRole('button', { name: 'Настройки ТВ', exact: true });
   const power = page.getByRole('button', { name: 'Выключить ТВ', exact: true });
   const cardBefore = await page.locator('.tv-card').boundingBox();
   await page.getByRole('button', { name: 'Выключить ТВ', exact: true }).click();
@@ -682,6 +682,8 @@ test('power confirmation excludes settings and sends only the explicitly confirm
   expect(mutations).toEqual([]);
   await power.click();
   await expect(gear).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Свернуть меню' })).toBeDisabled();
+  await expect(page.getByRole('navigation', { name: 'Основная навигация' }).getByRole('button', { name: 'Телевизоры', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Отмена', exact: true }).click();
   expect(mutations).toEqual([]);
   await expect(gear).toBeEnabled();
