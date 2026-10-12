@@ -42,6 +42,17 @@ export const tvDefaultTableSql = `CREATE TABLE tv_default (
   tv_id TEXT NOT NULL REFERENCES tv_devices(tv_id)
 )`;
 
+export const testCasesTableSql = `CREATE TABLE test_cases (
+  id TEXT PRIMARY KEY NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  group_name TEXT NOT NULL,
+  steps_json TEXT NOT NULL,
+  version INTEGER NOT NULL CHECK (version > 0),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+)`;
+
 export const schemaMigrations: readonly Migration[] = [
   {
     version: 1,
@@ -110,4 +121,5 @@ export const schemaMigrations: readonly Migration[] = [
       sqlite.exec('ALTER TABLE owner ADD COLUMN display_name TEXT; ALTER TABLE owner ADD COLUMN avatar_id TEXT;');
     },
   },
+  { version: 7, up(sqlite) { sqlite.exec(testCasesTableSql); } },
 ];

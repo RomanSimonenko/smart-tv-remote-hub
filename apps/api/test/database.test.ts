@@ -27,9 +27,9 @@ test('creates a private database with the auth schema and foreign keys enabled',
   try {
     const tables = database.sqlite.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all();
     expect(tables).toEqual([
-      { name: 'migration_version' }, { name: 'owner' }, { name: 'sessions' }, { name: 'setup_token' }, { name: 'tv_default' }, { name: 'tv_devices' },
+      { name: 'migration_version' }, { name: 'owner' }, { name: 'sessions' }, { name: 'setup_token' }, { name: 'test_cases' }, { name: 'tv_default' }, { name: 'tv_devices' },
     ]);
-    expect(database.sqlite.prepare('SELECT version, applied_at FROM migration_version').all()).toEqual([{ version: 1, applied_at: 1234 }, { version: 2, applied_at: 1234 }, { version: 3, applied_at: 1234 }, { version: 4, applied_at: 1234 }, { version: 5, applied_at: 1234 }, { version: 6, applied_at: 1234 }]);
+    expect(database.sqlite.prepare('SELECT version, applied_at FROM migration_version').all()).toEqual([{ version: 1, applied_at: 1234 }, { version: 2, applied_at: 1234 }, { version: 3, applied_at: 1234 }, { version: 4, applied_at: 1234 }, { version: 5, applied_at: 1234 }, { version: 6, applied_at: 1234 }, { version: 7, applied_at: 1234 }]);
     expect(database.sqlite.pragma('foreign_keys', { simple: true })).toBe(1);
     expect((await stat(dataDir)).mode & 0o777).toBe(0o700);
     expect((await stat(join(dataDir, 'app.sqlite'))).mode & 0o777).toBe(0o600);
@@ -56,7 +56,7 @@ test('preserves owner data on restart and prevents a second owner at the databas
     expect(reopened.sqlite.prepare('SELECT id, username, password_hash FROM owner').all()).toEqual([
       { id: 1, username: 'owner', password_hash: 'synthetic-hash' },
     ]);
-    expect(reopened.sqlite.prepare('SELECT version FROM migration_version').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }]);
+    expect(reopened.sqlite.prepare('SELECT version FROM migration_version').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }]);
     expect(await readdir(dataDir)).toEqual(['app.sqlite']);
   } finally {
     reopened.close();
@@ -90,7 +90,7 @@ test('rolls back a failed upgrade and retains a private SQLite recovery backup o
   const backup = new Database(backupPath, { readonly: true });
   try {
     expect(backup.prepare('SELECT username FROM owner WHERE id = 1').get()).toEqual({ username: 'owner' });
-    expect(backup.prepare('SELECT version FROM migration_version').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }]);
+    expect(backup.prepare('SELECT version FROM migration_version').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }]);
   } finally {
     backup.close();
   }
@@ -99,7 +99,7 @@ test('rolls back a failed upgrade and retains a private SQLite recovery backup o
   try {
     expect(reopened.sqlite.prepare('SELECT username FROM owner WHERE id = 1').get()).toEqual({ username: 'owner' });
     expect(reopened.sqlite.prepare("SELECT name FROM sqlite_schema WHERE name = 'partial_upgrade'").get()).toBeUndefined();
-    expect(reopened.sqlite.prepare('SELECT version FROM migration_version').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }]);
+    expect(reopened.sqlite.prepare('SELECT version FROM migration_version').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }]);
   } finally {
     reopened.close();
   }
@@ -194,7 +194,7 @@ test('rejects a later owner migration that removes the single-owner constraint',
   await expect(openDatabase({ dataDir, migrations })).rejects.toThrow(/owner table schema/i);
   const reopened = await openDatabase({ dataDir });
   try {
-    expect(reopened.sqlite.prepare('SELECT version FROM migration_version').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }]);
+    expect(reopened.sqlite.prepare('SELECT version FROM migration_version').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }]);
     expect(() => reopened.sqlite.prepare('INSERT INTO owner (id, username, password_hash) VALUES (?, ?, ?)').run(2, 'second', 'synthetic-hash')).toThrow();
   } finally {
     reopened.close();

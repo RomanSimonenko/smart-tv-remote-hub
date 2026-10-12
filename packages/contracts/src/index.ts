@@ -7,3 +7,4 @@ export * from './tv-power.js';
 export * from './tv-devices.js';
 
 export * from './profile.js';
+export * from './test-cases.js';

@@ -1,3 +1,4 @@
+import { testCasesResponseSchema, testCaseSchema, type CreateTestCase, type UpdateTestCase } from '@remote-webos-tv/contracts';
 import { profileResponseSchema, passwordChangeResponseSchema, type PasswordChangeRequest, type ProfileUpdate } from '@remote-webos-tv/contracts';
 import { apiErrorSchema, loginResponseSchema, sessionResponseSchema, setupStatusSchema, tvStatusResponseSchema, tvOperationSchema, tvCommandResultSchema, tvRemoteStateSchema, type LoginRequest, type SetupRequest, type StartTvOperation, type TvOperation, type TvStatusResponse, type TvCommandRequest, type TvCommandResult, type TvRemoteState } from '@remote-webos-tv/contracts';
 import { tvPowerStateSchema, tvPowerOperationSchema, type TvPowerRequest } from '@remote-webos-tv/contracts';
@@ -60,6 +61,10 @@ async function dispatchCommand(kind: 'commands' | 'holds', input: TvCommandReque
   return result;
 }
 export const api = {
+  async listTestCases(signal?: AbortSignal) { return parsed(await request('/test-cases', {signal:signal??null}), testCasesResponseSchema); },
+  async getTestCase(id:string,signal?:AbortSignal) { return parsed(await request(`/test-cases/${encodeURIComponent(id)}`,{signal:signal??null}),testCaseSchema); },
+  async createTestCase(input:CreateTestCase,csrfToken:string,signal?:AbortSignal) { return parsed(await request('/test-cases',{method:'POST',headers:{...jsonHeaders,'x-csrf-token':csrfToken},body:JSON.stringify(input),signal:signal??null}),testCaseSchema); },
+  async updateTestCase(id:string,input:UpdateTestCase,csrfToken:string,signal?:AbortSignal) { return parsed(await request(`/test-cases/${encodeURIComponent(id)}`,{method:'PUT',headers:{...jsonHeaders,'x-csrf-token':csrfToken},body:JSON.stringify(input),signal:signal??null}),testCaseSchema); },
   async changePassword(input: PasswordChangeRequest, csrfToken: string) {
     return parsed(await request('/auth/password', { method: 'POST', headers: { ...jsonHeaders, 'x-csrf-token': csrfToken }, body: JSON.stringify(input) }), passwordChangeResponseSchema);
   },

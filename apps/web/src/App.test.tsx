@@ -43,7 +43,7 @@ test.each([
   else fetch.mockResolvedValueOnce(response(status, { code, message: 'safe synthetic failure', requestId: 'synthetic' }));
   vi.stubGlobal('fetch', fetch); render(<App />);
   await screen.findByRole('heading', { name: 'Вход' });
-  expect(screen.getByText('Smart TV Remote Hub')).toBeTruthy();
+  expect(screen.getByRole('img', { name: 'БЛЮДЦЕ lab' })).toBeTruthy();
   fireEvent.change(screen.getByLabelText('Логин'), { target: { value: 'alice' } });
   fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'correct horse battery staple' } });
   fireEvent.submit(screen.getByRole('button', { name: 'Войти' }).closest('form')!);

@@ -1,3 +1,5 @@
+import { registerTestCaseRoutes } from './test-cases/routes.js';
+import type { TestCaseRepository } from './test-cases/repository.js';
 import { registerProfileRoutes } from './profile/routes.js';
 import type { ProfileRepository } from './profile/repository.js';
 import { randomUUID } from 'node:crypto';
@@ -27,6 +29,7 @@ export interface AppDependencies {
   readonly webRoot?: string;
   readonly auth?: Omit<AuthRoutesDependencies, 'config'>;
   readonly profile?: ProfileRepository;
+  readonly testCases?: TestCaseRepository;
   readonly tv?: TvService;
   readonly tvs?: TvDeviceRegistry;
   readonly reportError?: (report: { readonly requestId: string; readonly status: number; readonly causeTypes: readonly string[] }) => void;
@@ -50,7 +53,7 @@ function routingError(error: Error & { code?: string }, request: FastifyRequest,
     });
 }
 
-export function buildApp({ config, getSetupState, webRoot, auth, profile, tv, tvs, reportError, logStream }: AppDependencies) {
+export function buildApp({ config, getSetupState, webRoot, auth, profile, testCases, tv, tvs, reportError, logStream }: AppDependencies) {
   const app = Fastify({
     logger: safeLoggerOptions(logStream),
     bodyLimit: 16 * 1024,
@@ -118,6 +121,10 @@ export function buildApp({ config, getSetupState, webRoot, auth, profile, tv, tv
   if (auth) {
     installAuthRateLimit(app);
     sessionForRequest = registerAuthRoutes(app, { config, ...auth });
+  }
+  if (testCases) {
+    if (!auth) throw new Error('Test case routes require owner authentication');
+    registerTestCaseRoutes(app, testCases);
   }
   if (profile) {
     if (!auth) throw new Error('Profile routes require owner authentication');

@@ -238,8 +238,14 @@ body:has(.settings-dialog[open]) { overflow: hidden; }
 .app-workspace[data-collapsed="true"] { grid-template-columns: 72px minmax(0, 1fr); }
 .app-sidebar { position: sticky; top: 0; height: 100dvh; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; padding: 16px 8px; border-right: 1px solid var(--ui-border); background: var(--ui-panel); }
 .sidebar-heading { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.sidebar-brand { display: flex; align-items: center; gap: 8px; flex: 1; font-size: 14px; line-height: 20px; font-weight: 700; }
-.sidebar-brand svg { width: 24px; height: 24px; color: var(--ui-accent); }
+.brand { display: inline-flex; align-items: center; gap: 8px; }
+.brand-icon { display: block; width: 44px; height: 44px; border-radius: 20%; flex-shrink: 0; }
+.brand-wordmark { white-space: nowrap; font-size: 20px; line-height: 28px; font-weight: 900; letter-spacing: -.04em; }
+.brand-wordmark small { font-size: .65em; font-weight: 700; letter-spacing: -.02em; }
+.auth-header .brand { gap: 12px; }
+.auth-header .brand-icon { width: 56px; height: 56px; }
+.auth-header .brand-wordmark { font-size: clamp(24px, 6vw, 32px); line-height: 40px; }
+.sidebar-brand { display: flex; align-items: center; flex: 1; }
 .sidebar-toggle { display: grid; place-items: center; width: 32px; min-height: 32px; padding: 4px; border-radius: 8px; }
 .sidebar-toggle svg { width: 20px; height: 20px; }
 .app-sidebar nav { display: grid; gap: 8px; }
@@ -362,3 +368,109 @@ button.sidebar-profile[aria-current="page"] { background: var(--ui-field); borde
 /* Shared primary action uses the product palette on profile and password forms. */
 button.primary { background: var(--ui-accent); border-color: var(--ui-accent); color: var(--ui-on-accent); }
 button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color: var(--ui-accent); filter: brightness(1.06); }
+
+.cases-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.cases-heading h1 { margin: 0; font-size: 32px; line-height: 40px; }
+.cases-heading p { color: var(--ui-muted); margin: 8px 0 0; }
+.cases-heading button, .case-step-heading button, .case-open { display: inline-flex; align-items: center; gap: 8px; }
+.cases-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 16px; align-items: start; }
+.case-groups, .cases-list, .case-metadata, .case-steps, .case-step-parameters { background: var(--ui-panel); border: 1px solid var(--ui-border); border-radius: 12px; padding: 20px; }
+.case-groups { display: grid; gap: 8px; padding: 8px; }
+.case-groups button { display: flex; align-items: center; gap: 8px; text-align: left; border: 0; background: transparent; }
+.case-groups button span { margin-left: auto; min-width: 28px; padding: 2px 8px; border-radius: 16px; background: var(--ui-field); color: var(--ui-text); text-align: center; font-size: 12px; line-height: 20px; }
+.case-groups button[aria-current] { background: var(--ui-field); box-shadow: inset 3px 0 var(--ui-accent); }
+.case-groups button[aria-current] > svg { color: var(--ui-accent); }
+.case-search { position: relative; display: block; margin-bottom: 24px; }
+.case-search-label { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.case-search > svg { position: absolute; left: 12px; top: 10px; width: 20px; height: 20px; color: var(--ui-muted); pointer-events: none; }
+.test-cases .case-search input { padding-left: 40px; }
+.cases-table-scroll { overflow-x: auto; }
+.cases-list table { width: 100%; border-collapse: collapse; text-align: left; }
+.cases-list th { background: var(--ui-field); color: var(--ui-muted); font-weight: 500; }
+.cases-list th, .cases-list td { padding: 16px 12px; border-bottom: 1px solid var(--ui-border); }
+.case-open { padding: 0; border: 0; background: transparent; text-align: left; overflow-wrap: anywhere; }
+.case-status { display: inline-flex; align-items: center; gap: 8px; color: var(--ui-muted); white-space: nowrap; }
+.case-status > svg { width: 12px; height: 12px; fill: currentColor; }
+.cases-empty { padding: 32px 16px; text-align: center; color: var(--ui-muted); }
+.cases-empty > svg { width: 40px; height: 40px; }
+.case-editor nav { margin-bottom: 16px; }
+.case-editor-actions { display: flex; align-items: center; gap: 16px; }
+.case-editor-fields { margin: 0; padding: 0; border: 0; min-width: 0; }
+.case-editor-layout { display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(280px, 1fr); gap: 16px; align-items: start; }
+.case-metadata { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .7fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+.case-metadata label, .case-step-parameters label { display: grid; gap: 8px; min-width: 0; }
+.case-metadata input, .case-metadata textarea, .case-step-parameters textarea { width: 100%; box-sizing: border-box; }
+.case-editor textarea { resize: vertical; font: inherit; background: var(--ui-field); color: var(--ui-text); border: 1px solid var(--ui-border); border-radius: 8px; padding: 10px; }
+.case-steps h2, .case-step-parameters h2 { margin: 0 0 16px; font-size: 20px; line-height: 28px; }
+.case-step-block { border: 1px solid var(--ui-border); border-radius: 8px; overflow: hidden; margin-top: 16px; }
+.case-step-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px; background: var(--ui-field); }
+.case-step-heading h3 { margin: 0; font-size: 16px; }
+.case-step-heading small { color: var(--ui-muted); font-weight: 400; }
+.case-step-row { display: flex; align-items: center; gap: 8px; padding: 8px; border-top: 1px solid var(--ui-border); }
+.case-step-row[data-selected=true] { box-shadow: inset 0 0 0 1px var(--ui-accent); }
+.case-step-select { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left; background: transparent; border: 0; }
+.case-step-select > span { overflow-wrap: anywhere; }
+.case-step-select small { display: block; color: var(--ui-muted); margin-top: 4px; }
+.case-step-actions { display: flex; gap: 4px; }
+.case-step-actions button { padding: 6px; min-height: 32px; }
+.case-step-actions svg { width: 18px; height: 18px; }
+.case-step-empty, .case-step-hint { color: var(--ui-muted); padding: 0 12px; }
+.case-step-hint { padding: 0; margin-top: 24px; }
+.case-error { margin-bottom: 16px; color: var(--ui-error); }
+@media (max-width: 1100px) { .case-editor-layout { grid-template-columns: minmax(0, 1fr); } .cases-layout { grid-template-columns: 180px minmax(0, 1fr); } }
+@media (max-width: 640px) { .cases-heading { align-items: stretch; flex-direction: column; gap: 16px; } .cases-layout, .case-metadata { grid-template-columns: minmax(0, 1fr); } .case-step-row { flex-wrap: wrap; } .case-step-heading { align-items: flex-start; flex-direction: column; } }
+.case-editor form { margin: 0; gap: 0; }
+.test-cases { margin-top: 16px; }
+.test-cases button, .case-editor button { min-height: 40px; padding: 8px 12px; font-size: 14px; line-height: 20px; }
+.case-editor input, .case-editor textarea, .test-cases input { background: var(--ui-field); border-radius: 8px; font-weight: 400; padding: 8px 12px; font-size: 14px; line-height: 20px; }
+.case-editor input, .test-cases input { height: 40px; }
+.case-editor nav > button { display: inline-flex; align-items: center; gap: 8px; }
+.case-step-heading button { min-height: 32px; padding: 4px 8px; }
+.case-step-row .case-step-actions button { min-height: 32px; padding: 6px; }
+.case-step-select { font-weight: 400; }
+
+.case-step-row[data-invalid=true] { border-color: var(--ui-error); }
+.case-editor .field-error { color: var(--ui-error); font-size: 12px; line-height: 16px; }
+
+/* Test-case composition follows the mockups; shared palette and sizes follow the UI specification. */
+.app-content[data-screen=editor] { position: relative; }
+.app-content[data-screen=editor] > .app-header { position: absolute; top: 24px; right: 32px; padding: 0; border: 0; }
+.app-content[data-screen=cases] > .app-header { padding-bottom: 0; border: 0; }
+.case-editor .case-breadcrumb { display: flex; align-items: center; gap: 12px; min-height: 40px; padding-right: 220px; margin-bottom: 16px; color: var(--ui-muted); font-size: 14px; line-height: 20px; }
+.case-editor .case-breadcrumb > button { padding: 0; border: 0; background: transparent; font-weight: 400; }
+.case-editor .case-breadcrumb > button svg { display: none; }
+.case-editor .cases-heading { gap: 16px; }
+.case-editor-actions { flex-wrap: wrap; justify-content: flex-end; }
+.case-save-notice { display: inline-flex; align-items: center; gap: 6px; color: var(--ui-accent); font-size: 12px; line-height: 16px; }
+.case-save-notice svg { width: 16px; height: 16px; }
+.case-metadata > label { font-weight: 400; font-size: 14px; line-height: 20px; }
+.case-metadata > label:nth-child(2) { grid-column: 3; grid-row: 1; }
+.case-metadata > .case-group-field { grid-column: 2; grid-row: 1; }
+.case-metadata textarea { min-height: 64px; }
+.case-step-parameters { align-self: stretch; }
+.case-step-parameters > p { color: var(--ui-muted); font-size: 14px; line-height: 20px; }
+.case-step-parameters label { font-weight: 400; font-size: 14px; line-height: 20px; }
+.test-cases .case-open { padding: 0; font-weight: 400; }
+.case-step-select > svg { flex-shrink: 0; }
+.case-step-row[data-selected=true] { border-radius: 8px; }
+@media (max-width: 1100px) {
+ .case-editor-layout { grid-template-columns: minmax(0, 1fr); }
+ .case-step-parameters { align-self: start; }
+}
+@media (max-width: 900px) {
+ .app-content[data-screen=editor] > .app-header { top: 20px; right: 16px; }
+ .case-editor .cases-heading { align-items: flex-start; flex-direction: column; }
+ .case-editor-actions { justify-content: flex-start; }
+}
+@media (max-width: 640px) {
+ .app-content[data-screen=editor] > .app-header { position: static; justify-content: flex-end; margin-bottom: 16px; }
+ .case-editor .case-breadcrumb { padding-right: 0; flex-wrap: wrap; }
+ .case-metadata > label:nth-child(2), .case-metadata > .case-group-field { grid-column: auto; grid-row: auto; }
+ .case-editor-actions { gap: 12px; }
+}
+.case-metadata > label { align-content: start; }
+.case-step-heading { padding: 8px 12px; }
+.case-step-heading button svg { width: 20px; height: 20px; }
+.case-editor .case-step-select { padding: 4px 8px; }
+.case-step-select small { font-size: 12px; line-height: 16px; }
+.case-step-select > svg { width: 40px; height: 40px; padding: 8px; box-sizing: border-box; background: var(--ui-field); border: 1px solid var(--ui-border); border-radius: 8px; }

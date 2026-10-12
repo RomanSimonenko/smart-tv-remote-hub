@@ -4,6 +4,7 @@ import { api, ApiFailure, friendlyError } from './api.js';
 import { Setup } from './pages/Setup.js';
 import { Login } from './pages/Login.js';
 import { Home } from './pages/Home.js';
+import { Brand } from './components/Brand.js';
 
 type View = 'loading' | 'setup' | 'login' | 'home' | 'error';
 
@@ -18,6 +19,9 @@ function loginError(cause: unknown): string {
 }
 
 export function App() {
+  const [reauthenticating,setReauthenticating]=useState(false);
+  const unsavedCase=useRef(false);
+  const markUnsavedCase=useCallback((dirty:boolean)=>{unsavedCase.current=dirty;},[]);
   const [view, setView] = useState<View>('loading');
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [message, setMessage] = useState('');
@@ -29,7 +33,7 @@ export function App() {
   const sessionVersion = useRef(0);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const expireSession = useCallback(() => {
-    sessionVersion.current++; setSession(null); setView('login'); setTvActive(false);
+    sessionVersion.current++; if(unsavedCase.current) setReauthenticating(true); else setSession(null); setView('login'); setTvActive(false);
     setMessage('Сессия истекла. Войдите снова.');
   }, []);
 
@@ -120,7 +124,7 @@ export function App() {
 
   const error = message ? <p id="app-error" ref={errorRef} tabIndex={-1} role="alert" className="error">{message}</p> : null;
   return <main className={`shell${view !== 'home' ? ' auth-screen' : ' workspace-shell'}`}>
-    {view !== 'home' && <header className="auth-header"><p className="eyebrow">Smart TV Remote Hub</p></header>}
+    {view !== 'home' && <header className="auth-header"><Brand /></header>}
     {view === 'loading' && <p className="form-card" role="status">Загрузка…</p>}
     {view === 'error' && <section className="form-card"><h1>Не удалось загрузить приложение</h1>{error}<button type="button" onClick={() => window.location.reload()}>Повторить</button></section>}
     {view === 'setup' && <Setup busy={busy} error={error} onSubmit={(input) => submit(async () => {
@@ -133,14 +137,15 @@ export function App() {
       const current = await api.session();
       setSession(current);
       setTvActive(true);
+      setReauthenticating(false);
       setView('home');
     }, loginError)} />}
-    {view === 'home' && session && <Home onPasswordChange={changePassword} username={session.username} csrfToken={session.csrfToken} tvActive={tvActive} busy={busy} error={error} onSessionExpired={expireSession} onLogout={() => submit(async () => {
+    {(view === 'home' || reauthenticating) && session && <div hidden={reauthenticating}><Home onUnsavedCaseChange={markUnsavedCase} onPasswordChange={changePassword} username={session.username} csrfToken={session.csrfToken} tvActive={tvActive} busy={busy} error={error} onSessionExpired={expireSession} onLogout={() => submit(async () => {
       setTvActive(false);
       try { await api.logout(session.csrfToken); }
       catch (cause) { if (!(cause instanceof ApiFailure && cause.status === 401)) setTvActive(true); throw cause; }
       setSession(null);
       setView('login');
-    })} />}
+    })} /></div>}
   </main>;
 }
