@@ -1,3 +1,4 @@
+import { passwordSchema } from '@remote-webos-tv/contracts';
 import { createSetupToken, hashSetupToken } from './tokens.js';
 import { hashPassword } from './passwords.js';
 import type { OwnerRepository } from './repository.js';
@@ -36,7 +37,7 @@ export function createOwnerSetupService({ repository, now = Date.now, randomByte
       return token;
     },
     async claimOwner({ token, username, password }) {
-      if (!validLength(username, 1, 64) || !validLength(password, 12, 128)) throw new OwnerSetupError('INVALID_OWNER_INPUT');
+      if (!validLength(username, 1, 64) || !passwordSchema.safeParse(password).success) throw new OwnerSetupError('INVALID_OWNER_INPUT');
       const tokenHash = hashSetupToken(token);
       if (!tokenHash) throw new OwnerSetupError('INVALID_SETUP_TOKEN');
       const passwordHash = await hashPassword(password);

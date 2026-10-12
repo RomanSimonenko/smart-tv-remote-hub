@@ -1,3 +1,4 @@
+import { api, ApiFailure } from './api.js';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App } from './App.js';
@@ -5,6 +6,7 @@ import { App } from './App.js';
 const csrfToken = 'c'.repeat(43);
 const tvId = '00000000-0000-4000-8000-000000000001';
 const saved = { tv: { host: '192.168.1.20', identity: { model: 'Synthetic TV' } }, connection: 'unavailable', operation: null };
+beforeEach(() => { vi.spyOn(api, 'getProfile').mockResolvedValue({ username: 'synthetic-owner', displayName: 'synthetic-owner', avatarId: null }); });
 beforeEach(() => {
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: { configurable: true, value: vi.fn(function (this: HTMLDialogElement) { this.open = true; }) },
@@ -28,7 +30,7 @@ function response(status: number, data?: unknown) {
 
 test.each([
   [401, 'INVALID_CREDENTIALS', 'Неверный логин или пароль.', true],
-  [400, 'BAD_REQUEST', 'Проверьте логин и пароль: логин — 1–64 символа, пароль — 12–128.', false],
+  [400, 'BAD_REQUEST', 'Проверьте логин и пароль: логин — 1–64 символа, пароль — 6–128.', false],
   [403, 'FORBIDDEN', 'Вход отклонён сервером. Обновите страницу и попробуйте снова.', false],
   [429, 'RATE_LIMITED', 'Слишком много попыток. Попробуйте позже.', false],
   [500, 'UNEXPECTED_ERROR', 'Не удалось выполнить запрос. Попробуйте снова.', false],
@@ -41,7 +43,7 @@ test.each([
   else fetch.mockResolvedValueOnce(response(status, { code, message: 'safe synthetic failure', requestId: 'synthetic' }));
   vi.stubGlobal('fetch', fetch); render(<App />);
   await screen.findByRole('heading', { name: 'Вход' });
-  expect(screen.getByText('Smart TV Remote Hub')).toBeTruthy();
+  expect(screen.getByRole('img', { name: 'БЛЮДЦЕ lab' })).toBeTruthy();
   fireEvent.change(screen.getByLabelText('Логин'), { target: { value: 'alice' } });
   fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'correct horse battery staple' } });
   fireEvent.submit(screen.getByRole('button', { name: 'Войти' }).closest('form')!);
@@ -98,7 +100,7 @@ test('account settings open on Add TV and close before returning to dashboard', 
   render(<App />);
   await screen.findByRole('heading', { name: 'Пока нет телевизоров' });
   fireEvent.click(screen.getByRole('button', { name: 'Добавить ТВ' }));
-  const settings = screen.getByRole('button', { name: 'Настройки' });
+  const settings = screen.getByRole('button', { name: 'Аккаунт' });
   fireEvent.click(settings);
   const dialog = screen.getByRole('dialog', { name: 'Настройки аккаунта' });
   expect(dialog).toHaveProperty('open', true);
@@ -108,7 +110,7 @@ test('account settings open on Add TV and close before returning to dashboard', 
   expect(dialog).toHaveProperty('open', false);
   expect(document.activeElement).toBe(settings);
   fireEvent.click(settings);
-  fireEvent.click(screen.getByRole('button', { name: 'Телевизоры' }));
+  fireEvent.click(screen.getByRole('button', { name: 'К списку телевизоров' }));
   expect(dialog).toHaveProperty('open', false);
 });
 
@@ -142,7 +144,7 @@ test('authenticated reload reads TV list without starting a new pairing', async 
   expect(await screen.findByText('Synthetic TV')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: /^Открыть телевизор / }));
   await act(async () => {});
-  const gear = screen.getByRole('button', { name: 'Настройки' });
+  const gear = screen.getByRole('button', { name: 'Настройки ТВ' });
   expect(gear.closest('header')).toBe(screen.getByRole('button', { name: 'Выйти' }).closest('header'));
   expect(screen.queryByRole('textbox', { name: 'IP-адрес телевизора' })).toBeNull();
   expect(screen.queryByRole('textbox', { name: 'MAC-адрес телевизора' })).toBeNull();
@@ -267,12 +269,53 @@ test('setup validates Unicode code points and submits the full supplementary-cha
   expect.soft(password.hasAttribute('minlength')).toBe(false);
   expect.soft(password.hasAttribute('maxlength')).toBe(false);
   fireEvent.change(username, { target: { value: '😀'.repeat(64) } });
-  fireEvent.change(password, { target: { value: '😀'.repeat(6) } });
+  fireEvent.change(password, { target: { value: '😀'.repeat(5) } });
   fireEvent.submit(form);
   expect.soft(fetch).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole('alert').textContent).toContain('12');
+  expect(screen.getByRole('alert').textContent).toContain('6');
   fireEvent.change(password, { target: { value: '😀'.repeat(12) } });
   fireEvent.submit(form);
   expect(await screen.findByRole('heading', { name: 'Вход' })).toBeTruthy();
   expect(JSON.parse(fetch.mock.calls[1]?.[1]?.body)).toEqual({ token: 't'.repeat(43), username: '😀'.repeat(64), password: '😀'.repeat(12) });
+});
+
+test('password change replaces App CSRF before the next profile save and retains the profile screen', async () => {
+  vi.spyOn(api, 'status').mockResolvedValue({ state: 'claimed' });
+  vi.spyOn(api, 'session').mockResolvedValue({ username: 'synthetic-owner', csrfToken });
+  vi.spyOn(api, 'tvDevices').mockResolvedValue({ devices: [] });
+  const change = vi.spyOn(api, 'changePassword').mockResolvedValue({ username: 'synthetic-owner', csrfToken: 'n'.repeat(43), cleanupWarning: false });
+  const save = vi.spyOn(api, 'updateProfile').mockResolvedValue({ username: 'synthetic-owner', displayName: 'QA New', avatarId: null });
+  render(<App />);
+  await screen.findByRole('heading', { name: /^Телевизоры$/ });
+  fireEvent.click(screen.getByRole('button', { name: /^Мой профиль:/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /^Изменить пароль$/ }));
+  fireEvent.change(screen.getByLabelText('Текущий пароль'), { target: { value: 'old123' } });
+  fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'new123' } });
+  fireEvent.change(screen.getByLabelText('Повторите новый пароль'), { target: { value: 'new123' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить пароль' }));
+  await screen.findByText('Пароль изменён. Остальные сессии завершены.');
+  expect(change).toHaveBeenCalledWith({ currentPassword: 'old123', newPassword: 'new123' }, csrfToken);
+  expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.change(screen.getByLabelText('Отображаемое имя'), { target: { value: 'QA New' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }));
+  await waitFor(() => expect(save).toHaveBeenCalledWith({ displayName: 'QA New', avatarId: null }, 'n'.repeat(43), expect.any(AbortSignal)));
+});
+
+test('an unconfirmed proxy error reconciles CSRF and clears passwords without claiming a failed or successful change', async () => {
+  vi.spyOn(api, 'status').mockResolvedValue({ state: 'claimed' });
+  vi.spyOn(api, 'session').mockResolvedValueOnce({ username: 'synthetic-owner', csrfToken })
+    .mockResolvedValue({ username: 'synthetic-owner', csrfToken: 'n'.repeat(43) });
+  vi.spyOn(api, 'tvDevices').mockResolvedValue({ devices: [] });
+  const change = vi.spyOn(api, 'changePassword').mockRejectedValue(new ApiFailure(502, 'UNEXPECTED_ERROR'));
+  render(<App />);
+  await screen.findByRole('heading', { name: /^Телевизоры$/ });
+  fireEvent.click(screen.getByRole('button', { name: /^Мой профиль:/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /^Изменить пароль$/ }));
+  fireEvent.change(screen.getByLabelText('Текущий пароль'), { target: { value: 'old123' } });
+  fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'new123' } });
+  fireEvent.change(screen.getByLabelText('Повторите новый пароль'), { target: { value: 'new123' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить пароль' }));
+  expect((await screen.findByRole('alert')).textContent).toContain('Пароль мог измениться');
+  expect((screen.getByLabelText('Текущий пароль') as HTMLInputElement).value).toBe('');
+  expect(api.session).toHaveBeenCalledTimes(2); expect(change).toHaveBeenCalledTimes(1);
 });

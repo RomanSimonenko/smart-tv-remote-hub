@@ -34,7 +34,7 @@ export function safeLoggerOptions(stream?: Writable) {
       paths: [
         'req.headers.authorization', 'req.headers.cookie', 'req.headers.x-csrf-token',
         'request.headers.authorization', 'request.headers.cookie', 'request.headers.x-csrf-token',
-        'password', 'token', 'cookie', 'authorization', 'csrfToken',
+        'currentPassword', 'newPassword', '*.currentPassword', '*.newPassword', 'password', 'token', 'cookie', 'authorization', 'csrfToken',
         '*.password', '*.token', '*.cookie', '*.authorization', '*.csrfToken',
       ],
       censor: '[REDACTED]',

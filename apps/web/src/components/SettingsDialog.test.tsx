@@ -28,3 +28,11 @@ test('Escape cancel delegates closing without unmounting content', () => {
   const event = new Event('cancel', { bubbles: false, cancelable: true });
   fireEvent(screen.getByRole('dialog'), event); expect(close).toHaveBeenCalledTimes(1); expect(event.defaultPrevented).toBe(true);
 });
+
+test('unmounting an open dialog restores focus to its connected opener', () => {
+  const view = render(<><button>Open</button></>);
+  const opener = screen.getByRole('button', { name: 'Open' }); opener.focus();
+  view.rerender(<><button>Open</button><SettingsDialog open onClose={vi.fn()}>Content</SettingsDialog></>);
+  view.rerender(<><button>Open</button></>);
+  expect(document.activeElement).toBe(opener);
+});

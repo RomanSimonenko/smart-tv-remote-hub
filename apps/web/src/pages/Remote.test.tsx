@@ -103,7 +103,7 @@ const digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] as const;
 test('leaving the remote stops hold and does not cancel server power', async () => {
   vi.useFakeTimers(); const view = await mount();
   pointer(screen.getByRole('button', { name: 'Вверх' }), 'pointerdown'); await act(async () => {});
-  fireEvent.click(screen.getByRole('button', { name: 'Телевизоры' })); await act(async () => {});
+  fireEvent.click(screen.getByRole('button', { name: 'К списку телевизоров' })); await act(async () => {});
   await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
   expect(view.commands()).toHaveLength(1);
   expect(view.fetch.mock.calls.some(([path]) => path.endsWith('/cancel'))).toBe(false);
@@ -157,7 +157,7 @@ test('focused volume repeats with Space and stops when focus leaves the remote',
   vi.useFakeTimers(); const view = await mount(); const button = screen.getByRole('button', { name: 'Громкость +' }); button.focus();
   expect(fireEvent.keyDown(button, { key: ' ' })).toBe(false); await act(async () => {});
   await act(async () => { await vi.advanceTimersByTimeAsync(400); }); expect(view.commands()).toHaveLength(2);
-  screen.getByRole('button', { name: 'Настройки' }).focus();
+  screen.getByRole('button', { name: 'Настройки ТВ' }).focus();
   await act(async () => { await vi.advanceTimersByTimeAsync(1000); }); expect(view.commands()).toHaveLength(2);
 });
 test('settings block an existing hold in a retained remote', async () => {
@@ -552,4 +552,18 @@ test('missing Wink shows a specific error and never retries', async () => {
   expect(screen.getByRole('alert').textContent).toContain('Wink не найден');
   await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
   expect(view.commands()).toHaveLength(1); expect(screen.getByRole('alert').textContent).not.toContain('private');
+});
+
+test('opening profile stops a held command without sending commands to another screen', async () => {
+  vi.spyOn(api, 'getProfile').mockResolvedValue({ username: 'alice', displayName: 'Alice QA', avatarId: 'robot' });
+  vi.useFakeTimers();
+  const view = await mount();
+  pointer(screen.getByRole('button', { name: 'Вверх' }), 'pointerdown');
+  await act(async () => {});
+  fireEvent.click(screen.getByRole('button', { name: 'Мой профиль: Alice QA' }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+  expect(screen.getByRole('heading', { name: 'Мой профиль' })).toBeTruthy();
+  expect(screen.queryByRole('group', { name: 'Пульт' })).toBeNull();
+  expect(view.commands()).toHaveLength(1);
+  expect(view.fetch.mock.calls.some(([path]) => path.endsWith('/cancel'))).toBe(false);
 });

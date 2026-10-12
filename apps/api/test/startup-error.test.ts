@@ -61,7 +61,7 @@ test('migration and cleanup failures retain separate safe codes and original cau
   const close = vi.spyOn(Database.prototype, 'close').mockImplementationOnce(() => { throw cleanup; });
   try {
     const failure = await openDatabase({ dataDir: join(directory, 'data'), migrations: [...schemaMigrations, {
-      version: 6, up(sqlite) { connection = sqlite; throw primary; },
+      version: schemaMigrations.length + 1, up(sqlite) { connection = sqlite; throw primary; },
     }] }).catch((error: unknown) => error);
     const diagnostic = formatStartupError(failure);
     expect.soft(diagnostic).toContain('STORAGE_MIGRATION_FAILED');

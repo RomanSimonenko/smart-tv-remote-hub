@@ -6,7 +6,7 @@ import { test, tvHost, samsungHost, type TvFixture } from '../support/tv-fixture
 const power = (page: Page) => page.getByRole('group', { name: 'Питание телевизора', exact: true });
 const settings = (page: Page) => page.getByRole('dialog', { name: 'Настройки телевизора', exact: true });
 async function openSettings(page: Page) {
-  if (!await settings(page).isVisible()) await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  if (!await settings(page).isVisible()) await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
 }
 const off = 'ssap://system/turnOff';
 const mac = '02:00:00:00:00:03';
@@ -188,7 +188,7 @@ test('double click and stale second tab admit one wake; unavailable retry recove
   await page.reload();
   await openTvWorkspace(page);
   await expect(page.locator('.tv-activity').getByRole('button', { name: 'Отменить ожидание', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Настройки телевизора' }).getByRole('button', { name: 'Отменить ожидание', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Закрыть настройки', exact: true }).click();
   expect((await state(page, tv)).operation!.id).toBe(acceptedId);

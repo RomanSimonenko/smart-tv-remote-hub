@@ -1,3 +1,4 @@
+import { passwordChangeRequestSchema } from '@remote-webos-tv/contracts';
 import { createHash, createHmac, randomBytes as nodeRandomBytes, timingSafeEqual } from 'node:crypto';
 import { chmod, lstat, open, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -65,7 +66,14 @@ export async function loadAuthMasterKey(dataDir: string, hasSessions: () => bool
   }
 }
 
+export class PasswordChangeStorageError extends Error {
+  constructor(cause: unknown) { super('Password storage unavailable', { cause }); this.name = 'PasswordChangeStorageError'; }
+}
+export class PasswordChangeError extends Error {
+  constructor(readonly code: 'UNAUTHORIZED' | 'INVALID_CURRENT_PASSWORD' | 'BAD_REQUEST') { super(code); this.name = 'PasswordChangeError'; }
+}
 export interface AuthSessionService {
+  changePassword(token: string, currentPassword: string, newPassword: string): Promise<{ username: string; token: string; csrfToken: string; cleanupWarning: boolean }>;
   hasActiveSessions(): boolean;
   login(username: string, password: string): Promise<{ readonly username: string; readonly token: string } | undefined>;
   authenticate(token: string | undefined): { readonly username: string; readonly csrfToken: string } | undefined;
@@ -75,6 +83,7 @@ export interface AuthSessionService {
 }
 
 export async function createAuthSessionService(input: {
+  readonly passwordOperations?: { hash: typeof hashPassword; verify: typeof verifyPassword };
   readonly repository: OwnerRepository;
   readonly masterKey: Buffer;
   readonly now?: () => number;
@@ -87,17 +96,45 @@ export async function createAuthSessionService(input: {
   const csrfFor = (token: string) => createHmac('sha256', masterKey).update('csrf:v1:').update(token).digest('base64url');
   const revocationListeners = new Set<(token: string) => void | Promise<void>>();
   const revocations = new Map<string, Promise<void>>();
-  return {
+  const passwords = input.passwordOperations ?? { hash: hashPassword, verify: verifyPassword };
+  // Only live tokens used by this process can own live resources. Persist only hashes.
+  const observedTokens = new Map<string, number>();
+  function observe(token: string) {
+    for (const [value, until] of observedTokens) if (until <= now()) observedTokens.delete(value);
+    observedTokens.set(token, now() + sessionLifetimeMs);
+  }
+  function notifyRevocation(token: string): Promise<void> {
+    const tokenHash = digest(token);
+    observedTokens.delete(token);
+    const existing = revocations.get(tokenHash);
+    if (existing) return existing;
+    const pending: Promise<void>[] = [];
+    for (const listener of revocationListeners) {
+      try { pending.push(Promise.resolve(listener(token))); }
+      catch (cause) { pending.push(Promise.reject(cause)); }
+    }
+    const cleanup = Promise.allSettled(pending).then(results => {
+      const failures = results.filter(result => result.status === 'rejected').map(result => result.reason as unknown);
+      if (failures.length === 1) throw failures[0];
+      if (failures.length > 1) throw new AggregateError(failures, 'Session revocation cleanup failed');
+    });
+    revocations.set(tokenHash, cleanup);
+    void cleanup.then(() => { revocations.delete(tokenHash); }, () => { revocations.delete(tokenHash); });
+    return cleanup;
+  }
+  const service: AuthSessionService = {
     hasActiveSessions: () => repository.hasActiveSessions(now()),
     async login(username, password) {
       const owner = repository.getOwnerCredentials(username);
-      const accepted = await verifyPassword(password, owner?.passwordHash ?? dummyHash);
+      const accepted = await passwords.verify(password, owner?.passwordHash ?? dummyHash);
       if (!owner || !accepted) return undefined;
       const token = exactBytes(randomBytes, 32).toString('base64url');
       const issuedAt = now();
-      repository.createSession({
+      if (!repository.createSessionIfCredentialsMatch({
+        username: owner.username, expectedPasswordHash: owner.passwordHash,
         tokenHash: digest(token), csrfHash: digest(csrfFor(token)), now: issuedAt, expiresAt: issuedAt + sessionLifetimeMs,
-      });
+      })) return undefined;
+      observe(token);
       return { username: owner.username, token };
     },
     authenticate(token) {
@@ -106,6 +143,7 @@ export async function createAuthSessionService(input: {
       if (!row) return undefined;
       const csrfToken = csrfFor(token);
       if (!/^[a-f0-9]{64}$/.test(row.csrfHash) || !timingSafeEqual(Buffer.from(digest(csrfToken), 'hex'), Buffer.from(row.csrfHash, 'hex'))) return undefined;
+      observe(token);
       return { username: row.username, csrfToken };
     },
     verifyCsrf(token, supplied) {
@@ -113,30 +151,38 @@ export async function createAuthSessionService(input: {
       const expected = csrfFor(token);
       return timingSafeEqual(Buffer.from(supplied, 'utf8'), Buffer.from(expected, 'utf8'));
     },
+    async changePassword(token, currentPassword, newPassword) {
+      if (!passwordChangeRequestSchema.safeParse({ currentPassword, newPassword }).success) throw new PasswordChangeError('BAD_REQUEST');
+      const identity = service.authenticate(token);
+      if (!identity) throw new PasswordChangeError('UNAUTHORIZED');
+      const owner = repository.getOwnerCredentials(identity.username);
+      if (!owner) throw new PasswordChangeError('UNAUTHORIZED');
+      if (!await passwords.verify(currentPassword, owner.passwordHash)) throw new PasswordChangeError('INVALID_CURRENT_PASSWORD');
+      const passwordHash = await passwords.hash(newPassword);
+      const replacement = exactBytes(randomBytes, 32).toString('base64url');
+      const issuedAt = now();
+      let committed: boolean;
+      try {
+        committed = repository.changePasswordAndRotateSession({
+          username: owner.username, expectedPasswordHash: owner.passwordHash, passwordHash, previousTokenHash: digest(token),
+          tokenHash: digest(replacement), csrfHash: digest(csrfFor(replacement)), now: issuedAt, expiresAt: issuedAt + sessionLifetimeMs,
+        });
+      } catch (cause) { throw new PasswordChangeStorageError(cause); }
+      if (!committed) throw new PasswordChangeError('UNAUTHORIZED');
+      const revokedTokens = [...observedTokens.keys()];
+      observe(replacement);
+      // Start all listeners synchronously before yielding; one failure cannot skip another.
+      const results = await Promise.allSettled(revokedTokens.map(notifyRevocation));
+      return { username: owner.username, token: replacement, csrfToken: csrfFor(replacement), cleanupWarning: results.some(result => result.status === 'rejected') };
+    },
     revoke(token) {
-      const tokenHash = digest(token);
-      repository.revokeSession(tokenHash);
-      const existing = revocations.get(tokenHash);
-      if (existing) return existing;
-      const pending: Promise<void>[] = [];
-      // Revocation and command abort remain synchronous. One bad listener must
-      // not skip cancellation owned by another resource boundary.
-      for (const listener of revocationListeners) {
-        try { pending.push(Promise.resolve(listener(token))); }
-        catch (cause) { pending.push(Promise.reject(cause)); }
-      }
-      const cleanup = Promise.allSettled(pending).then((results) => {
-        const failures = results.filter((result) => result.status === 'rejected').map((result) => result.reason as unknown);
-        if (failures.length === 1) throw failures[0];
-        if (failures.length > 1) throw new AggregateError(failures, 'Session revocation cleanup failed');
-      });
-      revocations.set(tokenHash, cleanup);
-      void cleanup.then(() => { revocations.delete(tokenHash); }, () => { revocations.delete(tokenHash); });
-      return cleanup;
+      repository.revokeSession(digest(token));
+      return notifyRevocation(token);
     },
     onRevoke(listener) {
       revocationListeners.add(listener);
       return () => { revocationListeners.delete(listener); };
     },
   };
+  return service;
 }

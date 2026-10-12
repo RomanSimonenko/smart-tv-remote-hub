@@ -1,3 +1,4 @@
+import { testCasesTableSql } from './migrations.js';
 import { randomUUID } from 'node:crypto';
 import { chmod, lstat, mkdir, open, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -63,6 +64,7 @@ function migrationVersion(sqlite: Database.Database, latestVersion: number): num
     if (savedOwnerSql !== ownerTableSql && !extendsOwnerTable) throw new StorageStartupError('STORAGE_OWNER_SCHEMA_INVALID');
     try {
       sqlite.prepare('SELECT id, username, password_hash FROM owner LIMIT 0');
+      if (version >= 6) sqlite.prepare('SELECT display_name, avatar_id FROM owner LIMIT 0');
       sqlite.prepare('SELECT id, token_hash, expires_at FROM setup_token LIMIT 0');
       sqlite.prepare('SELECT token_hash, owner_id, created_at, expires_at, csrf_hash FROM sessions LIMIT 0');
     } catch (cause) {
@@ -95,6 +97,9 @@ function migrationVersion(sqlite: Database.Database, latestVersion: number): num
     const count = (sqlite.prepare('SELECT count(*) AS count FROM tv_devices').get() as { count: number }).count;
     const defaults = (sqlite.prepare('SELECT count(*) AS count FROM tv_default').get() as { count: number }).count;
     if ((count === 0 && defaults !== 0) || (count > 0 && defaults !== 1)) throw new StorageStartupError('STORAGE_SCHEMA_INVALID');
+  }
+  if (version >= 7 && sqlite.prepare('SELECT sql FROM sqlite_schema WHERE type = ? AND name = ?').pluck().get('table', 'test_cases') !== testCasesTableSql) {
+    throw new StorageStartupError('STORAGE_SCHEMA_INVALID');
   }
   return version;
 }

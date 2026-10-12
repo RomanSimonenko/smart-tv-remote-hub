@@ -1,4 +1,4 @@
-# Smart TV Remote Hub
+# БЛЮДЦЕ lab
 
 Self-hosted веб-приложение для управления и тестирования Smart TV из браузера.
 

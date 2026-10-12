@@ -1,0 +1,13 @@
+:root {
+  --ui-bg: #11161D;
+  --ui-panel: #1A222C;
+  --ui-field: #222D39;
+  --ui-border: #3A4859;
+  --ui-text: #F2F5F8;
+  --ui-muted: #A8B4C3;
+  --ui-accent: #79E493;
+  --ui-on-accent: #102017;
+  --ui-running: #73ADFA;
+  --ui-warning: #F2BE55;
+  --ui-error: #F47B80;
+}

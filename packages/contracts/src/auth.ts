@@ -9,7 +9,7 @@ export const setupStatusSchema = z.strictObject({
 export type SetupStatus = Readonly<z.infer<typeof setupStatusSchema>>;
 
 const usernameSchema = z.string().refine((value) => [...value].length >= 1 && [...value].length <= 64);
-const passwordSchema = z.string().refine((value) => [...value].length >= 12 && [...value].length <= 128);
+export const passwordSchema = z.string().refine((value) => [...value].length >= 6 && [...value].length <= 128);
 
 export const setupRequestSchema = z.strictObject({
   token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
@@ -39,3 +39,11 @@ export const apiErrorSchema = z.strictObject({
   requestId: z.string().min(1),
 });
 export type ApiError = Readonly<z.infer<typeof apiErrorSchema>>;
+
+export const passwordChangeRequestSchema = z.strictObject({
+  currentPassword: passwordSchema,
+  newPassword: passwordSchema,
+});
+export type PasswordChangeRequest = Readonly<z.infer<typeof passwordChangeRequestSchema>>;
+export const passwordChangeResponseSchema = sessionResponseSchema.extend({ cleanupWarning: z.boolean() });
+export type PasswordChangeResponse = Readonly<z.infer<typeof passwordChangeResponseSchema>>;

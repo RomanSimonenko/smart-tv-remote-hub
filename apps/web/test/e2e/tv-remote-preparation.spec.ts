@@ -11,6 +11,7 @@ async function syntheticRemote(page: Page, origin: string) {
   await page.route(`${origin}/**`, async (route) => {
     const pathname = new URL(route.request().url()).pathname;
     const data: Record<string, unknown> = {
+      '/api/profile': { username: 'synthetic', displayName: 'Synthetic QA', avatarId: null },
       '/api/tvs': { devices: [{ tvId: '00000000-0000-4000-8000-000000000001', platform: 'webos', status: { tv: { host: '192.168.1.20', identity: { model: 'Synthetic TV' } }, connection: 'available', operation: null } }] },
       '/api/setup/status': { state: 'claimed' },
       '/api/auth/session': { username: 'synthetic', csrfToken: 'c'.repeat(43) },
