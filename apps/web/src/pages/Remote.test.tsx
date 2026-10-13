@@ -83,6 +83,7 @@ function home(active = true, expired = vi.fn()) {
   return <Home username="alice" csrfToken={csrfToken} tvActive={active} busy={false} error={null} onLogout={vi.fn()} onSessionExpired={expired} />;
 }
 async function mount(command = (input: { id: string; button: string }) => Promise.resolve(response({ id: input.id, outcome: 'sent' })), state = () => Promise.resolve(response(ready)), expired = vi.fn()) {
+  history.replaceState(null,'');
   const fetch = vi.fn((path: string, init?: RequestInit) => {
     if (path === '/api/tvs') return Promise.resolve(response(deviceList(saved)));
     if (path === '/api/tvs/00000000-0000-4000-8000-000000000001') return Promise.resolve(response(saved));
@@ -522,7 +523,7 @@ test('App logout removes pending remote, then a late unauthorized command cannot
   fireEvent.change(screen.getByLabelText('Логин'), { target: { value: 'alice' } });
   fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'correct horse battery staple' } });
   fireEvent.submit(screen.getByRole('button', { name: 'Войти' }).closest('form')!); await act(async () => {});
-  fireEvent.click(screen.getByRole('button', { name: /^Открыть телевизор / })); await act(async () => {});
+  expect(screen.getByRole('group', { name: 'Пульт' })).toBeTruthy();
   await act(async () => { pending.resolve(response({ code: 'UNAUTHORIZED', message: 'Unauthorized', requestId: 'synthetic' }, 401)); });
   expect(screen.getByRole('group', { name: 'Пульт' })).toBeTruthy(); expect(screen.queryByRole('heading', { name: 'Вход' })).toBeNull();
   expect(screen.queryByText('Сессия истекла. Войдите снова.')).toBeNull();
@@ -567,3 +568,6 @@ test('opening profile stops a held command without sending commands to another s
   expect(view.commands()).toHaveLength(1);
   expect(view.fetch.mock.calls.some(([path]) => path.endsWith('/cancel'))).toBe(false);
 });
+
+// Each test starts a separate browser history entry; remounts within a test retain it.
+afterEach(()=>history.replaceState(null,''));

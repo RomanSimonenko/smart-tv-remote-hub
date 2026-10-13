@@ -36,3 +36,11 @@ test('unmounting an open dialog restores focus to its connected opener', () => {
   view.rerender(<><button>Open</button></>);
   expect(document.activeElement).toBe(opener);
 });
+
+test('file picker cancellation does not close its containing dialog',()=>{
+ const close=vi.fn();render(<SettingsDialog open onClose={close}><input type="file" aria-label="Import file"/></SettingsDialog>);
+ const event=new Event('cancel',{bubbles:true,cancelable:false});
+ fireEvent(screen.getByLabelText('Import file'),event);
+ expect(close).not.toHaveBeenCalled();
+ expect(screen.getByRole('dialog')).toBeTruthy();
+});

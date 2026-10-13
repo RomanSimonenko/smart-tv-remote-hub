@@ -41,3 +41,17 @@ test('upgrades v6 without changing owner or TV and rejects a malformed v7 table'
  await expect(openDatabase({dataDir})).rejects.toMatchObject({code:'STORAGE_SCHEMA_INVALID'});
  } finally {await rm(dataDir,{recursive:true,force:true});}
 });
+
+test('preserves repeated action/result pairs through update and database reopen',async()=>{
+ const dataDir=await mkdtemp(join(tmpdir(),'case-order-'));
+ let db=await openDatabase({dataDir});
+ try {
+ let repo=createTestCaseRepository(db.sqlite,{now:()=>100});
+ const steps=(['given','when','then','when','then'] as const).map((kind,index)=>({id:`00000000-0000-4000-8000-00000000000${index+2}`,kind,text:`Шаг ${index+1}`}));
+ repo.create({...input,steps});
+ const reordered=[steps[0]!,steps[3]!,steps[1]!,steps[2]!,steps[4]!];
+ repo.update(input.id,{title:input.title,description:'',group:'',steps:reordered,version:1});
+ db.close();db=await openDatabase({dataDir});repo=createTestCaseRepository(db.sqlite,{now:()=>200});
+ expect(repo.read(input.id)?.steps).toEqual(reordered);
+ }finally{db.close();await rm(dataDir,{recursive:true,force:true});}
+});

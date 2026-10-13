@@ -1,3 +1,5 @@
+import {readNavigation,writeNavigation,type Screen} from '../navigation-state.js';
+import type {TestCaseDraft} from '@remote-webos-tv/contracts';
 import { TestCases } from './TestCases.js';
 import { TestCaseEditor } from './TestCaseEditor.js';
 import { useTestCases } from '../useTestCases.js';
@@ -46,10 +48,32 @@ function HomeContent({ username, csrfToken, tvActive, busy, error, onLogout, onS
     window.addEventListener('beforeunload', prevent);
     return () => window.removeEventListener('beforeunload', prevent);
   }, [profileDirty, caseDirty]);
-  const [screen, setScreen] = useState<'dashboard' | 'add' | 'remote' | 'profile' | 'cases' | 'editor'>('dashboard');
+  const [initialNavigation]=useState(()=>readNavigation(username));
+  const [screen,setScreen]=useState<Screen>(initialNavigation.screen);
+  const [restoringCase,setRestoringCase]=useState(initialNavigation.screen==='editor');
+  const restored=useRef(false);
+  const [navigationError,setNavigationError]=useState('');
+  const [importDraft,setImportDraft]=useState<TestCaseDraft|null>(null);
   const cases = useTestCases(csrfToken, onSessionExpired, tvActive && (screen === 'cases' || screen === 'editor'));
-  const [tvId, setTvId] = useState<TvId | null>(null);
-  const [platform, setPlatform] = useState<TvPlatform>('webos');
+  const [tvId, setTvId] = useState<TvId | null>(initialNavigation.screen==='remote'?initialNavigation.tvId:null);
+  const [platform, setPlatform] = useState<TvPlatform>(initialNavigation.screen==='remote'?initialNavigation.platform:'webos');
+  useEffect(()=>{
+    if(!tvActive||restored.current)return;
+    restored.current=true;
+    if(initialNavigation.screen==='editor'){
+      if(initialNavigation.caseId)void cases.open(initialNavigation.caseId).then(opened=>{setRestoringCase(false);if(!opened)setScreen('cases');});
+      else {cases.create();setRestoringCase(false);}
+    }
+  },[tvActive]);
+  useEffect(()=>{
+    if(!tvActive||restoringCase)return;
+    try{
+      if(screen==='remote'){if(!tvId)return;writeNavigation(username,{screen,tvId,platform});}
+      else if(screen==='editor')writeNavigation(username,cases.current?{screen,caseId:cases.current.id}:{screen});
+      else writeNavigation(username,{screen});
+      setNavigationError('');
+    }catch{setNavigationError('Не удалось запомнить текущий экран. После обновления может открыться список телевизоров.');}
+  },[screen,tvId,platform,cases.current?.id,restoringCase,tvActive,username]);
   const devicesState = useTvDevices(onSessionExpired, tvActive && screen === 'dashboard');
   const statusState = useTvStatus(onSessionExpired, tvId ?? undefined, tvActive && screen === 'remote' && tvId !== null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -75,8 +99,9 @@ function HomeContent({ username, csrfToken, tvActive, busy, error, onLogout, onS
   return <div className="app-workspace" data-collapsed={preferences.collapsed}>
     <AppSidebar collapsed={preferences.collapsed} onToggleCollapsed={() => preferences.setCollapsed(!preferences.collapsed)} username={owner.profile?.displayName ?? username} avatarId={owner.profile?.avatarId ?? null} activeSection={screen === 'profile' ? 'profile' : screen === 'cases' || screen === 'editor' ? 'cases' : 'televisions'} onOpenTestCases={() => { if (screen !== 'cases') requestLeave(() => navigate('cases')); }} disabled={passwordOpen || !tvActive || busy || settingsOpen || confirmingPower || confirmingLogout || !!pendingLeave || owner.saving || cases.saving || cases.opening} onOpenTelevisions={() => { if (screen !== 'dashboard') requestLeave(() => navigate('dashboard')); }} onOpenProfile={() => { if (screen !== 'profile') requestLeave(() => navigate('profile')); }} />
     <section className="app-content" data-screen={screen}>
+    {navigationError&&<p role="status">{navigationError}</p>}
     {preferences.persistenceError && <p className="preferences-warning" role="status">{preferences.persistenceError}</p>}
-    <header className="app-header" hidden={screen === 'profile'}>
+    <header className="app-header" hidden={screen === 'profile' || screen === 'editor'}>
       <div className="header-identity"><div ref={setIdentityTarget} /></div>
       <div className="header-actions">
         {screen === 'remote' && <details ref={help} className="keyboard-help"><summary aria-label="Управление с клавиатуры" title="Управление с клавиатуры"><IconInfoCircle aria-hidden="true" /></summary><div id="remote-help" className="help-panel">
@@ -97,7 +122,7 @@ function HomeContent({ username, csrfToken, tvActive, busy, error, onLogout, onS
     </header>
     <LogoutConfirmation open={confirmingLogout && !busy} anchor={logoutButton} onClose={() => setConfirmingLogout(false)} onConfirm={() => { setConfirmingLogout(false); onLogout(); }} />
     <SettingsDialog title="Несохранённые изменения" closeLabel={caseDirty ? 'Закрыть диалог' : 'Остаться в профиле'} busy={cases.saving} open={!!pendingLeave} onClose={() => { if (!cases.saving) setPendingLeave(null); }}><p>{caseDirty ? 'Изменения тест-кейса не сохранены.' : 'Изменения профиля не сохранены. Покинуть страницу?'}</p>{(cases.error || caseValidation) && caseDirty && <p role="alert">{cases.error || caseValidation}</p>}<div className="profile-leave-actions"><button type="button" disabled={cases.saving} onClick={() => setPendingLeave(null)}>{caseDirty ? 'Продолжить редактирование' : 'Остаться'}</button>{caseDirty && <button type="submit" form="test-case-form" disabled={cases.saving}>Сохранить и продолжить</button>}<button type="button" disabled={cases.saving} onClick={() => { const leave = pendingLeave; setPendingLeave(null); setProfileDirty(false); setProfileVersion(value => value + 1); leave?.(); }}>Не сохранять и продолжить</button></div></SettingsDialog>
-    {(tvActive || screen === 'editor') && (screen === 'cases' ? <TestCases cases={cases.cases} loading={cases.loading || cases.opening} error={cases.error} onRetry={cases.refresh} onCreate={() => { cases.create(); navigate('editor'); }} onOpen={id => { void cases.open(id).then(opened => { if (opened) navigate('editor'); }); }} /> : screen === 'editor' ? <TestCaseEditor conflict={cases.conflict} onValidationError={setCaseValidation} key={cases.editorKey} initialCase={cases.current} saving={cases.saving} error={cases.error} onDirtyChange={setCaseDirty} onBack={() => requestLeave(() => navigate('cases'))} onSave={async draft => { const saved=await cases.save(draft); if(saved) { setCaseDirty(false); if(pendingLeave) { const leave=pendingLeave;setPendingLeave(null);leave(); } } return saved; }} onReloadConflict={() => { if(cases.current) requestLeave(() => { void cases.open(cases.current!.id); }); }} /> : screen === 'profile' ? <>{owner.loading && !owner.profile ? <p role="status">Загрузка профиля…</p> : owner.profile ? <Profile securityAction={<><div className="profile-security-row"><IconKey aria-hidden="true" /><div><h3>Пароль</h3><p>Измените пароль для защиты вашего аккаунта.</p></div><button type="button" disabled={owner.saving || !onPasswordChange} onClick={() => requestLeave(() => { setPasswordNotice(''); setPasswordOpen(true); })}>Изменить пароль<IconChevronRight aria-hidden="true" /></button></div>{passwordNotice && <p role="status">{passwordNotice}</p>}</>} sessionAction={<button ref={logoutButton} type="button" aria-haspopup="dialog" disabled={busy || !!pendingLeave || owner.saving || cases.saving || cases.opening} onClick={() => requestLeave(() => { setSettingsOpen(false); setConfirmingLogout(true); })}>{busy ? 'Выход…' : 'Выйти'}</button>} key={profileVersion} profile={owner.profile} saving={owner.saving} error={owner.error} onSave={owner.save} onDirtyChange={setProfileDirty} /> : <div><p role="alert">{owner.error}</p><button type="button" onClick={owner.refresh}>Повторить загрузку профиля</button></div>}</> : screen === 'dashboard' ? <>
+    {(tvActive || screen === 'editor') && (screen === 'cases' ? <TestCases cases={cases.cases} loading={cases.loading || cases.opening} error={cases.error} onRetry={cases.refresh} onImport={draft=>{setImportDraft(draft);cases.create();navigate('editor');}} onCreate={() => { setImportDraft(null); cases.create(); navigate('editor'); }} onOpen={id => { setImportDraft(null); void cases.open(id).then(opened => { if (opened) navigate('editor'); }); }} /> : screen === 'editor' ? restoringCase?<p role="status">Загрузка тест-кейса…</p>:<TestCaseEditor initialDraft={importDraft} conflict={cases.conflict} onValidationError={setCaseValidation} key={cases.editorKey} initialCase={cases.current} saving={cases.saving} error={cases.error} onDirtyChange={setCaseDirty} onBack={() => requestLeave(() => navigate('cases'))} onSave={async draft => { const saved=await cases.save(draft); if(saved) { setCaseDirty(false); if(pendingLeave) { const leave=pendingLeave;setPendingLeave(null);leave(); } } return saved; }} onReloadConflict={() => { if(cases.current) requestLeave(() => { void cases.open(cases.current!.id); }); }} /> : screen === 'profile' ? <>{owner.loading && !owner.profile ? <p role="status">Загрузка профиля…</p> : owner.profile ? <Profile securityAction={<><div className="profile-security-row"><IconKey aria-hidden="true" /><div><h3>Пароль</h3><p>Измените пароль для защиты вашего аккаунта.</p></div><button type="button" disabled={owner.saving || !onPasswordChange} onClick={() => requestLeave(() => { setPasswordNotice(''); setPasswordOpen(true); })}>Изменить пароль<IconChevronRight aria-hidden="true" /></button></div>{passwordNotice && <p role="status">{passwordNotice}</p>}</>} sessionAction={<button ref={logoutButton} type="button" aria-haspopup="dialog" disabled={busy || !!pendingLeave || owner.saving || cases.saving || cases.opening} onClick={() => requestLeave(() => { setSettingsOpen(false); setConfirmingLogout(true); })}>{busy ? 'Выход…' : 'Выйти'}</button>} key={profileVersion} profile={owner.profile} saving={owner.saving} error={owner.error} onSave={owner.save} onDirtyChange={setProfileDirty} /> : <div><p role="alert">{owner.error}</p><button type="button" onClick={owner.refresh}>Повторить загрузку профиля</button></div>}</> : screen === 'dashboard' ? <>
       <Dashboard devices={devicesState.devices} loading={devicesState.loading} error={devicesState.error} onRetry={devicesState.refresh} onOpenTv={(id) => { setTvId(id); setPlatform(devicesState.devices!.find(device => device.tvId === id)!.platform); navigate('remote'); }} onAddTv={() => navigate('add')} onDeleteTv={async (id, signal) => {
         try { await api.deleteTv(id, csrfToken, signal); devicesState.remove(id); }
         catch (cause) { devicesState.refresh(); if (cause instanceof ApiFailure && cause.status === 401) onSessionExpired(); throw cause; }

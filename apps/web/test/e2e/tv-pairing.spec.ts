@@ -95,7 +95,7 @@ test('reload preserves the server pair deadline and timeout cannot save a late a
   tv.clock.advance(40_000);
   await page.clock.setFixedTime(running.startedAt + 40_000);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Пока нет телевизоров' })).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Добавить телевизор',exact:true})).toBeVisible();
   await expect(page.getByText('Подтвердите доступ на экране телевизора.')).toHaveCount(0);
   expect((await tv.status(page)).operation).toEqual(running);
   expect(tv.promptCount).toBe(1);

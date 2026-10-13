@@ -122,7 +122,7 @@ export function createSamsungAdapter(dependencies: SamsungAdapterDependencies): 
       if (request.host !== dependencies.host) throw new WebOsError('NETWORK_UNREACHABLE', 'Samsung host rejected by local address policy');
       if (desired !== 'on' && desired !== 'standby') throw new WebOsError('INVALID_TV_RESPONSE', 'Invalid desired Samsung power state');
       const before = await readPowerState(request.signal);
-      if (before === 'unknown') throw new WebOsError('INVALID_TV_RESPONSE', 'Samsung power state is unknown');
+      if (before === 'unknown' && desired === 'standby') throw new WebOsError('INVALID_TV_RESPONSE', 'Samsung power state is unknown');
       if (before === desired) return { delivery: 'not_sent' };
       if (failedCleanup) throw failedCleanup.error;
       if (!current?.ready || current.disposed || current.socket?.readyState !== 1) {
@@ -131,9 +131,11 @@ export function createSamsungAdapter(dependencies: SamsungAdapterDependencies): 
         await request.onPaired?.(pairing);
       }
       const after = await readPowerState(request.signal);
-      if (after === 'unknown') throw new WebOsError('INVALID_TV_RESPONSE', 'Samsung power state is unknown');
+      if (after === 'unknown' && desired === 'standby') throw new WebOsError('INVALID_TV_RESPONSE', 'Samsung power state is unknown');
       if (after === desired) return { delivery: 'not_sent', ...(pairing ? { pairing } : {}) };
-      await sendKey('KEY_POWER', request.signal, 'power');
+      // Unknown power must never use the toggle: it could turn an already-on TV off.
+      const key = desired === 'on' && (before === 'unknown' || after === 'unknown') ? 'KEY_POWERON' : 'KEY_POWER';
+      await sendKey(key, request.signal, 'power');
       return { delivery: 'sent', ...(pairing ? { pairing } : {}) };
     } catch (cause) {
       if (cause instanceof TvPowerSendError) throw cause;

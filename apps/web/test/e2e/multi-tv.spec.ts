@@ -184,7 +184,7 @@ test('only final session logout closes both TVs and next login reconnects saved 
     await logout(other);
     await tv.tv.waitForActiveSocketCount(0);
     expect(tv.samsungSockets[0]!.readyState).toBe(3); expect(tv.samsungSockets[0]!.listenerCount).toBe(0);
-    await tv.login(page); await expect(page.locator('.device-card')).toHaveCount(2);
+    await tv.login(page); await page.locator('.app-sidebar').getByRole('button',{name:'Телевизоры',exact:true}).click(); await expect(page.locator('.device-card')).toHaveCount(2);
     expect(tv.samsungSockets).toHaveLength(1); expect(tv.tv.activeSocketCount).toBe(0);
     await page.getByRole('button', { name: /^Открыть телевизор / }).nth(1).click();
     await expect(page.getByRole('button', { name: 'OK', exact: true })).toBeDisabled();

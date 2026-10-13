@@ -27,7 +27,7 @@ export function SettingsDialog({ open, onClose, children, title = 'Настро�
       if (opener.current?.isConnected) opener.current.focus();
     };
   }, []);
-  return <dialog ref={dialog} tabIndex={0} aria-label={title} className="settings-dialog" onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => {
+  return <dialog ref={dialog} tabIndex={0} aria-label={title} className="settings-dialog" onCancel={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); onClose(); }} onClick={(event) => {
     if (event.target !== event.currentTarget) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
