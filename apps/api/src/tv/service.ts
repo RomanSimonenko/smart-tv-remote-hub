@@ -229,7 +229,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
       const state = await abortable(adapter.readPowerState(signal), signal);
       checkConnection();
       observedPower = state;
-      if (state === 'unknown') error = projectTvError(unknownPowerObservation());
+      if (state === 'unknown') error = projectTvError(new TvServiceError('POWER_STATE_UNKNOWN', 503));
     }
     remoteCapability = { generation, buttons: supportsTvButtons(snapshot.capabilities), apps: snapshot.capabilities.apps === true, powerOff: snapshot.capabilities.powerOff === true };
     startVersionRead(adapter);
@@ -478,12 +478,12 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     const adapter = activeAdapter ?? dependencies.createAdapter(saved!.host, createStagingKeyStore(), statusBudgetMs, false, platform);
     const temporary = adapter !== activeAdapter;
     let reading: Promise<TvObservedPower> | undefined;
-    const timer = scheduler.setTimeout(() => controller.abort(new WebOsError('INVALID_TV_RESPONSE', 'Power observation budget expired')), statusBudgetMs);
+    const timer = scheduler.setTimeout(() => controller.abort(new WebOsError('NETWORK_UNREACHABLE', 'Power observation budget expired')), statusBudgetMs);
     try {
       if (!adapter.readPowerState) throw new WebOsError('UNSUPPORTED_CAPABILITY', 'Power observation unavailable');
       reading = adapter.readPowerState(controller.signal);
       const state = await abortable(reading, controller.signal);
-      if (state === 'unknown') throw unknownPowerObservation();
+      if (state === 'unknown') throw new TvServiceError('POWER_STATE_UNKNOWN', 503);
       const physicallyWoke = (observedPower === 'standby' || standbyBeforeUnknown) && state === 'on';
       if (!closed && generation === version && !controller.signal.aborted) { observedPower = state; standbyBeforeUnknown = false; if (!recoverAfterProbe) error = undefined; }
       if (!temporary && !controller.signal.aborted) await readStatus(adapter, controller, version);
@@ -524,7 +524,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
       wakeSupported: supportsWake(),
       ...(platform === 'tizen' ? { observedPower } : {}),
       canPowerOff: platform === 'tizen' ? idle && !!saved && observedPower === 'on' : idle && connection === 'available' && !!activeAdapter?.powerOff && remoteCapability?.generation === generation && remoteCapability.powerOff === true,
-      canWake: platform === 'tizen' ? idle && !!saved && observedPower === 'standby' : supportsWake() && !!saved?.macAddress && (idle && connection === 'unavailable' || canReplaceReconnect()),
+      canWake: platform === 'tizen' ? idle && !!saved && observedPower !== 'on' : supportsWake() && !!saved?.macAddress && (idle && connection === 'unavailable' || canReplaceReconnect()),
       operation: power ? { ...power.operation, ...(power.operation.error ? { error: { ...power.operation.error } } : {}) } : null,
     };
   }
@@ -549,7 +549,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     if (!(parsed.data.action === 'wake' && canReplaceReconnect())) assertIdle();
     if (platform === 'tizen') {
       if (!saved) throw new TvServiceError('INVALID_ACTION', 409);
-      if (observedPower === 'unknown') throw unknownPowerObservation();
+      if (observedPower === 'unknown' && parsed.data.action === 'power_off') throw unknownPowerObservation();
       return parsed.data;
     }
     if (parsed.data.action === 'wake') {
@@ -680,7 +680,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
           const state = await abortable(pending as Promise<TvObservedPower>, signal);
           check(context); observedPower = state;
           if (state === desired) break;
-          if (state === 'unknown') throw unknownPowerObservation();
+          if (state === 'unknown' && desired === 'standby') throw unknownPowerObservation();
         } catch (cause) {
           check(context); observedPower = 'unknown'; context.lastFailure = cause;
           if (!isTransientTvFailure(cause)) throw cause;

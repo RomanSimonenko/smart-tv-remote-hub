@@ -390,9 +390,9 @@ test('power HTTP observation works without WSS and releases abort listeners', as
   expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0);
 });
 
-test.each(['on', 'unknown'] as const)('post-handshake %s prevents toggle', async (postState) => {
-  const h = powerHarness(['standby', 'standby', postState]);
-  const pending = h.adapter.setPowerState!('on', h.request);
+test.each(['on', 'unknown'] as const)('post-handshake %s prevents unsafe toggle', async (postState) => {
+  const h = powerHarness(postState === 'on' ? ['standby', 'standby', 'on'] : ['on', 'on', 'unknown']);
+  const pending = h.adapter.setPowerState!(postState === 'on' ? 'on' : 'standby', h.request);
   const caught = pending.catch((cause: unknown) => cause);
   const socket = await h.socketCreated.promise; socket.open(); socket.message(connectSample());
   if (postState === 'on') expect(await caught).toMatchObject({ delivery: 'not_sent', pairing: { credential: 'synthetic-token' } });
@@ -415,9 +415,9 @@ test('power cannot initiate tokenless pairing even when prompt policy allows pai
   expect(h.urls).toEqual([]);
 });
 
-test('unknown initial power never opens socket', async () => {
+test('unknown initial power never admits shutdown', async () => {
   const h = powerHarness(['unknown']);
-  await expect(h.adapter.setPowerState!('on', h.request)).rejects.toMatchObject({ delivery: 'not_sent', code: 'INVALID_TV_RESPONSE' });
+  await expect(h.adapter.setPowerState!('standby', h.request)).rejects.toMatchObject({ delivery: 'not_sent', code: 'INVALID_TV_RESPONSE' });
   expect(h.urls).toEqual([]);
 });
 
@@ -556,4 +556,23 @@ test('owned ready power socket does not invoke fresh-connection persistence call
   const h = powerHarness(['on', 'standby', 'standby']); const socket = await h.connect(); let calls = 0;
   await expect(h.adapter.setPowerState!('on', { ...h.request, onPaired: async () => { calls++; } })).resolves.toEqual({ delivery: 'sent' });
   expect(calls).toBe(0); expect(socket.frames).toHaveLength(1);
+});
+
+ test.each([['on', '', ''], ['on', 'standby', '']] as const)('wake with unknown power uses discrete on, never toggle: %s', async (before, identity, after) => {
+  const h = powerHarness([before, identity, after]);
+  const socket = await h.connect();
+  await expect(h.adapter.setPowerState!('on', h.request)).resolves.toMatchObject({ delivery: 'sent' });
+  expect(socket.frames).toEqual(['{"method":"ms.remote.control","params":{"Cmd":"Click","DataOfCmd":"KEY_POWERON","Option":"false","TypeOfRemote":"SendRemoteKey"}}']);
+  await h.adapter.disconnect();
+});
+
+test('unknown power wake authorizes with saved credential before discrete on', async () => {
+ const h=powerHarness(['','','']);
+ const pending=h.adapter.setPowerState!('on',h.request);
+ const socket=await h.socketCreated.promise;socket.open();socket.message(connectSample());
+ await expect(pending).resolves.toMatchObject({delivery:'sent',pairing:{credential:'synthetic-token'}});
+ expect(JSON.parse(socket.frames[0]!).params.DataOfCmd).toBe('KEY_POWERON');
+ expect(socket.frames).toHaveLength(1);
+ expect(new URL(h.urls[0]!).searchParams.get('token')).toBe('saved-synthetic-token');
+ await h.adapter.disconnect();
 });

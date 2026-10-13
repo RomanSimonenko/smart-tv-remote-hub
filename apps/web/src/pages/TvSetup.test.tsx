@@ -713,3 +713,6 @@ test('manual reconnect keeps its legacy cancel path alongside a previous complet
   fireEvent.click(screen.getByRole('button', { name: 'Отменить' })); await act(async () => {});
   expect(fetch.mock.calls.map(([path]) => path).filter((path) => String(path).endsWith('/cancel'))).toEqual(['/api/tv/operations/synthetic-operation/cancel']);
 });
+
+// Each test starts a separate browser history entry; remounts within a test retain it.
+afterEach(()=>history.replaceState(null,''));

@@ -183,7 +183,7 @@ export function PowerControls({
     ? null
     : state?.canPowerOff && (!samsung || state.observedPower === "on")
       ? "power_off"
-      : state?.canWake && (samsung ? state.observedPower === "standby" : state.mac)
+      : state?.canWake && (samsung ? state.observedPower !== "on" : state.mac)
         ? "wake"
         : null;
   const disabled = busy || loading || !!error || !state || running;

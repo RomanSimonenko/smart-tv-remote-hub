@@ -20,11 +20,11 @@ export function AppSidebar({ collapsed, onToggleCollapsed, username, activeSecti
   return <aside className="app-sidebar" data-collapsed={collapsed} aria-label="Боковое меню">
     <div className="sidebar-heading">
       <div className="sidebar-brand"><Brand /></div>
-      <button type="button" className="sidebar-toggle" aria-label={toggleLabel} title={toggleLabel} aria-expanded={!collapsed} aria-controls="app-navigation" disabled={disabled} onClick={onToggleCollapsed}>{collapsed ? <IconChevronsRight aria-hidden="true" /> : <IconChevronsLeft aria-hidden="true" />}</button>
     </div>
     <nav id="app-navigation" aria-label="Основная навигация">
       {sections.map(({ id, label, Icon }) => <button key={id} type="button" aria-label={id === 'televisions' || (id === 'cases' && onOpenTestCases) ? label : `${label} — появится позже`} aria-current={id === activeSection ? 'page' : undefined} title={id === 'televisions' || (id === 'cases' && onOpenTestCases) ? label : `${label} — появится позже`} disabled={disabled || (id !== 'televisions' && !(id === 'cases' && onOpenTestCases))} onClick={id === 'televisions' ? onOpenTelevisions : id === 'cases' ? onOpenTestCases : undefined}><Icon aria-hidden="true" /><span>{label}</span></button>)}
     </nav>
+      <button type="button" className="sidebar-toggle" aria-label={toggleLabel} title={toggleLabel} aria-expanded={!collapsed} aria-controls="app-navigation" disabled={disabled} onClick={onToggleCollapsed}>{collapsed ? <IconChevronsRight aria-hidden="true" /> : <IconChevronsLeft aria-hidden="true" />}</button>
     <button type="button" className="sidebar-profile" title={username} aria-label={`Мой профиль: ${username}`} aria-current={activeSection === 'profile' ? 'page' : undefined} disabled={disabled || !onOpenProfile} onClick={onOpenProfile}><ProfileAvatar avatarId={avatarId} displayName={username} /><span>{username}</span></button>
   </aside>;
 }

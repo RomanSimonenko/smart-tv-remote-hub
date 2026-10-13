@@ -11,3 +11,11 @@ test('filters by description and group and opens a case',()=>{
  fireEvent.click(screen.getByRole('button',{name:'Каналы'})); expect(open).toHaveBeenCalledWith(item.id);
  expect(screen.getByText('v2')).toBeTruthy();
 });
+
+test('opens a case by clicking any cell and by keyboard on the whole row',()=>{
+ const open=vi.fn();render(<TestCases cases={[item]} loading={false} error="" onCreate={vi.fn()} onOpen={open} onRetry={vi.fn()}/>);
+ const row=screen.getByText('v2').closest('tr')!;expect(row.tabIndex).toBe(0);
+ fireEvent.click(screen.getByText('v2'));fireEvent.keyDown(row,{key:'Enter'});fireEvent.keyDown(row,{key:' '});
+ expect(open).toHaveBeenCalledTimes(3);
+ expect(screen.getAllByRole('button',{name:'Каналы'})[0]!.tabIndex).toBe(-1);
+});

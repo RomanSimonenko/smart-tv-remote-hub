@@ -407,3 +407,10 @@ test('MAC and power responses never enter browser storage or logs', async () => 
   expect(screen.getByRole('alert').textContent).toContain('Результат операции неизвестен'); expect(screen.queryByText('synthetic-secret')).toBeNull();
   expect(store).not.toHaveBeenCalled(); expect(log).not.toHaveBeenCalled(); expect(warn).not.toHaveBeenCalled(); expect(error).not.toHaveBeenCalled();
 });
+
+test('Samsung unknown power permits explicit wake when the server admits it', async () => {
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue(response({...wake,mac:null,observedPower:'unknown'})));
+ render(<PowerControls platform="tizen" csrfToken={csrfToken} active onSessionExpired={vi.fn()} />);
+ await act(async()=>{});
+ expect(screen.getByRole<HTMLButtonElement>('button',{name:'Включить ТВ'}).disabled).toBe(false);
+});

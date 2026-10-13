@@ -319,3 +319,6 @@ test('an unconfirmed proxy error reconciles CSRF and clears passwords without cl
   expect((screen.getByLabelText('Текущий пароль') as HTMLInputElement).value).toBe('');
   expect(api.session).toHaveBeenCalledTimes(2); expect(change).toHaveBeenCalledTimes(1);
 });
+
+// Each test starts a separate browser history entry; remounts within a test retain it.
+afterEach(()=>history.replaceState(null,''));

@@ -292,8 +292,8 @@ describe('owned TV power operations', () => {
     } });
     h.observe('unknown');
     h.service.start({ action: 'reconnect' }); await drain();
-    expect(completed).toMatchObject({ connection: 'available', error: { code: 'INVALID_TV_RESPONSE' } });
-    expect(h.service.powerState()).toMatchObject({ observedPower: 'unknown', canWake: false, canPowerOff: false });
+    expect(completed).toMatchObject({ connection: 'available', error: { code: 'POWER_STATE_UNKNOWN' } });
+    expect(h.service.powerState()).toMatchObject({ observedPower: 'unknown', canWake: true, canPowerOff: false });
     expect(h.powerAdapters.at(-1)!.closed).toBe(false);
     await h.service.close(); await h.base.service.close();
   });
@@ -475,25 +475,25 @@ describe('owned TV power operations', () => {
       return Object.assign(adapter, { readPowerState: async () => observed });
     } });
     const status = await h.service.status();
-    expect(h.service.powerState()).toMatchObject({ observedPower: observed, wakeSupported: true, canPowerOff: observed === 'on', canWake: observed === 'standby' });
+    expect(h.service.powerState()).toMatchObject({ observedPower: observed, wakeSupported: true, canPowerOff: observed === 'on', canWake: observed !== 'on' });
     expect(pairs).toBe(0);
     if (observed === 'unknown') {
-      expect(() => h.service.startPower(wake, 'owner')).toThrowError(expect.objectContaining({ code: 'INVALID_TV_RESPONSE' }));
-      expect(status.error?.code).toBe('INVALID_TV_RESPONSE');
+      expect(h.service.assertCanStartPower(wake)).toEqual(wake);
+      expect(status.error?.code).toBe('POWER_STATE_UNKNOWN');
       expect(() => h.service.startPower(off, 'owner')).toThrowError(expect.objectContaining({ code: 'INVALID_TV_RESPONSE' }));
     }
     await h.service.close(); await base.service.close();
   });
-  test('offline Samsung cannot advertise or admit wake solely from a saved MAC', async () => {
+  test('offline Samsung permits explicit wake but never automatically sends it', async () => {
     const base = harness(true); base.repository.replace({ ...base.repository.load()!, platform: 'tizen', macAddress: '02:00:00:00:00:02' });
     const h = harness(true, { repository: base.repository });
     try {
-      expect(h.service.powerState().canWake).toBe(false);
+      expect(h.service.powerState().canWake).toBe(true);
       expect(h.service.powerState()).toMatchObject({ wakeSupported: true, observedPower: 'unknown' });
-      expect(() => h.service.startPower(wake, 'owner')).toThrowError(expect.objectContaining({ code: 'INVALID_TV_RESPONSE' }));
+      expect(h.service.assertCanStartPower(wake)).toEqual(wake);
       expect(h.adapters).toEqual([]);
       await h.service.initialize(); await drain();
-      expect(h.service.powerState().canWake).toBe(false);
+      expect(h.service.powerState().canWake).toBe(true);
       expect(h.adapters.flatMap(adapter => adapter.wakes)).toEqual([]);
     } finally { await h.service.close(); await base.service.close(); }
   });
@@ -808,4 +808,65 @@ describe('owned TV power operations', () => {
     expect(h.adapters).toHaveLength(0); expect(h.service.powerState()).toMatchObject({ canWake: true, operation: { status: 'cancelled', delivery: 'not_sent' } });
     await h.service.close();
   });
+});
+
+
+test('Samsung status deadline reports network unavailability and never infers standby or sends power', async () => {
+ const h=await samsung('standby');const reading=barrier<'on'|'standby'|'unknown'>();
+ try {
+  h.read(()=>reading.promise);
+  const status=h.service.status();await drain();
+  h.scheduler.advance(5_000);await drain();
+  reading.resolve('on');
+  expect(await status).toMatchObject({error:{code:'NETWORK_UNREACHABLE',message:'Телевизор недоступен по сети.'}});
+  expect(h.service.powerState()).toMatchObject({observedPower:'unknown',canWake:true,canPowerOff:false});
+  expect(h.requests).toHaveLength(0);expect(h.powerAdapters.every(adapter=>adapter.pairs===0)).toBe(true);
+ } finally {reading.resolve('unknown');await h.service.close();await h.base.service.close();}
+});
+
+test('Samsung malformed power response keeps its protocol diagnostic', async () => {
+ const h=await samsung('standby');
+ try {
+  h.read(async()=>{throw new WebOsError('INVALID_TV_RESPONSE','synthetic malformed response');});
+  expect(await h.service.status()).toMatchObject({error:{code:'INVALID_TV_RESPONSE'}});
+  expect(h.service.powerState()).toMatchObject({observedPower:'unknown',canWake:true});
+  expect(h.requests).toHaveLength(0);
+ } finally {await h.service.close();await h.base.service.close();}
+});
+
+
+test('Samsung unknown power observation has an explicit diagnostic without automatic power commands', async () => {
+ const h=await samsung('standby');
+ try {
+  h.read(async()=>'unknown');
+  expect(await h.service.status()).toMatchObject({error:{code:'POWER_STATE_UNKNOWN',message:'Телевизор не сообщил статус питания.'}});
+  expect(h.service.powerState()).toMatchObject({observedPower:'unknown',canWake:true,canPowerOff:false});
+  expect(h.requests).toHaveLength(0);
+ } finally {await h.service.close();await h.base.service.close();}
+});
+
+test('Samsung unknown power permits explicit wake but still forbids shutdown', async () => {
+ const h=await samsung();
+ try {
+  h.observe('unknown'); await h.service.status();
+  expect(h.service.powerState()).toMatchObject({observedPower:'unknown',canWake:true,canPowerOff:false});
+  expect(()=>h.service.startPower(off,'owner')).toThrow();
+  h.service.startPower(wake,'owner'); await drain();
+  expect(h.requests).toHaveLength(1);
+  expect(h.service.powerState().operation).toMatchObject({action:'wake',status:'succeeded'});
+ } finally {await h.service.close();await h.base.service.close();}
+});
+
+test('Samsung wake observes unknown until deadline without repeating the command', async()=>{
+ const h=await samsung();
+ try {
+  h.observe('unknown');await h.service.status();
+  h.set(async()=>({delivery:'sent'}));
+  h.service.startPower(wake,'owner');await drain();
+  expect(h.requests).toHaveLength(1);
+  expect(h.service.powerState().operation).toMatchObject({status:'running',delivery:'sent'});
+  h.scheduler.advance(1000);await drain();
+  expect(h.requests).toHaveLength(1);
+  expect(h.service.powerState().operation).toMatchObject({status:'failed',error:{code:'RECOVERY_TIMEOUT'}});
+ } finally {await h.service.close();await h.base.service.close();}
 });

@@ -38,3 +38,11 @@ test('ignores a stale read and reports session expiry',async()=>{
  vi.stubGlobal('fetch',async()=>new Response(JSON.stringify({code:'UNAUTHORIZED',message:'Unauthorized',requestId:'synthetic'}),{status:401}));
  await act(async()=>{await result.current.save({title:'QA',description:'',group:'',steps:[]});});expect(expired).toHaveBeenCalledTimes(1);
 });
+
+test('opening a restored case clears an interrupted list loading state on failure',async()=>{
+ vi.stubGlobal('fetch',async(url:string)=>url.endsWith('/test-cases')?new Promise<Response>(()=>{}):Promise.reject(new Error('network')));
+ const {result}=renderHook(()=>useTestCases('csrf',()=>{}));
+ expect(result.current.loading).toBe(true);
+ await act(async()=>{expect(await result.current.open('00000000-0000-4000-8000-000000000001')).toBe(false);});
+ expect(result.current.loading).toBe(false);expect(result.current.opening).toBe(false);expect(result.current.error).not.toBe('');
+});

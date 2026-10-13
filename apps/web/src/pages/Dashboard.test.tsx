@@ -134,11 +134,10 @@ test('selected Tizen uses Samsung identity and OS label in shared settings', asy
   expect(within(dialog).getByText('Tizen')).toBeTruthy();
   expect(dialog.textContent).not.toContain('2.0.25');
 });
-test('reload returns to dashboard', async () => {
+test('reload restores the same remote without sending commands', async () => {
   await mount(); fireEvent.click(screen.getByRole('button', { name: /^Открыть телевизор / })); await act(async () => {});
   cleanup(); render(home()); await act(async () => {});
-  expect(screen.getByRole('heading', { name: 'Телевизоры' })).toBeTruthy();
-  expect(screen.queryByRole('group', { name: 'Пульт' })).toBeNull();
+  expect(screen.getByRole('group', { name: 'Пульт' })).toBeTruthy();
 });
 test('rejected session expires once and stops polling', async () => {
   vi.useFakeTimers(); const expired = vi.fn();
@@ -167,3 +166,6 @@ test('header settings accessible name matches its visible account or TV action',
   fireEvent.click(screen.getByRole('button', { name: /^Открыть телевизор / })); await act(async () => {});
   expect(screen.getByRole('button', { name: 'Настройки ТВ' })).toBeTruthy();
 });
+
+// Each test starts a separate browser history entry; remounts within a test retain it.
+afterEach(()=>history.replaceState(null,''));
