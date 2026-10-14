@@ -380,7 +380,7 @@ button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color
 .case-groups, .cases-list, .case-metadata, .case-steps, .case-step-parameters { background: var(--ui-panel); border: 1px solid var(--ui-border); border-radius: 12px; padding: 20px; }
 .case-groups { display: grid; gap: 8px; padding: 8px; }
 .case-groups button { display: flex; align-items: center; gap: 8px; text-align: left; border: 0; background: transparent; }
-.case-groups button span { margin-left: auto; min-width: 28px; padding: 2px 8px; border-radius: 16px; background: var(--ui-field); color: var(--ui-text); text-align: center; font-size: 12px; line-height: 20px; }
+.case-groups .case-group-count { margin-left: auto; min-width: 28px; padding: 2px 8px; border-radius: 16px; background: var(--ui-field); color: var(--ui-text); text-align: center; font-size: 12px; line-height: 20px; }
 .case-groups button[aria-current] { background: var(--ui-field); box-shadow: inset 3px 0 var(--ui-accent); }
 .case-groups button[aria-current] > svg { color: var(--ui-accent); }
 .case-search { position: relative; display: block; margin-bottom: 24px; }
@@ -388,7 +388,7 @@ button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color
 .case-search > svg { position: absolute; left: 12px; top: 10px; width: 20px; height: 20px; color: var(--ui-muted); pointer-events: none; }
 .test-cases .case-search input { padding-left: 40px; }
 .cases-table-scroll { overflow-x: auto; }
-.cases-list table { width: 100%; border-collapse: collapse; text-align: left; }
+.cases-list table { font-size: 14px; line-height: 20px; width: 100%; border-collapse: collapse; text-align: left; }
 .cases-list th { background: var(--ui-field); color: var(--ui-muted); font-weight: 500; }
 .cases-list th, .cases-list td { padding: 16px 12px; border-bottom: 1px solid var(--ui-border); }
 .case-open { padding: 0; border: 0; background: transparent; text-align: left; overflow-wrap: anywhere; }
@@ -510,7 +510,7 @@ button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color
 .case-sequence .case-step-select > svg { width: 40px; height: 40px; padding: 9px; border: 1px solid var(--ui-border); background: var(--ui-panel); }
 .case-step-number { color: var(--ui-text); font-variant-numeric: tabular-nums; }
 .case-step-kind { font-weight: 600; }
-.case-step-text { max-width: 256px; font-size: 14px; line-height: 20px; }
+.case-step-text { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 14px; line-height: 20px; }
 .case-sequence .case-step-select:hover:not(:disabled) { background: transparent; }
 .case-sequence .case-step-actions > button, .case-sequence .case-step-actions > .case-insert-anchor > button { width: 32px; min-height: 32px; padding: 6px; background: transparent; border-color: transparent; }
 .case-sequence .case-step-actions > button:hover:not(:disabled), .case-sequence .case-step-actions > .case-insert-anchor > button:hover:not(:disabled) { background: var(--ui-panel); border-color: var(--ui-border); }
@@ -526,9 +526,9 @@ button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color
 .case-step-parameters .case-step-save { width: 100%; justify-content: center; margin-top: 24px; background: transparent; border-color: var(--ui-accent); color: var(--ui-accent); }
 .case-step-parameters .case-step-hint { margin: 16px 0 0; line-height: 24px; }
 .case-insert-anchor { position: relative; }
-.case-insert-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 5; width: 184px; background: var(--ui-panel); border: 1px solid var(--ui-border); border-radius: 8px; padding: 8px; }
+.case-insert-menu { position: fixed; margin: 0; overflow-y: auto; box-sizing: border-box; z-index: 10; width: 184px; background: var(--ui-panel); border: 1px solid var(--ui-border); border-radius: 8px; padding: 8px; }
 .case-insert-menu p { margin: 4px 8px 8px; color: var(--ui-text); font-size: 14px; }
-.case-editor .case-insert-menu button { min-height: 40px; display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin: 4px 0; padding: 8px; font-weight: 400; }
+.case-insert-menu button { font-size: 14px; line-height: 20px; min-height: 40px; display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin: 4px 0; padding: 8px; font-weight: 400; }
 @media (max-width: 1100px) { .case-editor-layout { grid-template-columns: minmax(0, 1fr); min-height: 0; } .case-steps { min-height: 400px; } }
 @media (max-width: 640px) { .case-metadata { grid-template-columns: minmax(0, 1fr); } .case-sequence-heading { flex-wrap: wrap; } .case-sequence .case-step-select { flex-basis: 100%; grid-template-columns: 20px 32px 48px minmax(0, 1fr); gap: 8px; } .case-sequence .case-step-select > svg { width: 32px; height: 32px; padding: 5px; } .case-step-actions { margin-left: auto; } }
 
@@ -541,7 +541,7 @@ button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color
 .bdd-import-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 .bdd-import-actions button { display: inline-flex; align-items: center; gap: 8px; }
 .bdd-import-actions svg, .bdd-preview svg { width: 20px; height: 20px; flex-shrink: 0; }
-.bdd-preview { padding: 0; list-style: none; display: grid; gap: 8px; max-height: 240px; overflow-y: auto; }
+.bdd-preview { padding: 0; list-style: none; display: grid; gap: 8px;  }
 .bdd-preview li { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border-bottom: 1px solid var(--ui-border); }
 .bdd-preview span { overflow-wrap: anywhere; white-space: pre-wrap; }
 .bdd-import .error { color: var(--ui-error); }
@@ -558,7 +558,7 @@ button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color
 .case-editor .case-breadcrumb > button:focus:not(:focus-visible) { outline: none; }
 /* Keep long sequences inside their workspace; parameters size to their contents. */
 .case-step-parameters { align-self: start; }
-@media (min-width: 1101px) {
+@media (min-width: 901px) {
  .app-content[data-screen=editor] { height: 100dvh; min-height: 0; }
  .case-editor, .case-editor > form { height: 100%; min-height: 0; }
  .case-editor > form { display: flex; flex-direction: column; }
@@ -579,3 +579,50 @@ button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color
 ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: var(--ui-panel); }
 ::-webkit-scrollbar-thumb { background: var(--ui-border); border: 2px solid var(--ui-panel); border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--ui-muted); }
+
+/* Long group labels retain their full accessible text without expanding navigation. */
+.case-group-name { flex: 1; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.case-groups button > svg, .case-group-count { flex-shrink: 0; }
+/* Import actions remain outside the dialog's scrolling content. */
+.settings-footer { flex-shrink: 0; padding: 16px 24px 0; margin-top: 16px; border-top: 1px solid var(--ui-border); }
+.bdd-close-confirmation { padding: 20px 0; }
+/* Keep the desktop editor usable when the window is reduced or zoomed. */
+@media (min-width: 901px) and (max-width: 1100px) {
+ .case-editor-layout { grid-template-columns: minmax(0, 1fr) 280px; }
+ .case-sequence .case-step-row { flex-wrap: wrap; }
+ .case-sequence .case-step-select { flex-basis: 100%; grid-template-columns: 20px 32px 48px minmax(0,1fr); gap: 8px; }
+ .case-sequence .case-step-select > svg { width: 32px; height: 32px; padding: 5px; }
+ .case-step-actions { margin-left: auto; }
+}
+@media (max-width: 900px) {
+ .case-steps { display: flex; flex-direction: column; min-height: 0; flex: none; }
+ .case-sequence { max-height: 40dvh; min-height: 0; overflow-y: auto; grid-auto-rows: max-content; align-content: start; padding: 2px; }
+}
+
+.bdd-import[hidden] { display: none; }
+
+.case-insert-menu button > svg { width: 20px; height: 20px; }
+.case-insert-menu button:hover:not(:disabled) { background: var(--ui-field); border-color: var(--ui-accent); }
+
+/* The step's selection button covers the row padding; action buttons stay above it. */
+.case-sequence .case-step-select::after { content: ''; position: absolute; inset: -1px; z-index: 1; border-radius: inherit; }
+.case-sequence .case-step-actions { position: relative; z-index: 2; pointer-events: none; }
+.case-sequence .case-step-actions button { pointer-events: auto; }
+
+/* Drag handles sit above the row-wide selection target. */
+.case-sequence .case-step-drag { display: flex; align-items: center; justify-content: center; position: relative; z-index: 2; flex: 0 0 24px; width: 24px; min-height: 32px; padding: 2px; background: transparent; border-color: transparent; color: var(--ui-muted); cursor: grab; touch-action: none; user-select: none; }
+.case-sequence .case-step-drag:active { cursor: grabbing; }
+.case-sequence .case-step-row[data-dragged=true] { opacity: .55; }
+.case-sequence .case-step-row[data-drop-before=true]::before, .case-sequence .case-step-row[data-drop-after=true]::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; background: var(--ui-accent); border-radius: 1px; pointer-events: none; z-index: 3; }
+.case-sequence .case-step-row[data-drop-before=true]::before { top: -5px; }
+.case-sequence .case-step-row[data-drop-after=true]::after { bottom: -5px; }
+@media (max-width: 1100px) { .case-sequence .case-step-select { flex-basis: calc(100% - 32px); } }
+
+.case-sequence .case-step-row:first-child[data-drop-before=true]::before { top: 0; }
+.case-sequence .case-step-row:last-child[data-drop-after=true]::after { bottom: 0; }
+
+.case-drag-preview { position: fixed; z-index: 20; pointer-events: none; display: flex; align-items: center; gap: 8px; width: 280px; max-height: 64px; overflow: hidden; box-sizing: border-box; padding: 12px; border: 1px solid var(--ui-accent); border-radius: 8px; background: var(--ui-panel); color: var(--ui-text); font-size: 14px; line-height: 20px; }
+.case-drag-preview > svg { flex-shrink: 0; width: 20px; height: 20px; }
+
+/* Drag handles communicate through the cursor, without a separate control frame. */
+.case-sequence button.case-step-drag:is(:hover, :focus, :active) { outline: none; box-shadow: none; background: transparent; border-color: transparent; }

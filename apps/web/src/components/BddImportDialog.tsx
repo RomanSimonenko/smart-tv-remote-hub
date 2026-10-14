@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {testCaseDraftSchema,type TestCaseDraft} from '@remote-webos-tv/contracts';
 import {IconUpload,IconFileText} from '@tabler/icons-react';
 import {SettingsDialog} from './SettingsDialog.js';
@@ -10,14 +10,17 @@ export function BddImportDialog({onClose,onImport}:Props){
  const [preview,setPreview]=useState<ImportedScenario|null>(null),[reading,setReading]=useState(false);
  const [suggestedTitle,setSuggestedTitle]=useState('');
  const [confirmClose,setConfirmClose]=useState(false);
+ const continueRef=useRef<HTMLButtonElement>(null), cancelRef=useRef<HTMLButtonElement>(null), closeTrigger=useRef<HTMLElement|null>(null);
+ useLayoutEffect(()=>{if(confirmClose)continueRef.current?.focus();else if(closeTrigger.current){if(closeTrigger.current.isConnected)closeTrigger.current.focus();else cancelRef.current?.focus();}},[confirmClose]);
  const fileRef=useRef<HTMLInputElement>(null);const alive=useRef(true);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  useEffect(()=>{const guard=(event:BeforeUnloadEvent)=>{if(title||source){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard);},[title,source]);
- function close(){if(reading)return;if(title||source)setConfirmClose(true);else onClose();}
+ function close(){if(reading)return;if(title||source){closeTrigger.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setConfirmClose(true);}else onClose();}
  function replace(value:string){setSource(value);setPreview(null);setError('');}
  const validTitle=testCaseDraftSchema.shape.title.safeParse(title).success;
- return <SettingsDialog open title="Импорт тест-кейса" closeLabel="Закрыть импорт" onClose={close} busy={reading}>
- <div className="bdd-import">
+ return <SettingsDialog open title="Импорт тест-кейса" closeLabel="Закрыть импорт" onClose={()=>{if(confirmClose)setConfirmClose(false);else close();}} busy={reading} footer={confirmClose?<div className="bdd-import-actions"><button ref={continueRef} onClick={()=>setConfirmClose(false)}>Продолжить редактирование</button><button onClick={onClose}>Закрыть без сохранения</button></div>:<div className="bdd-import-actions"><button ref={cancelRef} onClick={close} disabled={reading}>Отмена</button><button className="primary" disabled={!preview||!validTitle||reading} onClick={()=>{if(!preview)return;const draft=testCaseDraftSchema.parse({title,description:'',group:'',steps:preview.steps.map(step=>({...step,id:crypto.randomUUID()}))});onImport(draft);}}>Открыть в редакторе</button></div>}>
+ {confirmClose&&<p role="alert" className="bdd-close-confirmation">Закрыть импорт и потерять введённые данные?</p>}
+ <div className="bdd-import" hidden={confirmClose}>
  <p>Вставьте текст одного тест-кейса или выберите файл для импорта.</p>
  <label>Название<input value={title} onChange={event=>setTitle(event.target.value)} maxLength={200}/></label>
  <label>Исходный текст<textarea spellCheck={false} value={source} onChange={event=>replace(event.target.value)} disabled={reading}/></label>
@@ -32,6 +35,5 @@ export function BddImportDialog({onClose,onImport}:Props){
  <div className="bdd-import-actions"><button type="button" disabled={reading} onClick={()=>fileRef.current?.click()}><IconUpload aria-hidden="true"/>{reading?'Чтение…':'Выбрать файл'}</button><button type="button" disabled={reading} onClick={()=>{try{const result=parseBddScenario(source);setPreview(result);if(result.title&&(title===''||title===suggestedTitle)){setTitle(result.title);setSuggestedTitle(result.title);}setError('');}catch(cause){setPreview(null);setError((cause as Error).message);}}}>Проверить</button></div>
  {error&&<p role="alert" className="error">{error}</p>}
  {preview&&<section aria-label="Предпросмотр импорта"><h3>Предпросмотр · {preview.steps.length}</h3>{preview.ignoredCallbacks>0&&<p role="status">Функции при шагах пропущены: {preview.ignoredCallbacks}. Импортированы только описания; код и комментарии внутри функций не переносятся.</p>}<ol className="bdd-preview">{preview.steps.map((step,index)=><li key={index}><IconFileText aria-hidden="true"/><strong>{labels[step.kind]}</strong><span>{step.text}</span></li>)}</ol></section>}
- {confirmClose?<div role="alert"><p>Закрыть импорт и потерять введённые данные?</p><div className="bdd-import-actions"><button onClick={()=>setConfirmClose(false)}>Продолжить редактирование</button><button onClick={onClose}>Закрыть без сохранения</button></div></div>:<div className="bdd-import-actions"><button onClick={close} disabled={reading}>Отмена</button><button className="primary" disabled={!preview||!validTitle||reading} onClick={()=>{if(!preview)return;const draft=testCaseDraftSchema.parse({title,description:'',group:'',steps:preview.steps.map(step=>({...step,id:crypto.randomUUID()}))});onImport(draft);}}>Открыть в редакторе</button></div>}
  </div></SettingsDialog>;
 }
