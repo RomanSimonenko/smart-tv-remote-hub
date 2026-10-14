@@ -36,3 +36,13 @@ test('extracts scenario title, preserves user edits and shows ignored callback n
  expect((screen.getByLabelText('Название') as HTMLInputElement).value).toBe('Custom');
  expect(screen.queryByRole('status')).toBeNull();
 });
+
+test('returns focus to the cancel action when closing is declined',()=>{
+ render(<BddImportDialog onClose={vi.fn()} onImport={vi.fn()}/>);
+ fireEvent.change(screen.getByLabelText('Название'),{target:{value:'Демо'}});
+ const cancel=screen.getByRole('button',{name:'Отмена'});cancel.focus();fireEvent.click(cancel);
+ expect(document.activeElement).toBe(screen.getByRole('button',{name:'Продолжить редактирование'}));
+ fireEvent.click(screen.getByRole('button',{name:'Продолжить редактирование'}));
+ expect(document.activeElement).toBe(screen.getByRole('button',{name:'Отмена'}));
+ expect((screen.getByLabelText('Название') as HTMLInputElement).value).toBe('Демо');
+});

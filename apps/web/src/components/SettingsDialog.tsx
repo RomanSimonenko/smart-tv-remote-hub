@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { IconX } from '@tabler/icons-react';
 
-interface Props { busy?: boolean; open: boolean; onClose(): void; children: ReactNode; title?: string; closeLabel?: string }
+interface Props { busy?: boolean; open: boolean; onClose(): void; children: ReactNode; footer?: ReactNode; title?: string; closeLabel?: string }
 
-export function SettingsDialog({ open, onClose, children, title = 'Настройки телевизора', closeLabel = 'Закрыть настройки', busy = false }: Props) {
+export function SettingsDialog({ open, onClose, children, footer, title = 'Настройки телевизора', closeLabel = 'Закрыть настройки', busy = false }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -34,5 +34,6 @@ export function SettingsDialog({ open, onClose, children, title = 'Настро�
   }}>
     <div className="settings-heading"><h2>{title}</h2><button ref={closeButton} type="button" aria-label={closeLabel} disabled={busy} onClick={onClose}><IconX aria-hidden="true" /></button></div>
     <div className="settings-content">{children}</div>
+    {footer && <div className="settings-footer">{footer}</div>}
   </dialog>;
 }

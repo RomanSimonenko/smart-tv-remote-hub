@@ -32,7 +32,7 @@ async function availablePort(): Promise<number> {
   return port;
 }
 
-test.beforeAll(async () => {
+test.beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'remote-webos-browser-'));
   const dataDir = join(directory, 'data');
   const { stdout } = await runFile(process.execPath, [tokenEntry, 'setup-token'], {
@@ -54,7 +54,7 @@ test.beforeAll(async () => {
   await waitForListening(apiProcess);
 });
 
-test.afterAll(async () => {
+test.afterEach(async () => {
   if (apiProcess?.pid && apiProcess.exitCode === null && apiProcess.signalCode === null) {
     const stopped = once(apiProcess, 'exit');
     apiProcess.kill('SIGTERM');
@@ -167,6 +167,22 @@ test('creates, edits, preserves and protects test case drafts', async ({page})=>
  await page.screenshot({path:'../../.local/ordered-editor-insert.png'});
  await page.getByRole('button',{name:'Добавить шаг Когда'}).press('Escape');
  await page.getByRole('button',{name:/Выбрать шаг 4/}).click();
+ const firstStep=page.locator('.case-step-row').first();
+ // Click the padding by each edge, not the smaller content button.
+ for(const corner of [{x:2,y:30},{x:20,y:2},{x:20,y:57}]) {
+  await page.getByRole('button',{name:/Выбрать шаг 4/}).click();
+  await firstStep.click({position:corner});
+  await expect(firstStep.locator('.case-step-select')).toHaveAttribute('aria-pressed','true');
+  await expect(firstStep.locator('.case-step-select')).toBeFocused();
+ }
+ const bounds=await firstStep.boundingBox();
+ await page.getByRole('button',{name:/Выбрать шаг 4/}).click();
+ await firstStep.click({position:{x:bounds!.width-2,y:30}});
+ await expect(firstStep.locator('.case-step-select')).toHaveAttribute('aria-pressed','true');
+ await page.getByRole('button',{name:'Опустить шаг 1 Дано',exact:true}).click();
+ await expect(page.locator('.case-step-kind').first()).toHaveText('Когда');
+ await page.getByRole('button',{name:'Поднять шаг 2 Дано',exact:true}).click();
+ await page.getByRole('button',{name:/Выбрать шаг 4/}).click();
  await expect(page.locator('.case-step-row').first()).toHaveCSS('height','60px');
  await expect(page.getByLabel('Текст шага')).toHaveCSS('height','96px');
  await expect(page.getByLabel('Тип шага')).toHaveCSS('height','40px');
@@ -227,6 +243,7 @@ test('creates, edits, preserves and protects test case drafts', async ({page})=>
 
 test('scrolls a long sequence inside its panel and keeps compact parameters',async({page})=>{
  await page.setViewportSize({width:1484,height:1060});await page.goto(origin);
+ await expect(page.getByLabel('Пароль')).toBeVisible();
  if(await page.getByLabel('Установочный токен').isVisible()){await page.getByLabel('Установочный токен').fill(setupToken);await page.getByLabel('Имя владельца').fill('qa');await page.getByLabel('Пароль').fill(password);await page.getByRole('button',{name:'Создать владельца'}).click();}
  await page.getByLabel('Логин').fill('qa');await page.getByLabel('Пароль').fill(password);await page.getByRole('button',{name:'Войти',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Телевизоры',exact:true})).toBeVisible();
@@ -248,6 +265,7 @@ test('scrolls a long sequence inside its panel and keeps compact parameters',asy
  expect(await page.evaluate(()=>scrollY)).toBe(0);
  await page.getByRole('button',{name:'Вставить шаг после №40'}).click();
  await expect(page.getByRole('button',{name:'Добавить шаг Тогда'})).toBeVisible();
+ await expectClickable(page,page.getByRole('button',{name:'Добавить шаг Тогда'}));
  await page.screenshot({path:'../../.local/editor-long-sequence.png'});
  await page.route('**/api/test-cases/'+id,route=>route.abort());
  await page.reload();
@@ -258,4 +276,119 @@ test('scrolls a long sequence inside its panel and keeps compact parameters',asy
  await expect(page.getByRole('heading',{name:'Мой профиль',exact:true})).toBeVisible();
  await page.reload();
  await expect(page.getByRole('heading',{name:'Мой профиль',exact:true})).toBeVisible();
+});
+
+async function loginAudit(page: import('@playwright/test').Page) {
+ await page.goto(origin);
+ await expect(page.getByLabel('Пароль')).toBeVisible();
+ if(await page.getByLabel('Установочный токен').isVisible()) {
+  await page.getByLabel('Установочный токен').fill(setupToken);await page.getByLabel('Имя владельца').fill('qa');await page.getByLabel('Пароль').fill(password);await page.getByRole('button',{name:'Создать владельца'}).click();
+ }
+ await page.getByLabel('Логин').fill('qa');await page.getByLabel('Пароль').fill(password);await page.getByRole('button',{name:'Войти',exact:true}).click();
+ await page.locator('.app-sidebar').getByRole('button',{name:'Тест-кейсы',exact:true}).click();
+}
+
+// A menu clipped by a scroll panel can be "visible" to Playwright but impossible to click.
+async function expectClickable(page: import('@playwright/test').Page, locator: import('@playwright/test').Locator) {
+ const reachable=await locator.evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth&&el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));});
+ expect(reachable).toBe(true);
+}
+
+test('keeps insertion choices clickable in a short window',async({page})=>{
+ await page.setViewportSize({width:1280,height:600});await loginAudit(page);
+ await page.getByRole('button',{name:'Создать тест-кейс'}).click();
+ await page.getByRole('button',{name:'Добавить шаг',exact:true}).click();
+ const then=page.getByRole('button',{name:'Добавить шаг Тогда',exact:true});
+ await expect(then).toBeVisible();await expectClickable(page,then);
+ const menu=await page.locator('.case-insert-menu').boundingBox();const last=await then.boundingBox();
+ expect(menu!.y+menu!.height-last!.y-last!.height).toBeLessThanOrEqual(16);
+ await then.press('Escape');await expect(page.getByRole('button',{name:'Добавить шаг',exact:true})).toBeFocused();
+ await page.getByRole('button',{name:'Добавить шаг',exact:true}).click();await then.click();
+ await expect(page.getByLabel('Тип шага')).toHaveValue('then');
+});
+
+test('keeps long descriptions compact and parameters reachable at 1024 px',async({page})=>{
+ await page.setViewportSize({width:1558,height:1248});await loginAudit(page);
+ const session=await(await page.request.get(origin+'/api/auth/session')).json();
+ const group='Длинное название группы '.repeat(5).slice(0,100);
+ const text='Полное синтетическое описание шага для проверки интерфейса. '.repeat(40).slice(0,2000);
+ const response=await page.request.post(origin+'/api/test-cases',{headers:{origin,'x-csrf-token':session.csrfToken},data:{id:crypto.randomUUID(),title:'Границы редактора',description:'',group,steps:Array.from({length:200},()=>({id:crypto.randomUUID(),kind:'when',text}))}});
+ expect(response.ok()).toBe(true);await page.reload();
+ const longGroup=page.locator('.case-groups button').filter({hasText:group});
+ expect.soft((await longGroup.boundingBox())!.height).toBeLessThanOrEqual(64);
+ await expect.soft(page.locator('tbody td').first()).toHaveCSS('font-size','14px');
+ await page.getByRole('button',{name:'Границы редактора',exact:true}).click();
+ expect.soft((await page.locator('.case-step-row').first().boundingBox())!.height).toBeLessThanOrEqual(80);
+ await page.locator('.case-step-select').first().click();await expect(page.getByLabel('Текст шага')).toHaveValue(text);
+ await page.setViewportSize({width:1024,height:768});
+ expect(await page.locator('.case-sequence').evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);
+ await expectClickable(page,page.getByLabel('Тип шага'));
+ await expectClickable(page,page.getByLabel('Текст шага'));
+ await expect(page.locator('.case-step-row')).toHaveCount(200);
+});
+
+test('keeps import actions visible and moves focus to close confirmation',async({page})=>{
+ await page.setViewportSize({width:1280,height:720});await loginAudit(page);
+ await page.getByRole('button',{name:'Импортировать',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Импорт тест-кейса'});
+ await dialog.getByLabel('Название',{exact:true}).fill('Демо');
+ await dialog.getByLabel('Исходный текст').fill(Array.from({length:11},(_,i)=>`when('Синтетический шаг ${i+1}');`).join('\n'));
+ await dialog.getByRole('button',{name:'Проверить',exact:true}).click();
+ await expectClickable(page,dialog.getByRole('button',{name:'Открыть в редакторе'}));
+ await dialog.getByRole('button',{name:'Проверить',exact:true}).press('Escape');
+ const continueButton=dialog.getByRole('button',{name:'Продолжить редактирование'});
+ await expect(continueButton).toBeFocused();await expectClickable(page,continueButton);
+ await continueButton.click();await expect(dialog.getByRole('button',{name:'Проверить',exact:true})).toBeFocused();
+ await expect(dialog.getByLabel('Название',{exact:true})).toHaveValue('Демо');
+});
+
+test('drags steps in both directions without losing pending text and persists order',async({page})=>{
+ await page.setViewportSize({width:1484,height:1060});await loginAudit(page);
+ await page.getByRole('button',{name:'Создать тест-кейс'}).click();
+ await page.getByLabel('Название',{exact:true}).fill('Перетаскивание шагов');
+ for(const text of ['Первый','Второй','Третий']) {
+  await page.getByRole('button',{name:'Добавить шаг',exact:true}).click();await page.getByRole('button',{name:'Добавить шаг Когда',exact:true}).click();
+  await page.getByLabel('Текст шага').fill(text);await page.getByRole('button',{name:'Сохранить шаг',exact:true}).click();
+ }
+ await page.getByRole('button',{name:/Выбрать шаг 1 Когда:/}).click();
+ await page.getByLabel('Текст шага').fill('Первый — правка');
+ await page.getByRole('button',{name:'Перетащить шаг 1',exact:true}).dragTo(page.locator('.case-step-row').nth(2),{targetPosition:{x:80,y:55}});
+ await expect(page.locator('.case-step-text')).toHaveText(['Второй','Третий','Первый']);
+ await expect(page.getByLabel('Текст шага')).toHaveValue('Первый — правка');
+ await expect(page.locator('.case-parameter-number')).toHaveText('Шаг 3');
+ await page.getByRole('button',{name:'Сохранить шаг',exact:true}).click();
+ await page.getByRole('button',{name:'Перетащить шаг 3',exact:true}).dragTo(page.locator('.case-step-row').first(),{targetPosition:{x:80,y:3}});
+ await expect(page.locator('.case-step-text')).toHaveText(['Первый — правка','Второй','Третий']);
+ await page.getByRole('button',{name:'Сохранить тест-кейс',exact:true}).click();await expect(page.getByText('Тест-кейс сохранён',{exact:true})).toBeVisible();
+ await page.reload();await expect(page.locator('.case-step-text')).toHaveText(['Первый — правка','Второй','Третий']);
+ await page.getByRole('button',{name:'Перетащить шаг 2',exact:true}).dragTo(page.locator('.case-step-row').nth(1),{targetPosition:{x:80,y:30}});
+ await expect(page.getByRole('button',{name:'Сохранить тест-кейс',exact:true})).toBeDisabled();
+});
+
+test('autoscrolls a dragged step and Escape cancels without changing order',async({page})=>{
+ await page.setViewportSize({width:1280,height:720});await loginAudit(page);
+ const session=await(await page.request.get(origin+'/api/auth/session')).json();
+ const response=await page.request.post(origin+'/api/test-cases',{headers:{origin,'x-csrf-token':session.csrfToken},data:{id:crypto.randomUUID(),title:'Прокрутка при переносе',description:'',group:'',steps:Array.from({length:40},(_,i)=>({id:crypto.randomUUID(),kind:'when',text:`Шаг ${i+1}`}))}});
+ expect(response.ok()).toBe(true);await page.reload();await page.getByRole('button',{name:'Прокрутка при переносе',exact:true}).click();
+ const handle=await page.getByRole('button',{name:'Перетащить шаг 1',exact:true}).boundingBox();const list=await page.locator('.case-sequence').boundingBox();
+ await page.mouse.move(handle!.x+handle!.width/2,handle!.y+handle!.height/2);await page.mouse.down();
+ await page.mouse.move(handle!.x+handle!.width/2+12,handle!.y+handle!.height/2+12,{steps:5});
+ await page.mouse.move(list!.x+list!.width/2,list!.y+list!.height-4,{steps:10});
+ await expect.poll(()=>page.locator('.case-sequence').evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
+ await expect(page.locator('[data-dragged=true]')).toHaveCount(1);
+ await page.screenshot({path:'../../.local/dnd-active.png'});
+ await page.keyboard.press('Escape');await page.mouse.up();
+ await expect(page.locator('[data-dragged=true]')).toHaveCount(0);
+ const stopped=await page.locator('.case-sequence').evaluate(el=>el.scrollTop);
+ await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+ expect(await page.locator('.case-sequence').evaluate(el=>el.scrollTop)).toBe(stopped);
+ await expect(page.locator('.case-step-text').first()).toHaveText('Шаг 1');await expect(page.locator('.case-step-text').last()).toHaveText('Шаг 40');
+ await expect(page.getByRole('button',{name:'Сохранить тест-кейс',exact:true})).toBeDisabled();
+ await page.getByRole('heading',{name:'Параметры шага',exact:true}).hover();
+ await page.locator('.case-sequence').evaluate(el=>{el.scrollTop=0;});
+ await expect.poll(()=>page.locator('.case-sequence').evaluate(el=>el.scrollTop)).toBe(0);
+ await page.getByRole('button',{name:'Перетащить шаг 1',exact:true}).dragTo(page.getByRole('heading',{name:'Параметры шага',exact:true}));
+ await expect(page.locator('[data-dragged=true]')).toHaveCount(0);
+ await expect(page.locator('.case-step-text').first()).toHaveText('Шаг 1');
+ await expect(page.getByRole('button',{name:'Сохранить тест-кейс',exact:true})).toBeDisabled();
 });
