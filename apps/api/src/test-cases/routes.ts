@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { testCaseIdSchema, createTestCaseSchema, updateTestCaseSchema, testCaseSchema, testCasesResponseSchema } from '@remote-webos-tv/contracts';
 import { TestCaseConflictError, TestCaseNotFoundError, type TestCaseRepository } from './repository.js';
 export function registerTestCaseRoutes(app: FastifyInstance, repository: TestCaseRepository): void {
- const bodyLimit=2*1024*1024;
+ // Covers 200 steps × 200 key actions plus maximum UTF-8 descriptions.
+ const bodyLimit=8*1024*1024;
  let limiter: ReturnType<FastifyInstance['createRateLimit']> | undefined;
  const limitMutation: import('fastify').preHandlerHookHandler = async (request,reply)=> {
   limiter ??= app.createRateLimit({max:20,timeWindow:60_000,keyGenerator:()=> 'owner-test-cases'});

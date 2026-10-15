@@ -8,7 +8,7 @@ test('uses existing remote order and passes each selection without a network con
  render(<RemoteLayout buttonProps={action=>({onClick:()=>selected.push(action)})}/>);
  const numbers=within(screen.getByRole('group',{name:'Цифры'})).getAllByRole('button');
  expect(numbers.map(button=>button.textContent)).toEqual(['1','2','3','4','5','6','7','8','9','0']);
- for(const label of ['Вправо','Вправо','OK','Красная','Запустить Wink'])fireEvent.click(screen.getByRole('button',{name:label,exact:true}));
+ for(const label of ['Вправо','Вправо','OK','Красная','Запустить Wink'])fireEvent.click(screen.getByRole('button',{name:label}));
  expect(selected).toEqual(['RIGHT','RIGHT','ENTER','RED','wink']);expect(fetch).not.toHaveBeenCalled();
  }finally{vi.unstubAllGlobals();}
 });

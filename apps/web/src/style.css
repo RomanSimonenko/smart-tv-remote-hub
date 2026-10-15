@@ -626,3 +626,41 @@ button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color
 
 /* Drag handles communicate through the cursor, without a separate control frame. */
 .case-sequence button.case-step-drag:is(:hover, :focus, :active) { outline: none; box-shadow: none; background: transparent; border-color: transparent; }
+
+/* Step command setup reuses the existing remote, with no network controller. */
+@media (min-width: 1101px) { .case-editor-layout { grid-template-columns: minmax(0, 1fr) 440px; } }
+.step-key-sequence { margin-top: 24px; }
+.step-key-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.step-key-heading h3 { margin: 0; font-size: 16px; line-height: 24px; }
+.step-key-heading button { min-height: 32px; padding: 6px 8px; font-size: 12px; gap: 6px; white-space: nowrap; }
+.step-key-heading svg, .step-key-actions svg, .key-actions-queue button svg { width: 18px; height: 18px; }
+.step-key-table { border: 1px solid var(--ui-border); border-radius: 8px; overflow: hidden; }
+.step-key-columns { display: grid; grid-template-columns: minmax(0,1fr) 100px 96px; gap: 8px; padding: 8px 10px 8px 32px; background: var(--ui-field); font-size: 12px; color: var(--ui-muted); }
+.step-key-table ol, .key-actions-queue ol { list-style: none; margin: 0; padding: 0; }
+.step-key-table li + li { border-top: 1px solid var(--ui-border); }
+.step-key-row { display: flex; gap: 8px; align-items: center; padding: 8px; }
+.key-action-number { flex: 0 0 16px; color: var(--ui-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.step-key-label { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.case-step-parameters .step-key-pause { display: flex; flex: 0 0 100px; gap: 6px; align-items: center; margin: 0; font-size: 12px; font-weight: 400; }
+.case-step-parameters .step-key-pause input { width: 76px; height: 32px; min-height: 32px; padding: 4px 6px; border-radius: 8px; }
+.step-key-pause > span { color: var(--ui-muted); }
+.step-key-actions { display: flex; flex: 0 0 96px; }
+.step-key-actions button, .key-actions-queue button { display: grid; place-items: center; width: 32px; height: 32px; min-height: 32px; padding: 6px; background: transparent; border-color: transparent; }
+.step-key-actions button:hover:not(:disabled), .key-actions-queue button:hover:not(:disabled) { background: var(--ui-field); border-color: var(--ui-border); }
+.step-key-table .field-error { padding: 0 8px 8px; margin: 0; font-size: 12px; }
+.key-actions-dialog { width: 640px; max-width: calc(100vw - 48px); }
+.key-actions-dialog .settings-content { padding-top: 16px; }
+.key-actions-intro { margin: 0 0 8px; }
+.key-actions-dialog .case-step-hint { color: var(--ui-muted); font-size: 12px; line-height: 20px; margin: 0 0 16px; }
+.key-actions-picker { display: grid; grid-template-columns: 212px minmax(0,1fr); gap: 24px; align-items: start; }
+.key-actions-remote { position: relative; padding: 18px; background: var(--ui-panel); border: 1px solid var(--ui-border); border-radius: 24px; }
+.key-actions-remote .remote-top { padding-left: 18px; }
+.key-actions-queue { min-width: 0; }
+.key-actions-queue h3 { margin: 0 0 16px; font-size: 16px; line-height: 24px; }
+.key-actions-queue ol { max-height: 440px; overflow-y: auto; overscroll-behavior: contain; margin-bottom: 16px; }
+.key-actions-queue li { display: flex; align-items: center; gap: 12px; padding: 8px; min-height: 48px; border-bottom: 1px solid var(--ui-border); }
+.key-actions-queue li > span:nth-child(2) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.key-actions-dialog .settings-footer { display: flex; justify-content: flex-end; gap: 12px; }
+.key-actions-dialog .settings-footer button { min-width: 120px; }
+.key-actions-remote { margin: 0; }
+.case-step-parameters .step-key-sequence .case-step-hint { font-size: 12px; line-height: 20px; }
