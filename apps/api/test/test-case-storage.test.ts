@@ -55,3 +55,20 @@ test('preserves repeated action/result pairs through update and database reopen'
  expect(repo.read(input.id)?.steps).toEqual(reordered);
  }finally{db.close();await rm(dataDir,{recursive:true,force:true});}
 });
+
+test('key sequences survive retries, updates and reopen without changing legacy cases',async()=>{
+ const dataDir=await mkdtemp(join(tmpdir(),'case-actions-'));let db=await openDatabase({dataDir});
+ try {
+ let repo=createTestCaseRepository(db.sqlite,{now:()=>100});
+ const legacy={...input,steps:[{id:'00000000-0000-4000-8000-000000000010',kind:'when' as const,text:'Действие'}]};
+ const first=repo.create(legacy);expect(repo.create(legacy)).toEqual(first);
+ expect(repo.read(input.id)).toEqual(first);expect(repo.read(input.id)?.steps[0]).not.toHaveProperty('actions');
+ const actions=[{id:'00000000-0000-4000-8000-000000000020',action:'RIGHT' as const,pauseAfterMs:500},{id:'00000000-0000-4000-8000-000000000021',action:'RIGHT' as const,pauseAfterMs:1000}];
+ const {id:_id,...legacyDraft}=legacy;
+ repo.update(input.id,{...legacyDraft,version:1,steps:[{...legacy.steps[0]!,actions}]});
+ db.close();db=await openDatabase({dataDir});repo=createTestCaseRepository(db.sqlite,{now:()=>200});
+ expect(repo.read(input.id)?.steps[0]?.actions).toEqual(actions);
+ expect(repo.read(input.id)?.version).toBe(2);
+ expect(()=>repo.update(input.id,{...legacyDraft,version:1})).toThrow(TestCaseConflictError);
+ }finally{db.close();await rm(dataDir,{recursive:true,force:true});}
+});

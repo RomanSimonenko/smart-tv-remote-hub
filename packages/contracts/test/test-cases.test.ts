@@ -24,3 +24,16 @@ test('requires client UUID and positive safe integer version', () => {
  for(const version of [0,-1,1.5,Number.MAX_SAFE_INTEGER+1]) expect(updateTestCaseSchema.safeParse({...draft,version}).success).toBe(false);
  expect(updateTestCaseSchema.safeParse({...draft,version:1}).success).toBe(true);
 });
+
+test('preserves key actions and legacy steps while validating pauses, keys, count and identity',()=>{
+ const step={id,kind:'when',text:'Открыть каталог'};
+ const actions=['RIGHT','RIGHT','ENTER','power','wink'].map((action,i)=>({id:`00000000-0000-4000-8000-${String(i+10).padStart(12,'0')}`,action,pauseAfterMs:[0,500,60000,500,500][i]}));
+ expect(testCaseDraftSchema.parse({...draft,steps:[{...step,actions}]}).steps[0]).toEqual({...step,actions});
+ expect(testCaseDraftSchema.parse({...draft,steps:[step]}).steps[0]).toEqual(step);
+ for(const pauseAfterMs of [-1,60001,1.5,'500',null]) expect(testCaseDraftSchema.safeParse({...draft,steps:[{...step,actions:[{...actions[0],pauseAfterMs}]}]}).success).toBe(false);
+ for(const action of ['unknown','right','',null]) expect(testCaseDraftSchema.safeParse({...draft,steps:[{...step,actions:[{...actions[0],action}]}]}).success).toBe(false);
+ expect(testCaseDraftSchema.safeParse({...draft,steps:[{...step,actions:[actions[0],actions[0]]}]}).success).toBe(false);
+ const many=Array.from({length:201},(_,i)=>({id:`00000000-0000-4000-8000-${String(i+100).padStart(12,'0')}`,action:'RIGHT',pauseAfterMs:500}));
+ expect(testCaseDraftSchema.safeParse({...draft,steps:[{...step,actions:many.slice(0,200)}]}).success).toBe(true);
+ expect(testCaseDraftSchema.safeParse({...draft,steps:[{...step,actions:many}]}).success).toBe(false);
+});

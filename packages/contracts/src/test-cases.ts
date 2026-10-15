@@ -1,7 +1,18 @@
 import { z } from 'zod';
+import { tvActionCatalog, type TvActionId } from './tv-actions.js';
+export const MAX_STEP_KEY_ACTIONS = 200;
+export const DEFAULT_KEY_PAUSE_MS = 500;
+export const MAX_KEY_PAUSE_MS = 60000;
+export const testCaseKeyActionSchema = z.strictObject({
+ id: z.uuid(),
+ action: z.custom<TvActionId>((value) => typeof value === 'string' && tvActionCatalog.some(action => action.id === value), 'Unknown TV action'),
+ pauseAfterMs: z.number().int().min(0).max(MAX_KEY_PAUSE_MS),
+});
+export const testCaseKeyActionsSchema = z.array(testCaseKeyActionSchema).max(MAX_STEP_KEY_ACTIONS).refine(actions => new Set(actions.map(action => action.id)).size === actions.length, 'Duplicate action identity');
+export type TestCaseKeyAction = z.infer<typeof testCaseKeyActionSchema>;
 export const testCaseIdSchema = z.uuid();
 const boundedText = (min: number, max: number) => z.string().trim().refine(value => [...value].length >= min && [...value].length <= max);
-export const testCaseStepSchema = z.strictObject({ id: z.uuid(), kind: z.enum(['given', 'when', 'then']), text: boundedText(1, 2000) });
+export const testCaseStepSchema = z.strictObject({ id: z.uuid(), kind: z.enum(['given', 'when', 'then']), text: boundedText(1, 2000), actions: testCaseKeyActionsSchema.optional() });
 const fields = { title: boundedText(1, 200), description: z.string().max(10000), group: boundedText(0, 100), steps: z.array(testCaseStepSchema).max(200).refine(steps => new Set(steps.map(step => step.id)).size === steps.length) };
 export const testCaseDraftSchema = z.strictObject(fields);
 export const createTestCaseSchema = z.strictObject({ ...fields, id: z.uuid() });

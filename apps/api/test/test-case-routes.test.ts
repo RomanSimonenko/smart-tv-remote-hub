@@ -20,9 +20,10 @@ test('case API persists drafts and protects mutations', async () => {
  const cookie=String(login.headers['set-cookie']).split(';')[0]!;
  const session=(await app.inject({url:'/api/auth/session',headers:{cookie}})).json();
  const headers={cookie,origin,'x-csrf-token':session.csrfToken};
- const payload={id:'00000000-0000-4000-8000-000000000001',title:'Кейс',description:'',group:'',steps:[]};
+ const payload={id:'00000000-0000-4000-8000-000000000001',title:'Кейс',description:'',group:'',steps:[{id:'00000000-0000-4000-8000-000000000010',kind:'when',text:'Открыть каталог',actions:[{id:'00000000-0000-4000-8000-000000000020',action:'RIGHT',pauseAfterMs:500}]}]};
  for(const badHeaders of [{cookie,origin},{cookie,'x-csrf-token':session.csrfToken}]) expect((await app.inject({method:'POST',url:'/api/test-cases',headers:badHeaders,payload})).statusCode).toBe(403);
  expect((await app.inject({method:'POST',url:'/api/test-cases',headers,payload:{...payload,title:''}})).statusCode).toBe(400);
+ expect((await app.inject({method:'POST',url:'/api/test-cases',headers,payload:{...payload,steps:[{...payload.steps[0],actions:[{...payload.steps[0]!.actions[0],pauseAfterMs:-1}]}]}})).statusCode).toBe(400);
  const saved=await app.inject({method:'POST',url:'/api/test-cases',headers,payload}); expect(saved.statusCode).toBe(201);
  expect((await app.inject({method:'POST',url:'/api/test-cases',headers,payload})).json()).toEqual(saved.json());
  expect((await app.inject({url:'/api/test-cases',headers})).json().cases).toHaveLength(1);
