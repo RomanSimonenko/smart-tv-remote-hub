@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Writable } from 'node:stream';
 
 import { afterEach, expect, test } from 'vitest';
 
@@ -32,6 +33,32 @@ async function fixture() {
 
 afterEach(async () => {
   for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true });
+});
+
+test('session rejections distinguish unavailable cookies from rejected tokens without logging secrets', async () => {
+  const { config } = await fixture();
+  const chunks: string[] = [];
+  const logStream = new Writable({ write(chunk, _encoding, done) { chunks.push(String(chunk)); done(); } });
+  const app = await createApiRuntime(config, { logStream });
+  try {
+    for (const url of ['/api/auth/session', '/api/tvs']) {
+      for (const [cookie, reason] of [
+        [undefined, 'SESSION_COOKIE_UNAVAILABLE'],
+        ['remote_webos_session=malformed-token-secret', 'SESSION_TOKEN_MALFORMED'],
+        [`remote_webos_session=${'a'.repeat(43)}`, 'SESSION_NOT_FOUND'],
+      ] as const) {
+        const response = await app.inject({ url: `${url}?private=query-secret`, headers: cookie ? { cookie } : {} });
+        expect(response.statusCode).toBe(401);
+        const entries = chunks.join('').trim().split('\n').map(line => JSON.parse(line));
+        expect(entries).toContainEqual(expect.objectContaining({
+          code: 'AUTH_SESSION_REJECTED', requestId: response.headers['x-request-id'],
+          reason,
+        }));
+        expect(response.json()).toEqual({ code: 'UNAUTHORIZED', message: 'Unauthorized', requestId: response.headers['x-request-id'] });
+      }
+    }
+    expect(chunks.join('')).not.toMatch(/query-secret|remote_webos_session|malformed-token-secret|a{43}/);
+  } finally { await app.close(); }
 });
 
 test('setup claims one owner without logging in and protects exact Origin', async () => {

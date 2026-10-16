@@ -1,0 +1,258 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Проверки экрана — эксперимент</title><style>body{background:#11161d;color:#f2f5f8;font:14px/20px system-ui;margin:32px auto;padding:0 24px;max-width:960px}h1{font-size:32px;line-height:40px}h2{font-size:20px;line-height:28px}section{background:#1a222c;border:1px solid #3a4859;border-radius:12px;padding:20px;margin:20px 0}p{color:#a8b4c3}figure{position:relative;margin:0;max-width:640px}img{display:block;width:100%}.region,.found{position:absolute;box-sizing:border-box;pointer-events:none}.region{border:2px dashed #73adfa}.found{border:2px solid #79e493}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#222d39;padding:12px;border-radius:8px}</style><h1>Проверки экрана</h1><p>Локальный эксперимент на синтетических кадрах. Результаты не подтверждают качество на камере ТВ.</p><p>Область поиска обозначена пунктиром. Исходные изображения сохранены без разметки.</p><section><h2>russian-clear · matched</h2><p>Ожидание: contains: Программа передач · 324 мс · clear</p><figure><img src="original-0.png" alt="Исходный синтетический кадр"><span class="region" style="left:2.5%;top:10%;width:95%;height:50%"></span><span class="found" style="left:6.71875%;top:24.72222222222222%;width:27.34375%;height:8.61111111111111%"></span><span class="found" style="left:36.09375%;top:26.111111111111114%;width:19.53125%;height:7.222222222222221%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;matched&quot;,
+  &quot;reason&quot;: &quot;Expected text was recognized.&quot;,
+  &quot;observation&quot;: {
+    &quot;text&quot;: &quot;Программа передач\n&quot;,
+    &quot;confidence&quot;: 96,
+    &quot;words&quot;: [
+      {
+        &quot;text&quot;: &quot;Программа&quot;,
+        &quot;confidence&quot;: 96,
+        &quot;box&quot;: {
+          &quot;x&quot;: 43,
+          &quot;y&quot;: 89,
+          &quot;width&quot;: 175,
+          &quot;height&quot;: 31
+        }
+      },
+      {
+        &quot;text&quot;: &quot;передач&quot;,
+        &quot;confidence&quot;: 96,
+        &quot;box&quot;: {
+          &quot;x&quot;: 231,
+          &quot;y&quot;: 94,
+          &quot;width&quot;: 125,
+          &quot;height&quot;: 26
+        }
+      }
+    ]
+  }
+}</pre></section><section><h2>russian-short · matched</h2><p>Ожидание: contains: Каталог · 256 мс · clear</p><figure><img src="original-1.png" alt="Исходный синтетический кадр"><span class="region" style="left:2.5%;top:10%;width:95%;height:50%"></span><span class="found" style="left:6.71875%;top:24.72222222222222%;width:18.4375%;height:6.388888888888888%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;matched&quot;,
+  &quot;reason&quot;: &quot;Expected text was recognized.&quot;,
+  &quot;observation&quot;: {
+    &quot;text&quot;: &quot;Каталог\n&quot;,
+    &quot;confidence&quot;: 95,
+    &quot;words&quot;: [
+      {
+        &quot;text&quot;: &quot;Каталог&quot;,
+        &quot;confidence&quot;: 95,
+        &quot;box&quot;: {
+          &quot;x&quot;: 43,
+          &quot;y&quot;: 89,
+          &quot;width&quot;: 118,
+          &quot;height&quot;: 23
+        }
+      }
+    ]
+  }
+}</pre></section><section><h2>english-clear · matched</h2><p>Ожидание: contains: Settings · 311 мс · clear</p><figure><img src="original-2.png" alt="Исходный синтетический кадр"><span class="region" style="left:2.5%;top:10%;width:95%;height:50%"></span><span class="found" style="left:6.5625%;top:24.444444444444443%;width:18.4375%;height:8.88888888888889%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;matched&quot;,
+  &quot;reason&quot;: &quot;Expected text was recognized.&quot;,
+  &quot;observation&quot;: {
+    &quot;text&quot;: &quot;Settings\n&quot;,
+    &quot;confidence&quot;: 96,
+    &quot;words&quot;: [
+      {
+        &quot;text&quot;: &quot;Settings&quot;,
+        &quot;confidence&quot;: 96,
+        &quot;box&quot;: {
+          &quot;x&quot;: 42,
+          &quot;y&quot;: 88,
+          &quot;width&quot;: 118,
+          &quot;height&quot;: 32
+        }
+      }
+    ]
+  }
+}</pre></section><section><h2>different-text · not-matched</h2><p>Ожидание: contains: Программа передач · 262 мс · clear</p><figure><img src="original-3.png" alt="Исходный синтетический кадр"><span class="region" style="left:2.5%;top:10%;width:95%;height:50%"></span><span class="found" style="left:6.71875%;top:24.72222222222222%;width:18.4375%;height:6.388888888888888%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;not-matched&quot;,
+  &quot;reason&quot;: &quot;Expected text was not recognized; frame quality is not established by OCR.&quot;,
+  &quot;observation&quot;: {
+    &quot;text&quot;: &quot;Каталог\n&quot;,
+    &quot;confidence&quot;: 95,
+    &quot;words&quot;: [
+      {
+        &quot;text&quot;: &quot;Каталог&quot;,
+        &quot;confidence&quot;: 95,
+        &quot;box&quot;: {
+          &quot;x&quot;: 43,
+          &quot;y&quot;: 89,
+          &quot;width&quot;: 118,
+          &quot;height&quot;: 23
+        }
+      }
+    ]
+  }
+}</pre></section><section><h2>blank · not-matched</h2><p>Ожидание: contains: Программа передач · 188 мс · clear</p><figure><img src="original-4.png" alt="Исходный синтетический кадр"><span class="region" style="left:2.5%;top:10%;width:95%;height:50%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;not-matched&quot;,
+  &quot;reason&quot;: &quot;Expected text was not recognized; frame quality is not established by OCR.&quot;,
+  &quot;observation&quot;: {
+    &quot;text&quot;: &quot;&quot;,
+    &quot;confidence&quot;: 0,
+    &quot;words&quot;: []
+  }
+}</pre></section><section><h2>small-text · matched</h2><p>Ожидание: contains: Программа передач · 237 мс · degraded</p><figure><img src="original-5.png" alt="Исходный синтетический кадр"><span class="region" style="left:2.5%;top:10%;width:95%;height:50%"></span><span class="found" style="left:6.406249999999999%;top:23.055555555555557%;width:10.3125%;height:3.3333333333333335%"></span><span class="found" style="left:17.5%;top:23.61111111111111%;width:7.34375%;height:2.7777777777777777%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;matched&quot;,
+  &quot;reason&quot;: &quot;Expected text was recognized.&quot;,
+  &quot;observation&quot;: {
+    &quot;text&quot;: &quot;Программа передач.\n&quot;,
+    &quot;confidence&quot;: 74,
+    &quot;words&quot;: [
+      {
+        &quot;text&quot;: &quot;Программа&quot;,
+        &quot;confidence&quot;: 92,
+        &quot;box&quot;: {
+          &quot;x&quot;: 41,
+          &quot;y&quot;: 83,
+          &quot;width&quot;: 66,
+          &quot;height&quot;: 12
+        }
+      },
+      {
+        &quot;text&quot;: &quot;передач.&quot;,
+        &quot;confidence&quot;: 56,
+        &quot;box&quot;: {
+          &quot;x&quot;: 112,
+          &quot;y&quot;: 85,
+          &quot;width&quot;: 47,
+          &quot;height&quot;: 10
+        }
+      }
+    ]
+  }
+}</pre></section><section><h2>blurred · matched</h2><p>Ожидание: contains: Программа передач · 245 мс · degraded</p><figure><img src="original-6.png" alt="Исходный синтетический кадр"><span class="region" style="left:2.5%;top:10%;width:95%;height:50%"></span><span class="found" style="left:5.78125%;top:23.055555555555557%;width:27.500000000000004%;height:13.333333333333334%"></span><span class="found" style="left:36.40625%;top:23.055555555555557%;width:20%;height:13.333333333333334%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;matched&quot;,
+  &quot;reason&quot;: &quot;Expected text was recognized.&quot;,
+  &quot;observation&quot;: {
+    &quot;text&quot;: &quot;Программа передач\n&quot;,
+    &quot;confidence&quot;: 93,
+    &quot;words&quot;: [
+      {
+        &quot;text&quot;: &quot;Программа&quot;,
+        &quot;confidence&quot;: 94,
+        &quot;box&quot;: {
+          &quot;x&quot;: 37,
+          &quot;y&quot;: 83,
+          &quot;width&quot;: 176,
+          &quot;height&quot;: 48
+        }
+      },
+      {
+        &quot;text&quot;: &quot;передач&quot;,
+        &quot;confidence&quot;: 92,
+        &quot;box&quot;: {
+          &quot;x&quot;: 233,
+          &quot;y&quot;: 83,
+          &quot;width&quot;: 128,
+          &quot;height&quot;: 48
+        }
+      }
+    ]
+  }
+}</pre></section><section><h2>darkened · matched</h2><p>Ожидание: contains: Программа передач · 258 мс · degraded</p><figure><img src="original-7.png" alt="Исходный синтетический кадр"><span class="region" style="left:2.5%;top:10%;width:95%;height:50%"></span><span class="found" style="left:6.71875%;top:24.72222222222222%;width:27.34375%;height:8.61111111111111%"></span><span class="found" style="left:36.09375%;top:26.111111111111114%;width:19.53125%;height:7.222222222222221%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;matched&quot;,
+  &quot;reason&quot;: &quot;Expected text was recognized.&quot;,
+  &quot;observation&quot;: {
+    &quot;text&quot;: &quot;Программа передач\n&quot;,
+    &quot;confidence&quot;: 96,
+    &quot;words&quot;: [
+      {
+        &quot;text&quot;: &quot;Программа&quot;,
+        &quot;confidence&quot;: 96,
+        &quot;box&quot;: {
+          &quot;x&quot;: 43,
+          &quot;y&quot;: 89,
+          &quot;width&quot;: 175,
+          &quot;height&quot;: 31
+        }
+      },
+      {
+        &quot;text&quot;: &quot;передач&quot;,
+        &quot;confidence&quot;: 96,
+        &quot;box&quot;: {
+          &quot;x&quot;: 231,
+          &quot;y&quot;: 94,
+          &quot;width&quot;: 125,
+          &quot;height&quot;: 26
+        }
+      }
+    ]
+  }
+}</pre></section><section><h2>glare · not-matched</h2><p>Ожидание: contains: Программа передач · 204 мс · degraded</p><figure><img src="original-8.png" alt="Исходный синтетический кадр"><span class="region" style="left:2.5%;top:10%;width:95%;height:50%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;not-matched&quot;,
+  &quot;reason&quot;: &quot;Expected text was not recognized; frame quality is not established by OCR.&quot;,
+  &quot;observation&quot;: {
+    &quot;text&quot;: &quot;&quot;,
+    &quot;confidence&quot;: 0,
+    &quot;words&quot;: []
+  }
+}</pre></section><section><h2>perspective · matched</h2><p>Ожидание: contains: Программа передач · 253 мс · degraded</p><figure><img src="original-9.png" alt="Исходный синтетический кадр"><span class="region" style="left:2.5%;top:10%;width:95%;height:50%"></span><span class="found" style="left:12.1875%;top:23.61111111111111%;width:25.937500000000004%;height:7.5%"></span><span class="found" style="left:39.84375%;top:24.72222222222222%;width:18.75%;height:6.388888888888888%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;matched&quot;,
+  &quot;reason&quot;: &quot;Expected text was recognized.&quot;,
+  &quot;observation&quot;: {
+    &quot;text&quot;: &quot;Программа передач\n&quot;,
+    &quot;confidence&quot;: 96,
+    &quot;words&quot;: [
+      {
+        &quot;text&quot;: &quot;Программа&quot;,
+        &quot;confidence&quot;: 96,
+        &quot;box&quot;: {
+          &quot;x&quot;: 78,
+          &quot;y&quot;: 85,
+          &quot;width&quot;: 166,
+          &quot;height&quot;: 27
+        }
+      },
+      {
+        &quot;text&quot;: &quot;передач&quot;,
+        &quot;confidence&quot;: 96,
+        &quot;box&quot;: {
+          &quot;x&quot;: 255,
+          &quot;y&quot;: 89,
+          &quot;width&quot;: 120,
+          &quot;height&quot;: 23
+        }
+      }
+    ]
+  }
+}</pre></section><section><h2>focus-selected · matched</h2><p>Ожидание: Эталон, порог 0.95 · 14 мс · clear</p><figure><img src="original-10.png" alt="Исходный синтетический кадр"><span class="region" style="left:0%;top:50%;width:60%;height:50%"></span><span class="found" style="left:5.46875%;top:59.72222222222222%;width:39.0625%;height:27.77777777777778%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;matched&quot;,
+  &quot;reason&quot;: &quot;Correlation compared with the explicit experimental threshold; frame quality is not validated.&quot;,
+  &quot;observation&quot;: {
+    &quot;score&quot;: 0.9999998807907104,
+    &quot;box&quot;: {
+      &quot;x&quot;: 35,
+      &quot;y&quot;: 215,
+      &quot;width&quot;: 250,
+      &quot;height&quot;: 100
+    }
+  },
+  &quot;referenceEvidence&quot;: &quot;reference-10.png&quot;
+}</pre></section><section><h2>focus-unselected · not-matched</h2><p>Ожидание: Эталон, порог 0.95 · 11 мс · clear</p><figure><img src="original-11.png" alt="Исходный синтетический кадр"><span class="region" style="left:0%;top:50%;width:60%;height:50%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;not-matched&quot;,
+  &quot;reason&quot;: &quot;Correlation compared with the explicit experimental threshold; frame quality is not validated.&quot;,
+  &quot;observation&quot;: {
+    &quot;score&quot;: 0.32626447081565857,
+    &quot;box&quot;: {
+      &quot;x&quot;: 35,
+      &quot;y&quot;: 215,
+      &quot;width&quot;: 250,
+      &quot;height&quot;: 100
+    }
+  },
+  &quot;referenceEvidence&quot;: &quot;reference-11.png&quot;
+}</pre></section><section><h2>focus-blurred · not-matched</h2><p>Ожидание: Эталон, порог 0.95 · 9 мс · degraded</p><figure><img src="original-12.png" alt="Исходный синтетический кадр"><span class="region" style="left:0%;top:50%;width:60%;height:50%"></span></figure><p>Пунктир — область поиска. Зелёные рамки — распознанные слова или найденный эталон.</p><pre>{
+  &quot;status&quot;: &quot;not-matched&quot;,
+  &quot;reason&quot;: &quot;Correlation compared with the explicit experimental threshold; frame quality is not validated.&quot;,
+  &quot;observation&quot;: {
+    &quot;score&quot;: 0.9365527033805847,
+    &quot;box&quot;: {
+      &quot;x&quot;: 35,
+      &quot;y&quot;: 215,
+      &quot;width&quot;: 250,
+      &quot;height&quot;: 100
+    }
+  },
+  &quot;referenceEvidence&quot;: &quot;reference-12.png&quot;
+}</pre></section></html>

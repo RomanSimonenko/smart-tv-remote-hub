@@ -5,6 +5,16 @@ import { expect, test } from 'vitest';
 import { openDatabase } from '../src/storage/database.js';
 import { createTestCaseRepository, TestCaseConflictError, TestCaseNotFoundError } from '../src/test-cases/repository.js';
 const input = { id: '00000000-0000-4000-8000-000000000001', title: 'Кейс', description: '', group: '', steps: [] };
+test('persists readiness with version protection and keeps old cases draft', async()=>{
+ const dataDir=await mkdtemp(join(tmpdir(),'case-ready-'));const db=await openDatabase({dataDir});
+ try {const repo=createTestCaseRepository(db.sqlite);repo.create(input);
+ const {id,...draft}=input;
+ const updated=repo.update(id,{...draft,status:'ready',steps:[{id,kind:'given',text:'Начальное состояние'}],version:1});
+ expect(updated.status).toBe('ready');expect(repo.read(input.id)?.status).toBe('ready');
+ expect(repo.update(id,{...draft,title:'Updated',steps:updated.steps,version:2}).status).toBe('ready');
+ expect(()=>repo.update(id,{...draft,steps:[],version:3})).toThrow();expect(repo.read(id)?.status).toBe('ready');
+ }finally{db.close();await rm(dataDir,{recursive:true,force:true});}
+});
 test('persists drafts, detects stale edits and retries creation without duplication', async () => {
  const dataDir=await mkdtemp(join(tmpdir(),'case-storage-'));
  try {
@@ -53,5 +63,22 @@ test('preserves repeated action/result pairs through update and database reopen'
  repo.update(input.id,{title:input.title,description:'',group:'',steps:reordered,version:1});
  db.close();db=await openDatabase({dataDir});repo=createTestCaseRepository(db.sqlite,{now:()=>200});
  expect(repo.read(input.id)?.steps).toEqual(reordered);
+ }finally{db.close();await rm(dataDir,{recursive:true,force:true});}
+});
+
+test('key sequences survive retries, updates and reopen without changing legacy cases',async()=>{
+ const dataDir=await mkdtemp(join(tmpdir(),'case-actions-'));let db=await openDatabase({dataDir});
+ try {
+ let repo=createTestCaseRepository(db.sqlite,{now:()=>100});
+ const legacy={...input,steps:[{id:'00000000-0000-4000-8000-000000000010',kind:'when' as const,text:'Действие'}]};
+ const first=repo.create(legacy);expect(repo.create(legacy)).toEqual(first);
+ expect(repo.read(input.id)).toEqual(first);expect(repo.read(input.id)?.steps[0]).not.toHaveProperty('actions');
+ const actions=[{id:'00000000-0000-4000-8000-000000000020',action:'RIGHT' as const,pauseAfterMs:500},{id:'00000000-0000-4000-8000-000000000021',action:'RIGHT' as const,pauseAfterMs:1000}];
+ const {id:_id,...legacyDraft}=legacy;
+ repo.update(input.id,{...legacyDraft,version:1,steps:[{...legacy.steps[0]!,actions}]});
+ db.close();db=await openDatabase({dataDir});repo=createTestCaseRepository(db.sqlite,{now:()=>200});
+ expect(repo.read(input.id)?.steps[0]?.actions).toEqual(actions);
+ expect(repo.read(input.id)?.version).toBe(2);
+ expect(()=>repo.update(input.id,{...legacyDraft,version:1})).toThrow(TestCaseConflictError);
  }finally{db.close();await rm(dataDir,{recursive:true,force:true});}
 });

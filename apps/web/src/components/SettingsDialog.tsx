@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { IconX } from '@tabler/icons-react';
 
-interface Props { busy?: boolean; open: boolean; onClose(): void; children: ReactNode; footer?: ReactNode; title?: string; closeLabel?: string }
+interface Props { busy?: boolean; open: boolean; onClose(): void; children: ReactNode; footer?: ReactNode; title?: string; closeLabel?: string; dismissOnBackdrop?: boolean; className?: string }
 
-export function SettingsDialog({ open, onClose, children, footer, title = 'Настройки телевизора', closeLabel = 'Закрыть настройки', busy = false }: Props) {
+export function SettingsDialog({ open, onClose, children, footer, title = 'Настройки телевизора', closeLabel = 'Закрыть настройки', busy = false, dismissOnBackdrop = true, className = '' }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -27,7 +27,8 @@ export function SettingsDialog({ open, onClose, children, footer, title = 'На�
       if (opener.current?.isConnected) opener.current.focus();
     };
   }, []);
-  return <dialog ref={dialog} tabIndex={0} aria-label={title} className="settings-dialog" onCancel={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); onClose(); }} onClick={(event) => {
+  return <dialog ref={dialog} tabIndex={0} aria-label={title} className={['settings-dialog',className].filter(Boolean).join(' ')} onCancel={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); onClose(); }} onClick={(event) => {
+    if (!dismissOnBackdrop) return;
     if (event.target !== event.currentTarget) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();

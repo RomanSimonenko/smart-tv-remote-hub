@@ -3,7 +3,7 @@ import { loginRequestSchema, setupRequestSchema, passwordChangeRequestSchema, pa
 
 import type { AppConfig } from '../config.js';
 import { OwnerSetupError, type OwnerSetupService } from './service.js';
-import { PasswordChangeError, PasswordChangeStorageError, type AuthSessionService } from './sessions.js';
+import { PasswordChangeError, PasswordChangeStorageError, type AuthSessionService, type SessionRejectionReason } from './sessions.js';
 import { httpPolicy } from '../security/http-policy.js';
 
 export interface AuthRoutesDependencies {
@@ -28,6 +28,11 @@ export function registerAuthRoutes(app: FastifyInstance, { config, setup, sessio
   }
   const cookieHeader = (token: string, maxAge = 86400) => `remote_webos_session=${token}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=Strict${config.secureCookies ? '; Secure' : ''}`;
   const error = (request: FastifyRequest, code: string, message: string) => ({ code, message, requestId: request.id });
+  const reportSessionRejection = (request: FastifyRequest, reason: SessionRejectionReason) => {
+    app.log.info({ code: 'AUTH_SESSION_REJECTED', requestId: request.id,
+      reason,
+    }, 'Session authentication rejected');
+  };
   // Internal ownership context, never a request field or public session response.
   const authenticatedSessions = new WeakMap<FastifyRequest, string>();
   app.addHook('onRequest', async (request, reply) => {
@@ -41,7 +46,7 @@ export function registerAuthRoutes(app: FastifyInstance, { config, setup, sessio
     }
     if (!policy.requiresSession) return;
     const cookie = sessionCookie(request);
-    if (!sessions.authenticate(cookie)) {
+    if (!sessions.authenticate(cookie, reason => reportSessionRejection(request, reason))) {
       reply.code(401).send(error(request, 'UNAUTHORIZED', 'Unauthorized'));
       return;
     }
@@ -104,8 +109,11 @@ export function registerAuthRoutes(app: FastifyInstance, { config, setup, sessio
   });
 
   app.get('/api/auth/session', async (request, reply) => {
-    const identity = sessions.authenticate(sessionCookie(request));
-    if (!identity) return reply.code(401).send(error(request, 'UNAUTHORIZED', 'Unauthorized'));
+    const cookie = sessionCookie(request);
+    const identity = sessions.authenticate(cookie, reason => reportSessionRejection(request, reason));
+    if (!identity) {
+      return reply.code(401).send(error(request, 'UNAUTHORIZED', 'Unauthorized'));
+    }
     return identity;
   });
 

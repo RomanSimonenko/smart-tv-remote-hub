@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import {testRunsTableSql} from '../test-runs/repository.js';
 import { randomUUID } from 'node:crypto';
 
 export interface Migration {
@@ -122,4 +123,6 @@ export const schemaMigrations: readonly Migration[] = [
     },
   },
   { version: 7, up(sqlite) { sqlite.exec(testCasesTableSql); } },
+  { version: 8, up(sqlite) { sqlite.exec("ALTER TABLE test_cases ADD COLUMN status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','ready'))"); } },
+  { version: 9, up(sqlite) { sqlite.exec(`${testRunsTableSql}; CREATE INDEX test_runs_history ON test_runs(started_at DESC,id DESC);`); } },
 ];

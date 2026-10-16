@@ -117,6 +117,7 @@ export function createTvDeviceRegistry(dependencies: {
     async remove(tvId, beforeCommit) {
       if (closed) throw new TvServiceError('SERVICE_CLOSED', 409);
       if (removing.has(tvId)) throw new TvServiceError('OPERATION_CONFLICT', 409);
+      entries.get(tvId)?.service.assertNoRunLease();
       if (!entries.has(tvId) && !repository.forDevice(tvId).hasStoredKey()) { beforeCommit(); return; }
       removing.add(tvId);
       let cleaned = false;

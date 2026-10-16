@@ -1,8 +1,10 @@
 packages:
   - apps/*
   - packages/*
+  - tools/*
 overrides:
   postcss: 8.5.26
 allowBuilds:
   esbuild: true
   better-sqlite3: true
+  tesseract.js: false

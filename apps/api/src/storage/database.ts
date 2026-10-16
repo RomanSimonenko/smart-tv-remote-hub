@@ -1,4 +1,5 @@
 import { testCasesTableSql } from './migrations.js';
+import {testRunsTableSql} from '../test-runs/repository.js';
 import { randomUUID } from 'node:crypto';
 import { chmod, lstat, mkdir, open, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -98,9 +99,12 @@ function migrationVersion(sqlite: Database.Database, latestVersion: number): num
     const defaults = (sqlite.prepare('SELECT count(*) AS count FROM tv_default').get() as { count: number }).count;
     if ((count === 0 && defaults !== 0) || (count > 0 && defaults !== 1)) throw new StorageStartupError('STORAGE_SCHEMA_INVALID');
   }
-  if (version >= 7 && sqlite.prepare('SELECT sql FROM sqlite_schema WHERE type = ? AND name = ?').pluck().get('table', 'test_cases') !== testCasesTableSql) {
+  const caseSql=sqlite.prepare('SELECT sql FROM sqlite_schema WHERE type = ? AND name = ?').pluck().get('table', 'test_cases');
+  if (version >= 7 && (version===7 ? caseSql !== testCasesTableSql : typeof caseSql !== 'string' || !caseSql.startsWith(testCasesTableSql.slice(0,-1)))) {
     throw new StorageStartupError('STORAGE_SCHEMA_INVALID');
   }
+  if(version>=8) {try {sqlite.prepare('SELECT status FROM test_cases LIMIT 0');}catch(cause){throw new StorageStartupError('STORAGE_SCHEMA_INVALID',cause);}}
+  if(version>=9&&sqlite.prepare('SELECT sql FROM sqlite_schema WHERE type=? AND name=?').pluck().get('table','test_runs')!==testRunsTableSql)throw new StorageStartupError('STORAGE_SCHEMA_INVALID');
   return version;
 }
 

@@ -141,16 +141,17 @@ test('creates, edits, preserves and protects test case drafts', async ({page})=>
  await expect(page.getByText('v1',{exact:true})).toBeVisible();
  const savedCase=(await (await page.request.get(origin+'/api/test-cases')).json()).cases[0];
  const localTime=await page.evaluate(value=>new Intl.DateTimeFormat('ru-RU',{dateStyle:'short',timeStyle:'short'}).format(value),savedCase.updatedAt);
- await expect(page.locator('tbody tr').first().locator('td').last()).toHaveText(localTime);
+ await expect(page.locator('tbody tr').first().locator('td').nth(3)).toHaveText(localTime);
  await page.locator('tbody tr').first().locator('.case-open').hover();
  await expect(page.locator('tbody tr').first().locator('.case-open')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
- await expect(page.locator('tbody tr').first()).toHaveCSS('outline-style','solid');
+ await expect(page.locator('tbody tr').first()).toHaveCSS('outline-style','none');
  await page.locator('tbody tr').first().locator('td').last().hover();
- await expect(page.locator('tbody tr').first()).toHaveCSS('outline-style','solid');
+ await expect(page.locator('tbody tr').first()).toHaveCSS('outline-style','none');
  await page.screenshot({path:'../../.local/test-cases-row-hover.png'});
  await page.getByRole('heading',{name:'Тест-кейсы',exact:true}).hover();
  await expect(page.locator('tbody tr').first()).toHaveCSS('outline-style','none');
- await page.locator('tbody tr').first().focus();
+ await page.getByRole('searchbox',{name:'Поиск тест-кейсов'}).focus();
+ await page.keyboard.press('Tab');
  await expect(page.locator('tbody tr').first()).toBeFocused();
  await expect(page.locator('tbody tr').first()).toHaveCSS('outline-style','solid');
  await expect(page.locator('tbody tr').first()).toHaveCSS('outline-width','2px');
@@ -184,7 +185,7 @@ test('creates, edits, preserves and protects test case drafts', async ({page})=>
  await page.getByRole('button',{name:'Поднять шаг 2 Дано',exact:true}).click();
  await page.getByRole('button',{name:/Выбрать шаг 4/}).click();
  await expect(page.locator('.case-step-row').first()).toHaveCSS('height','60px');
- await expect(page.getByLabel('Текст шага')).toHaveCSS('height','96px');
+ await expect(page.getByLabel('Описание шага',{exact:true})).toHaveCSS('height','96px');
  await expect(page.getByLabel('Тип шага')).toHaveCSS('height','40px');
  await expect(page.locator('body')).toHaveCSS('background-color','rgb(17, 22, 29)');
  await expect(page.locator('.case-step-parameters')).toHaveCSS('background-color','rgb(26, 34, 44)');
@@ -192,7 +193,7 @@ test('creates, edits, preserves and protects test case drafts', async ({page})=>
  expect(panels[1]!).toBeLessThan(panels[0]!);
  expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight)).toBe(true);
  const saveWidth=await page.getByRole('button',{name:'Сохранить шаг',exact:true}).evaluate(element=>element.getBoundingClientRect().width);
- const textWidth=await page.getByLabel('Текст шага').evaluate(element=>element.getBoundingClientRect().width);
+ const textWidth=await page.getByLabel('Описание шага',{exact:true}).evaluate(element=>element.parentElement!.getBoundingClientRect().width);
  expect(saveWidth).toBe(textWidth);
  await page.screenshot({path:'../../.local/ordered-editor.png'});
  await page.getByLabel('Описание',{exact:true}).fill('Локальная правка');
@@ -319,11 +320,11 @@ test('keeps long descriptions compact and parameters reachable at 1024 px',async
  await expect.soft(page.locator('tbody td').first()).toHaveCSS('font-size','14px');
  await page.getByRole('button',{name:'Границы редактора',exact:true}).click();
  expect.soft((await page.locator('.case-step-row').first().boundingBox())!.height).toBeLessThanOrEqual(80);
- await page.locator('.case-step-select').first().click();await expect(page.getByLabel('Текст шага')).toHaveValue(text);
+ await page.locator('.case-step-select').first().click();await expect(page.getByLabel('Описание шага',{exact:true})).toHaveValue(text);
  await page.setViewportSize({width:1024,height:768});
  expect(await page.locator('.case-sequence').evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);
  await expectClickable(page,page.getByLabel('Тип шага'));
- await expectClickable(page,page.getByLabel('Текст шага'));
+ await expectClickable(page,page.getByLabel('Описание шага',{exact:true}));
  await expect(page.locator('.case-step-row')).toHaveCount(200);
 });
 
@@ -348,13 +349,13 @@ test('drags steps in both directions without losing pending text and persists or
  await page.getByLabel('Название',{exact:true}).fill('Перетаскивание шагов');
  for(const text of ['Первый','Второй','Третий']) {
   await page.getByRole('button',{name:'Добавить шаг',exact:true}).click();await page.getByRole('button',{name:'Добавить шаг Когда',exact:true}).click();
-  await page.getByLabel('Текст шага').fill(text);await page.getByRole('button',{name:'Сохранить шаг',exact:true}).click();
+  await page.getByLabel('Описание шага',{exact:true}).fill(text);await page.getByRole('button',{name:'Сохранить шаг',exact:true}).click();
  }
  await page.getByRole('button',{name:/Выбрать шаг 1 Когда:/}).click();
- await page.getByLabel('Текст шага').fill('Первый — правка');
+ await page.getByLabel('Описание шага',{exact:true}).fill('Первый — правка');
  await page.getByRole('button',{name:'Перетащить шаг 1',exact:true}).dragTo(page.locator('.case-step-row').nth(2),{targetPosition:{x:80,y:55}});
  await expect(page.locator('.case-step-text')).toHaveText(['Второй','Третий','Первый']);
- await expect(page.getByLabel('Текст шага')).toHaveValue('Первый — правка');
+ await expect(page.getByLabel('Описание шага',{exact:true})).toHaveValue('Первый — правка');
  await expect(page.locator('.case-parameter-number')).toHaveText('Шаг 3');
  await page.getByRole('button',{name:'Сохранить шаг',exact:true}).click();
  await page.getByRole('button',{name:'Перетащить шаг 3',exact:true}).dragTo(page.locator('.case-step-row').first(),{targetPosition:{x:80,y:3}});

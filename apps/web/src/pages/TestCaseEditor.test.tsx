@@ -8,7 +8,7 @@ test('creates a draft with editable ordered steps and keeps values after a faile
  render(<TestCaseEditor initialCase={null} onSave={save} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="Ошибка сохранения" onReloadConflict={vi.fn()}/>);
  fireEvent.change(screen.getByLabelText('Название'),{target:{value:'Кейс'}});
  fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Дано'}));
- fireEvent.change(screen.getByLabelText('Текст шага'),{target:{value:'Открыт экран'}});
+ fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Открыт экран'}});
  fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));
  fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({title:'Кейс',steps:[expect.objectContaining({kind:'given',text:'Открыт экран'})]})));
@@ -21,9 +21,9 @@ test('reorders steps, deletes and rejects empty text',async()=>{
  fireEvent.change(screen.getByLabelText('Название'),{target:{value:'QA'}});
  fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Когда'}));
  fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));expect(save).not.toHaveBeenCalled();expect(screen.getByRole('alert')).toBeTruthy();
- fireEvent.change(screen.getByLabelText('Текст шага'),{target:{value:'Первый'}});
+ fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Первый'}});
  fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));
- fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Когда'}));fireEvent.change(screen.getByLabelText('Текст шага'),{target:{value:'Второй'}});
+ fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Когда'}));fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Второй'}});
  fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));
  fireEvent.click(screen.getByRole('button',{name:'Поднять шаг 2 Когда'}));
  fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));
@@ -42,11 +42,11 @@ test('keeps unapplied step edits and requires applying them before saving the ca
  render(<TestCaseEditor initialCase={null} onSave={save} onBack={vi.fn()} onDirtyChange={dirty} saving={false} error="" onReloadConflict={vi.fn()}/>);
  fireEvent.change(screen.getByLabelText('Название'),{target:{value:'QA'}});
  fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Дано'}));
- fireEvent.change(screen.getByLabelText('Текст шага'),{target:{value:'Несохранённый текст'}});
+ fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Несохранённый текст'}});
  fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));expect(save).not.toHaveBeenCalled();
  fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Когда'}));
  fireEvent.click(screen.getAllByRole('button',{name:/Новый шаг/})[0]!);
- expect((screen.getByLabelText('Текст шага') as HTMLTextAreaElement).value).toBe('Несохранённый текст');
+ expect((screen.getByLabelText('Описание шага') as HTMLTextAreaElement).value).toBe('Несохранённый текст');
  fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));
  expect(screen.getByRole('status').textContent).toContain('черновик');
  expect(save).not.toHaveBeenCalled();expect(dirty).toHaveBeenLastCalledWith(true);
@@ -65,14 +65,14 @@ test('inserts between different types, retains staged type and text, cancels wit
  const save=vi.fn().mockResolvedValue(true);
  render(<TestCaseEditor initialCase={null} onSave={save} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="" onReloadConflict={vi.fn()}/>);
  fireEvent.change(screen.getByLabelText('Название'),{target:{value:'Последовательность'}});
- const add=(kind:string,text:string)=>{fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:`Добавить шаг ${kind}`}));fireEvent.change(screen.getByLabelText('Текст шага'),{target:{value:text}});fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));};
+ const add=(kind:string,text:string)=>{fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:`Добавить шаг ${kind}`}));fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:text}});fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));};
  add('Дано','Начало');add('Тогда','Результат');
  const trigger=screen.getByRole('button',{name:'Вставить шаг после №1'});fireEvent.click(trigger);
  fireEvent.keyDown(screen.getByRole('button',{name:'Добавить шаг Когда'}),{key:'Escape'});expect(document.activeElement).toBe(trigger);expect(screen.queryByRole('button',{name:'Добавить шаг Когда'})).toBeNull();
  fireEvent.click(trigger);fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Когда'}));
- fireEvent.change(screen.getByLabelText('Текст шага'),{target:{value:'Действие'}});fireEvent.change(screen.getByLabelText('Тип шага'),{target:{value:'then'}});
+ fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Действие'}});fireEvent.change(screen.getByLabelText('Тип шага'),{target:{value:'then'}});
  fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 2/}));
- expect((screen.getByLabelText('Тип шага') as HTMLSelectElement).value).toBe('then');expect((screen.getByLabelText('Текст шага') as HTMLTextAreaElement).value).toBe('Действие');
+ expect((screen.getByLabelText('Тип шага') as HTMLSelectElement).value).toBe('then');expect((screen.getByLabelText('Описание шага') as HTMLTextAreaElement).value).toBe('Действие');
  fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));expect(save).not.toHaveBeenCalled();
  fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({steps:[expect.objectContaining({text:'Начало',kind:'given'}),expect.objectContaining({text:'Действие',kind:'then'}),expect.objectContaining({text:'Результат',kind:'then'})]})));
@@ -82,19 +82,19 @@ test('protects unapplied edits when deleting and selects the next step',()=>{
  const confirm=vi.spyOn(window,'confirm').mockReturnValue(false);
  render(<TestCaseEditor initialCase={null} onSave={vi.fn()} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="" onReloadConflict={vi.fn()}/>);
  for(const kind of ['Дано','Когда']){fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:`Добавить шаг ${kind}`}));}
- fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));fireEvent.change(screen.getByLabelText('Текст шага'),{target:{value:'Правка'}});
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Правка'}});
  fireEvent.click(screen.getByRole('button',{name:'Удалить шаг 1 Дано'}));expect(screen.getAllByRole('button',{name:/Выбрать шаг/})).toHaveLength(2);
  confirm.mockReturnValue(true);fireEvent.click(screen.getByRole('button',{name:'Удалить шаг 1 Дано'}));expect((screen.getByLabelText('Тип шага') as HTMLSelectElement).value).toBe('when');
- fireEvent.click(screen.getByRole('button',{name:'Удалить шаг 1 Когда'}));expect(screen.queryByLabelText('Текст шага')).toBeNull();confirm.mockRestore();
+ fireEvent.click(screen.getByRole('button',{name:'Удалить шаг 1 Когда'}));expect(screen.queryByLabelText('Описание шага')).toBeNull();confirm.mockRestore();
 });
 
 test('closing parameters retains unapplied edits and returns focus to the step',()=>{
  render(<TestCaseEditor initialCase={null} onSave={vi.fn()} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="" onReloadConflict={vi.fn()}/>);
  fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Дано'}));
- fireEvent.change(screen.getByLabelText('Текст шага'),{target:{value:'Неприменённый текст'}});
+ fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Неприменённый текст'}});
  fireEvent.click(screen.getByRole('button',{name:'Закрыть параметры шага'}));
- expect(screen.queryByLabelText('Текст шага')).toBeNull();const row=screen.getByRole('button',{name:/Выбрать шаг 1/});expect(document.activeElement).toBe(row);
- fireEvent.click(row);expect((screen.getByLabelText('Текст шага') as HTMLTextAreaElement).value).toBe('Неприменённый текст');
+ expect(screen.queryByLabelText('Описание шага')).toBeNull();const row=screen.getByRole('button',{name:/Выбрать шаг 1/});expect(document.activeElement).toBe(row);
+ fireEvent.click(row);expect((screen.getByLabelText('Описание шага') as HTMLTextAreaElement).value).toBe('Неприменённый текст');
 });
 
 test('saved case wins over a retained imported draft after conflict reload',()=>{
@@ -106,8 +106,34 @@ test('forwards pending step validation to the leave dialog and clears it after a
  const report=vi.fn();render(<TestCaseEditor initialCase={null} onValidationError={report} onSave={vi.fn()} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="" onReloadConflict={vi.fn()}/>);
  fireEvent.change(screen.getByLabelText('Название'),{target:{value:'Demo'}});
  fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Дано'}));
- fireEvent.change(screen.getByLabelText('Текст шага'),{target:{value:'Changed'}});
+ fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Changed'}});
  fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));
  expect(report).toHaveBeenLastCalledWith('Сначала нажмите «Сохранить шаг» для изменённых шагов.');
  fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));expect(report).toHaveBeenLastCalledWith('');
+});
+
+test('stages key-only edits by step identity and persists sequence only after saving the step',async()=>{
+ Object.defineProperties(HTMLDialogElement.prototype,{showModal:{configurable:true,value:function(this:HTMLDialogElement){this.open=true;}},close:{configurable:true,value:function(this:HTMLDialogElement){this.open=false;}}});
+ const save=vi.fn().mockResolvedValue(true),dirty=vi.fn();
+ const steps=[{id:'00000000-0000-4000-8000-000000000011',kind:'when' as const,text:'Каталог'},{id:'00000000-0000-4000-8000-000000000012',kind:'then' as const,text:'Результат'}];
+ const initialCase={id:'00000000-0000-4000-8000-000000000010',title:'Пульт',description:'',group:'',steps,status:'draft' as const,version:1,createdAt:1,updatedAt:1};
+ render(<TestCaseEditor initialCase={initialCase} onSave={save} onBack={vi.fn()} onDirtyChange={dirty} saving={false} error="" onReloadConflict={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));fireEvent.click(screen.getByRole('button',{name:'Добавить нажатия'}));
+ for(const key of ['Вправо','Вправо','OK'])fireEvent.click(screen.getByRole('button',{name:key}));fireEvent.click(screen.getByRole('button',{name:/Готово/}));
+ expect(dirty).toHaveBeenLastCalledWith(true);
+ fireEvent.change(screen.getByLabelText('Пауза после нажатия 3, мс'),{target:{value:'1000'}});
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 2/}));fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));
+ expect((screen.getByLabelText('Пауза после нажатия 3, мс') as HTMLInputElement).value).toBe('1000');
+ fireEvent.click(screen.getByRole('button',{name:'Опустить шаг 1 Когда'}));
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));expect(save).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));
+ await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({steps:[steps[1],expect.objectContaining({id:steps[0]!.id,actions:[expect.objectContaining({action:'RIGHT',pauseAfterMs:500}),expect.objectContaining({action:'RIGHT',pauseAfterMs:500}),expect.objectContaining({action:'ENTER',pauseAfterMs:1000})]})]})));
+});
+test('invalid action pause is reported as pause validation instead of a text error',()=>{
+ const actions=[{id:'00000000-0000-4000-8000-000000000020',action:'RIGHT' as const,pauseAfterMs:500}];
+ const step={id:'00000000-0000-4000-8000-000000000011',kind:'when' as const,text:'Каталог',actions};
+ render(<TestCaseEditor initialCase={{id:crypto.randomUUID(),title:'Пауза',description:'',group:'',steps:[step],status:'draft',version:1,createdAt:1,updatedAt:1}} onSave={vi.fn()} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="" onReloadConflict={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));fireEvent.change(screen.getByLabelText('Пауза после нажатия 1, мс'),{target:{value:'60001'}});fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));
+ expect(screen.getByRole('alert').textContent).toContain('Пауза');expect(screen.getByRole('alert').textContent).not.toContain('Текст');
+ expect(screen.getByLabelText('Описание шага').getAttribute('aria-invalid')).not.toBe('true');
 });

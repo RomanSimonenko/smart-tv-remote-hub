@@ -3,6 +3,9 @@ import type { TestCaseRepository } from './test-cases/repository.js';
 import { registerProfileRoutes } from './profile/routes.js';
 import type { ProfileRepository } from './profile/repository.js';
 import { randomUUID } from 'node:crypto';
+import {registerTestRunRoutes} from './test-runs/routes.js';
+import type {TestRunService} from './test-runs/service.js';
+import type {ArtifactStore} from './test-runs/artifacts.js';
 import type { Writable } from 'node:stream';
 
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
@@ -24,6 +27,7 @@ import { addressedTvService, registerTvDeviceRoutes } from './tv/device-routes.j
 import { projectTvError, TvServiceError } from './tv/service.js';
 
 export interface AppDependencies {
+  readonly testRuns?:{service:TestRunService;artifacts:ArtifactStore};
   readonly config: AppConfig;
   readonly getSetupState: () => Promise<SetupState>;
   readonly webRoot?: string;
@@ -53,7 +57,7 @@ function routingError(error: Error & { code?: string }, request: FastifyRequest,
     });
 }
 
-export function buildApp({ config, getSetupState, webRoot, auth, profile, testCases, tv, tvs, reportError, logStream }: AppDependencies) {
+export function buildApp({ config, getSetupState, webRoot, auth, profile, testCases, testRuns, tv, tvs, reportError, logStream }: AppDependencies) {
   const app = Fastify({
     logger: safeLoggerOptions(logStream),
     bodyLimit: 16 * 1024,
@@ -125,6 +129,13 @@ export function buildApp({ config, getSetupState, webRoot, auth, profile, testCa
   if (testCases) {
     if (!auth) throw new Error('Test case routes require owner authentication');
     registerTestCaseRoutes(app, testCases);
+  }
+  if(testRuns){
+    if(!auth||!tvs)throw new Error('Test runs require owner authentication and TV registry');
+    registerTestRunRoutes(app,{...testRuns,tvs,sessionForRequest:sessionForRequest!});
+    const unsubscribe=auth.sessions.onRevoke(token=>testRuns.service.revoke(token));
+    app.addHook('preClose',()=>testRuns.service.close());
+    app.addHook('onClose',async()=>{unsubscribe();});
   }
   if (profile) {
     if (!auth) throw new Error('Profile routes require owner authentication');

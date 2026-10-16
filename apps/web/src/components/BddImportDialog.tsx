@@ -23,7 +23,7 @@ export function BddImportDialog({onClose,onImport}:Props){
  <div className="bdd-import" hidden={confirmClose}>
  <p>Вставьте текст одного тест-кейса или выберите файл для импорта.</p>
  <label>Название<input value={title} onChange={event=>setTitle(event.target.value)} maxLength={200}/></label>
- <label>Исходный текст<textarea spellCheck={false} value={source} onChange={event=>replace(event.target.value)} disabled={reading}/></label>
+ <label>Исходный текст<span className="textarea-frame"><textarea spellCheck={false} value={source} onChange={event=>replace(event.target.value)} disabled={reading}/></span></label>
  <p className="profile-caption">Один сценарий, до 64 КиБ. Файл и исходный код остаются в этом браузере.</p>
  <input ref={fileRef} type="file" accept=".js,.ts,text/javascript,text/plain" aria-label="Файл сценария" className="bdd-file" onChange={async event=>{
   const file=event.target.files?.[0];event.target.value='';if(!file)return;

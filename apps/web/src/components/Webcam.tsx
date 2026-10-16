@@ -1,5 +1,7 @@
 import { IconChevronDown } from '@tabler/icons-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState,useImperativeHandle,type Ref } from 'react';
+import {captureCameraFrame,CameraCaptureError,type CameraSnapshot} from '../camera-snapshot.js';
+export interface WebcamHandle {capture(signal:AbortSignal):Promise<CameraSnapshot>}
 
 function cameraError(cause: unknown): string {
   const name = cause instanceof Error ? cause.name : '';
@@ -9,7 +11,10 @@ function cameraError(cause: unknown): string {
   return `Не удалось включить камеру${name ? ` (${name})` : ''}. Попробуйте снова.`;
 }
 
-export function Webcam() {
+export function Webcam({ref,onReadyChange,locked=false}:{ref?:Ref<WebcamHandle>;onReadyChange?:(ready:boolean)=>void;locked?:boolean}={}) {
+  const readyCallback=useRef(onReadyChange);readyCallback.current=onReadyChange;
+  const captureController=useRef(new AbortController());
+  useImperativeHandle(ref,()=>({capture(signal){if(!video.current)return Promise.reject(new CameraCaptureError('CAMERA_NOT_READY'));return captureCameraFrame(video.current,stream.current,AbortSignal.any([signal,captureController.current.signal]),stream.current?.getVideoTracks()[0]?.label?.slice(0,200)||'Камера по умолчанию');}}));
   const supported = !!navigator.mediaDevices?.getUserMedia;
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState('');
@@ -27,6 +32,7 @@ export function Webcam() {
   }
 
   function release() {
+    readyCallback.current?.(false);captureController.current.abort(new CameraCaptureError('CAMERA_NOT_READY'));captureController.current=new AbortController();
     clearWaiting();
     stream.current?.getTracks().forEach((track) => track.stop());
     stream.current = null;
@@ -50,6 +56,7 @@ export function Webcam() {
       if (request !== generation.current) { next.getTracks().forEach((track) => track.stop()); return; }
       clearWaiting();
       stream.current = next;
+      next.getVideoTracks?.().forEach(track=>track.addEventListener?.('ended',()=>{if(stream.current===next){stop();setError('Поток камеры завершён. Включите камеру снова.');}},{once:true}));
       if (video.current) video.current.srcObject = next;
       setStatus('');
       try {
@@ -65,12 +72,12 @@ export function Webcam() {
   }
 
   return <section className="webcam-card" aria-label="Вебкамера">
-    <video ref={video} autoPlay muted playsInline aria-label="Видео с вебкамеры" onError={() => { stop(); setError('Не удалось воспроизвести видео с камеры. Попробуйте снова.'); }} />
-    <label>Камера<span className="webcam-select"><select value={deviceId} disabled={!supported} onChange={(event) => { const selected = event.target.value; setDeviceId(selected); if (enabled) void start(selected); }}>
+    <video ref={video} autoPlay muted playsInline aria-label="Видео с вебкамеры" onPlaying={()=>readyCallback.current?.(!!stream.current&&!!video.current?.videoWidth&&!!video.current?.videoHeight&&!!video.current?.requestVideoFrameCallback)} onError={() => { stop(); setError('Не удалось воспроизвести видео с камеры. Попробуйте снова.'); }} />
+    <label>Камера<span className="webcam-select"><select value={deviceId} disabled={!supported||locked} onChange={(event) => { const selected = event.target.value; setDeviceId(selected); if (enabled) void start(selected); }}>
       <option value="">По умолчанию</option>
       {devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Камера ${index + 1}`}</option>)}
     </select><IconChevronDown aria-hidden="true" /></span></label>
-    <div className="webcam-actions"><button type="button" disabled={!supported} onClick={() => enabled ? stop() : void start()}>{enabled ? 'Выключить' : 'Включить'}</button><div className="webcam-feedback">
+    <div className="webcam-actions"><button type="button" disabled={!supported||locked} onClick={() => enabled ? stop() : void start()}>{enabled ? 'Выключить' : 'Включить'}</button><div className="webcam-feedback">
     <p className="webcam-status" aria-live="polite">{status}</p>
     {(!supported || error) && <p role={supported ? "alert" : undefined} className="error">{!supported ? 'Браузер не предоставляет доступ к камере. Откройте страницу через HTTPS или localhost.' : error}</p>}
     </div></div>
