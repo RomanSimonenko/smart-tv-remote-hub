@@ -1,4 +1,4 @@
-import { IconChevronDown } from '@tabler/icons-react';
+import { IconChevronDown, IconVideo, IconVideoOff } from '@tabler/icons-react';
 import { useEffect, useRef, useState,useImperativeHandle,type Ref } from 'react';
 import {captureCameraFrame,CameraCaptureError,type CameraSnapshot} from '../camera-snapshot.js';
 export interface WebcamHandle {capture(signal:AbortSignal):Promise<CameraSnapshot>}
@@ -19,6 +19,7 @@ export function Webcam({ref,onReadyChange,locked=false}:{ref?:Ref<WebcamHandle>;
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState('');
   const [enabled, setEnabled] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const video = useRef<HTMLVideoElement>(null);
@@ -32,6 +33,7 @@ export function Webcam({ref,onReadyChange,locked=false}:{ref?:Ref<WebcamHandle>;
   }
 
   function release() {
+    setPlaying(false);
     readyCallback.current?.(false);captureController.current.abort(new CameraCaptureError('CAMERA_NOT_READY'));captureController.current=new AbortController();
     clearWaiting();
     stream.current?.getTracks().forEach((track) => track.stop());
@@ -72,14 +74,22 @@ export function Webcam({ref,onReadyChange,locked=false}:{ref?:Ref<WebcamHandle>;
   }
 
   return <section className="webcam-card" aria-label="Вебкамера">
-    <video ref={video} autoPlay muted playsInline aria-label="Видео с вебкамеры" onPlaying={()=>readyCallback.current?.(!!stream.current&&!!video.current?.videoWidth&&!!video.current?.videoHeight&&!!video.current?.requestVideoFrameCallback)} onError={() => { stop(); setError('Не удалось воспроизвести видео с камеры. Попробуйте снова.'); }} />
+    <div className="webcam-preview">
+    <video ref={video} aria-hidden={!playing} autoPlay muted playsInline aria-label="Видео с вебкамеры" onPlaying={()=>{if(!stream.current)return;setPlaying(true);readyCallback.current?.(!!video.current?.videoWidth&&!!video.current?.videoHeight&&!!video.current?.requestVideoFrameCallback);}} onError={() => { stop(); setError('Не удалось воспроизвести видео с камеры. Попробуйте снова.'); }} />
+    {!playing && <div className="webcam-placeholder" data-error={!supported||!!error}>
+      {enabled ? <span className="activity-spinner" aria-hidden="true"/> : error||!supported ? <IconVideoOff aria-hidden="true"/> : <IconVideo aria-hidden="true"/>}
+      <strong>{enabled ? 'Подключаем камеру…' : error||!supported ? 'Камера недоступна' : 'Камера выключена'}</strong>
+      {!enabled&&!error&&supported&&<p>Включите камеру, чтобы видеть экран телевизора.</p>}
+      {enabled&&<p className="webcam-status" role="status">{status||'Ожидаем изображение с камеры…'}</p>}
+      {(!supported||error)&&<p role={supported?'alert':undefined}>{!supported?'Браузер не предоставляет доступ к камере. Откройте страницу через HTTPS или localhost.':error}</p>}
+    </div>}
+    </div>
     <label>Камера<span className="webcam-select"><select value={deviceId} disabled={!supported||locked} onChange={(event) => { const selected = event.target.value; setDeviceId(selected); if (enabled) void start(selected); }}>
       <option value="">По умолчанию</option>
       {devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Камера ${index + 1}`}</option>)}
     </select><IconChevronDown aria-hidden="true" /></span></label>
-    <div className="webcam-actions"><button type="button" disabled={!supported||locked} onClick={() => enabled ? stop() : void start()}>{enabled ? 'Выключить' : 'Включить'}</button><div className="webcam-feedback">
-    <p className="webcam-status" aria-live="polite">{status}</p>
-    {(!supported || error) && <p role={supported ? "alert" : undefined} className="error">{!supported ? 'Браузер не предоставляет доступ к камере. Откройте страницу через HTTPS или localhost.' : error}</p>}
+    <div className="webcam-actions"><button type="button" disabled={!supported||locked} onClick={() => enabled ? stop() : void start()}>{enabled ? playing?'Выключить камеру':'Отмена' : error?'Повторить':'Включить камеру'}</button><div className="webcam-feedback">
+    {playing&&error&&<p role="alert" className="error">{error}</p>}
     </div></div>
   </section>;
 }

@@ -12,3 +12,6 @@ coverage/
 # Local package cache and generated code graph
 .pnpm-store/
 graft/
+
+# Downloaded platform runtime for project-local Impeccable skills
+.agents/skills/impeccable/scripts/bin/

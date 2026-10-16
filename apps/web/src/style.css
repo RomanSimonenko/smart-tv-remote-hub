@@ -16,22 +16,25 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--ui-bg);
 .dashboard-heading h1 { font-size: 1.75rem; margin: 0; }
 .dashboard-heading > button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
 .dashboard-heading > button svg { width: 20px; height: 20px; }
-.device-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.device-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .device-card { min-width: 0; position: relative; }
-.device-delete { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 36px; height: 36px; padding: 8px; border: 0; background: transparent; color: var(--ui-muted); z-index: 1; }
-.device-delete:hover, .device-delete:focus-visible { color: #ffb4b4; background: #422c34; }
+.device-delete { position: absolute; top: 50%; transform: translateY(-50%); right: 16px; display: grid; place-items: center; width: 40px; height: 40px; padding: 10px; border: 0; background: transparent; color: var(--ui-muted); z-index: 1; }
+.device-delete:hover, .device-delete:focus-visible { color: var(--ui-error); background: var(--ui-field); }
 .device-delete svg { width: 20px; height: 20px; }
 .delete-tv-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
 .delete-tv-confirm { background: #8e303f; border-color: #b74455; }
-.device-card .device-connection { padding-right: 32px; }
-.device-card-main { display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%; padding: 22px; border: 1px solid var(--ui-border); border-radius: 16px; background: var(--ui-panel); color: inherit; transition: border-color .18s ease, background-color .18s ease; }
-.device-card-main:hover, .device-card-main:focus-visible { border-color: var(--ui-accent); background: #20323d; }
-.device-card-main h2 { margin: 20px 0 16px; max-width: 100%; overflow-wrap: anywhere; font-size: 1.2rem; }
-.device-connection { display: flex; align-items: center; align-self: flex-start; gap: 10px; margin-bottom: 22px; color: var(--ui-muted); font-size: .85rem; }
+.device-card-main { display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(160px, .5fr) auto; align-items: center; gap: 24px; width: 100%; min-height: 112px; padding: 24px 80px 24px 24px; border: 1px solid var(--ui-border); border-radius: 12px; background: var(--ui-panel); color: inherit; text-align: left; }
+.device-card-main:hover:not(:disabled) { border-color: var(--ui-border); background: var(--ui-field); }
+.device-card-main:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+.device-identity { min-width: 0; }
+.device-card-main h2 { margin: 0 0 8px; overflow-wrap: anywhere; font-size: 20px; line-height: 28px; }
+.device-connection { display: flex; align-items: center; gap: 8px; color: var(--ui-muted); font-size: 14px; line-height: 20px; }
+.device-open { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 16px; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-field); white-space: nowrap; }
+.device-card .platform-badge { min-height: 0; padding: 0; border: 0; border-radius: 0; color: var(--ui-muted); font-size: 14px; line-height: 20px; }
 .device-connection svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
-.device-connection[data-connection="available"] { color: #60d994; }
-.device-connection[data-connection="authorization_error"], .device-connection[data-connection="compatibility_error"] { color: #ffa8b0; }
-.device-illustration { width: 160px; height: 120px; color: var(--ui-muted); stroke-width: 1.2; }
+.device-connection[data-connection="available"] { color: var(--ui-accent); }
+.device-connection[data-connection="authorization_error"], .device-connection[data-connection="compatibility_error"] { color: var(--ui-error); }
+.device-illustration { width: 40px; height: 40px; color: var(--ui-muted); stroke-width: 1.75; }
 .platform-badge { display: flex; align-items: center; min-height: 38px; gap: 8px; padding: 6px 12px; border: 1px solid #2c3e48; border-radius: 24px; font-size: .95rem; color: #c1ced6; }
 .platform-badge img { width: 34px; height: 24px; object-fit: contain; transform: scale(1.2); }
 .dashboard-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 112px 16px 40px; }
@@ -42,8 +45,11 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--ui-bg);
 .dashboard-primary:hover { background: var(--ui-accent); filter: brightness(1.06); }
 .dashboard-empty .muted { font-size: .85rem; color: var(--ui-muted); }
 .tv-navigation { margin-top: var(--screen-header-gap); }
-.tv-navigation button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; }
-@media (max-width: 800px) { .device-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tv-navigation button, .tv-header-navigation button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; }
+.tv-header-navigation { flex-shrink: 0; }
+.tv-header-navigation button { min-height: 40px; font-size: 14px; line-height: 20px; }
+.tv-header-navigation svg { width: 20px; height: 20px; }
+@media (max-width: 800px) { .device-card-main { grid-template-columns: 40px minmax(0, 1fr); gap: 16px; } .device-connection, .device-open { grid-column: 2; justify-self: start; } }
 @media (max-width: 520px) {
   .device-grid { grid-template-columns: minmax(0, 1fr); }
   .dashboard { margin-top: 28px; }
@@ -76,6 +82,8 @@ p { line-height: 1.5; margin: 12px 0; overflow-wrap: anywhere; }
 .activity-slot { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; }
 .activity-spinner { width: 16px; height: 16px; border: 2px solid var(--ui-border); border-top-color: #75ebba; border-radius: 50%; animation: activity-spin .8s linear infinite; }
 @keyframes activity-spin { to { transform: rotate(360deg); } }
+.run-refresh-icon[data-refreshing=true] { animation: activity-spin .8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .run-refresh-icon[data-refreshing=true] { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .activity-spinner { animation: none; } }
 form { display: grid; gap: 14px; margin-top: 20px; }
 label { display: grid; gap: 8px; font-size: .9rem; font-weight: 600; }
@@ -218,6 +226,13 @@ body:has(.settings-dialog[open]) { overflow: hidden; }
 .tv-layout-with-camera .tv-activity { grid-column: 1; grid-row: 2; }
 .webcam-card { grid-column: 2; grid-row: 1 / span 2; min-width: 0; padding: 20px; border: 1px solid var(--ui-border); border-radius: 24px; background: var(--ui-panel); }
 .webcam-card video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #080d11; border-radius: 12px; margin-bottom: 16px; }
+.webcam-preview { position: relative; margin-bottom: 16px; }
+.webcam-preview video { margin-bottom: 0; }
+.webcam-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; border-radius: 12px; background: var(--ui-bg); color: var(--ui-muted); }
+.webcam-placeholder > svg { width: 40px; height: 40px; stroke-width: 1.75; }
+.webcam-placeholder strong { color: var(--ui-text); font-size: 20px; line-height: 28px; }
+.webcam-placeholder p { max-width: 48ch; margin: 0; font-size: 14px; line-height: 20px; }
+.webcam-placeholder[data-error=true] > svg { color: var(--ui-error); }
 .webcam-card select { width: 100%; min-width: 0; padding: 10px; font: inherit; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-bg); color: inherit; }
 .webcam-actions { margin-top: 14px; }
 .webcam-card p { font-size: .9rem; overflow-wrap: anywhere; }
@@ -269,11 +284,11 @@ body:has(.settings-dialog[open]) { overflow: hidden; }
 .preferences-warning { color: var(--ui-warning); font-size: 12px; }
 .app-content .device-card-main { border-radius: 12px; }
 .app-content .webcam-card { border-radius: 12px; }
-.app-content .tv-layout-with-camera { max-width: 1120px; grid-template-columns: minmax(0, 1fr) 194px; }
+.app-content .tv-layout-with-camera { max-width: none; margin: 24px 0 0; grid-template-columns: minmax(0, 1fr) 194px; }
 .app-content .tv-layout-with-camera .tv-card, .app-content .tv-layout-with-camera .tv-activity { grid-column: 2; }
 .app-content .webcam-card { grid-column: 1; }
 .app-content .dashboard-heading > button { background: var(--ui-accent); color: var(--ui-on-accent); border-color: var(--ui-accent); }
-@media (max-width: 900px) { .app-content { padding: 20px 16px 32px; } .app-content .device-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .app-content { padding: 20px 16px 32px; } }
 @media (max-width: 640px) {
   .app-workspace, .app-workspace[data-collapsed="true"] { grid-template-columns: minmax(0, 1fr); }
   .app-sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--ui-border); gap: 12px; }
@@ -370,6 +385,7 @@ button.sidebar-profile[aria-current="page"] { background: var(--ui-field); borde
 /* Shared primary action uses the product palette on profile and password forms. */
 button.primary { background: var(--ui-accent); border-color: var(--ui-accent); color: var(--ui-on-accent); }
 button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color: var(--ui-accent); filter: brightness(1.06); }
+button.primary:disabled { background: var(--ui-field); border-color: var(--ui-border); color: var(--ui-muted); opacity: 1; }
 
 .cases-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .cases-heading h1 { margin: 0; font-size: 32px; line-height: 40px; }
@@ -409,7 +425,7 @@ button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color
 .case-step-heading h3 { margin: 0; font-size: 16px; }
 .case-step-heading small { color: var(--ui-muted); font-weight: 400; }
 .case-step-row { display: flex; align-items: center; gap: 8px; padding: 8px; border-top: 1px solid var(--ui-border); }
-.case-step-row[data-selected=true] { box-shadow: inset 0 0 0 1px var(--ui-accent); }
+.case-step-row[data-selected=true] { box-shadow: none; }
 .case-step-select { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left; background: transparent; border: 0; }
 .case-step-select > span { overflow-wrap: anywhere; }
 .case-step-select small { display: block; color: var(--ui-muted); margin-top: 4px; }
@@ -502,12 +518,13 @@ button.primary:hover:not(:disabled) { background: var(--ui-accent); border-color
 .case-sequence-heading small { color: var(--ui-muted); font-size: 14px; font-weight: 400; margin-left: 16px; white-space: nowrap; }
 .case-sequence-heading button { display: inline-flex; align-items: center; gap: 8px; font-weight: 400; }
 .case-sequence { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
-.case-sequence .case-step-row { position: relative; padding: 8px 12px; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-field); min-height: 60px; box-sizing: border-box; }
-.case-sequence .case-step-row[data-selected=true] { border-color: var(--ui-accent); background: var(--ui-panel); }
-.case-sequence .case-step-row:hover:not([data-selected=true]) { border-color: var(--ui-muted); }
+.case-sequence .case-step-row { position: relative; padding: 8px 12px; border: 1px solid transparent; border-radius: 8px; background: transparent; min-height: 60px; box-sizing: border-box; }
+.case-sequence .case-step-row[data-selected=true] { background: var(--ui-field); }
+.case-sequence .case-step-row:hover:not([data-selected=true]) { background: var(--ui-field); }
 .case-sequence .case-step-row:has(.case-step-select:focus-visible) { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
+.case-sequence .case-step-select:focus-visible { outline: none; box-shadow: none; }
 .case-sequence .case-step-select { display: grid; grid-template-columns: 24px 40px 64px minmax(0, 1fr); gap: 12px; padding: 0; }
-.case-sequence .case-step-select > svg { width: 40px; height: 40px; padding: 9px; border: 1px solid var(--ui-border); background: var(--ui-panel); }
+.case-sequence .case-step-select > svg { width: 40px; height: 40px; padding: 9px; border: 0; background: transparent; }
 .case-step-number { color: var(--ui-text); font-variant-numeric: tabular-nums; }
 .case-step-kind { font-weight: 600; }
 .case-step-text { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 14px; line-height: 20px; }

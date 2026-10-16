@@ -13,7 +13,7 @@ test('starts only on request, switches the selected camera and releases it on un
   const get = media(vi.fn().mockResolvedValueOnce(first.value).mockResolvedValueOnce(second.value));
   const view = render(<Webcam />);
   expect(get).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: 'Включить' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Включить камеру' }));
   await waitFor(() => expect(view.container.querySelector('video')?.srcObject).toBe(first.value));
   expect(get).toHaveBeenCalledWith({ audio: false, video: true });
   fireEvent.change(screen.getByLabelText('Камера'), { target: { value: 'two' } });
@@ -26,21 +26,21 @@ test('stopping during permission request releases a late stream', async () => {
   let resolve!: (value: MediaStream) => void;
   media(vi.fn().mockReturnValue(new Promise<MediaStream>((done) => { resolve = done; })));
   const view = render(<Webcam />);
-  fireEvent.click(screen.getByRole('button', { name: 'Включить' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Выключить' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Включить камеру' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
   const late = stream(); await act(async () => resolve(late.value));
   expect(late.stop).toHaveBeenCalledOnce(); expect(view.container.querySelector('video')?.srcObject).toBeFalsy();
 });
 test('permission denial is visible and allows retry', async () => {
   media(vi.fn().mockRejectedValue(new DOMException('denied', 'NotAllowedError')));
-  render(<Webcam />); fireEvent.click(screen.getByRole('button', { name: 'Включить' }));
+  render(<Webcam />); fireEvent.click(screen.getByRole('button', { name: 'Включить камеру' }));
   expect(await screen.findByRole('alert')).toBeTruthy();
-  expect((screen.getByRole('button', { name: 'Включить' }) as HTMLButtonElement).disabled).toBe(false);
+  expect((screen.getByRole('button', { name: 'Повторить' }) as HTMLButtonElement).disabled).toBe(false);
 });
 test('unsupported browser explains why the camera cannot start', () => {
   Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: undefined });
   render(<Webcam />); expect(screen.getByText(/Браузер не предоставляет/)).toBeTruthy();
-  expect((screen.getByRole('button', { name: 'Включить' }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole('button', { name: 'Включить камеру' }) as HTMLButtonElement).disabled).toBe(true);
 });
 
 test('waiting feedback is delayed and cancelled when access resolves quickly', async () => {
@@ -49,7 +49,7 @@ test('waiting feedback is delayed and cancelled when access resolves quickly', a
     let resolve!: (value: MediaStream) => void;
     media(vi.fn().mockReturnValue(new Promise<MediaStream>((done) => { resolve = done; })));
     render(<Webcam />);
-    fireEvent.click(screen.getByRole('button', { name: 'Включить' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Включить камеру' }));
     expect(screen.queryByText('Ожидаем доступ к камере…')).toBeNull();
     await act(async () => { vi.advanceTimersByTime(399); });
     expect(screen.queryByText('Ожидаем доступ к камере…')).toBeNull();
@@ -63,11 +63,42 @@ test('slow permission shows waiting feedback and stopping clears its timer', asy
   try {
     media(vi.fn().mockReturnValue(new Promise<MediaStream>(() => {})));
     render(<Webcam />);
-    fireEvent.click(screen.getByRole('button', { name: 'Включить' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Включить камеру' }));
     await act(async () => { vi.advanceTimersByTime(400); });
     expect(screen.getByText('Ожидаем доступ к камере…')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Выключить' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
     expect(screen.queryByText('Ожидаем доступ к камере…')).toBeNull();
     expect(vi.getTimerCount()).toBe(0);
   } finally { vi.useRealTimers(); }
+});
+
+ test('explains the empty preview and hides the placeholder only when video plays', async () => {
+  const camera = stream();
+  media(vi.fn().mockResolvedValue(camera.value));
+  const view = render(<Webcam />);
+  expect(screen.getByText('Камера выключена')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Включить камеру' }));
+  expect(screen.getByText('Подключаем камеру…')).toBeTruthy();
+  await waitFor(() => expect(view.container.querySelector('video')?.srcObject).toBe(camera.value));
+  expect(screen.getByText('Подключаем камеру…')).toBeTruthy();
+  fireEvent.playing(view.container.querySelector('video')!);
+  expect(screen.queryByText('Подключаем камеру…')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Выключить камеру' }));
+  expect(screen.getByText('Камера выключена')).toBeTruthy();
+  expect(camera.stop).toHaveBeenCalledOnce();
+ });
+
+test('retry replaces the error with connecting and then live video', async () => {
+  const camera = stream();
+  media(vi.fn().mockRejectedValueOnce(new DOMException('denied', 'NotAllowedError')).mockResolvedValueOnce(camera.value));
+  const view = render(<Webcam />);
+  fireEvent.click(screen.getByRole('button', { name: 'Включить камеру' }));
+  expect(await screen.findByRole('alert')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByText('Подключаем камеру…')).toBeTruthy();
+  await waitFor(() => expect(view.container.querySelector('video')?.srcObject).toBe(camera.value));
+  fireEvent.playing(view.container.querySelector('video')!);
+  expect(screen.queryByText('Камера недоступна')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Выключить камеру' })).toBeTruthy();
 });

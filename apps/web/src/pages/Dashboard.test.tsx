@@ -26,6 +26,7 @@ test('opens the exact selected card and returns without mutations', async () => 
   expect(fetch.mock.calls.map(([path]) => path)).toEqual(['/api/tvs']);
   fireEvent.click(screen.getByRole('button', { name: 'Открыть телевизор Second TV' })); await act(async () => {});
   expect(screen.getByRole('group', { name: 'Пульт' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'К списку телевизоров' }).closest('header')).toBeTruthy();
   expect(fetch.mock.calls.map(([path]) => path)).toEqual(['/api/tvs', `/api/tvs/${second}`, `/api/tvs/${second}/power`, `/api/tvs/${second}/remote`]);
   fireEvent.click(screen.getByRole('button', { name: 'К списку телевизоров' })); await act(async () => {});
   expect(screen.queryByRole('group', { name: 'Пульт' })).toBeNull();
@@ -71,10 +72,10 @@ test('list failure is not an empty state', async () => {
   expect(screen.queryByText('Пока нет телевизоров')).toBeNull();
   expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
 });
-test('account settings remain separate from TV settings', async () => {
-  await mount(); fireEvent.click(screen.getByRole('button', { name: 'Аккаунт' }));
-  expect(screen.getByRole('dialog', { name: 'Настройки аккаунта' })).toBeTruthy();
-  expect(screen.getByText('Вы вошли как synthetic-owner.')).toBeTruthy();
+test('account access is through the profile rather than a duplicate header action', async () => {
+  await mount();
+  expect(screen.queryByRole('button', { name: 'Аккаунт' })).toBeNull();
+  expect(screen.getByRole('button', { name: /Мой профиль:/ })).toBeTruthy();
 });
 test('adds another TV with CSRF and returns to the refreshed dashboard', async () => {
   let added = false;
@@ -160,11 +161,49 @@ test('sidebar collapse preserves selected TV without requests and navigation ret
   localStorage.clear();
 });
 
-test('header settings accessible name matches its visible account or TV action', async () => {
+test('only device settings remain in the remote header', async () => {
   await mount();
-  expect(screen.getByRole('button', { name: 'Аккаунт' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Аккаунт' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: /^Открыть телевизор / })); await act(async () => {});
   expect(screen.getByRole('button', { name: 'Настройки ТВ' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Выйти' })).toBeNull();
+});
+
+test('profile icon returns to the previous section and protects profile edits', async () => {
+  vi.spyOn(api, 'listTestRuns').mockResolvedValue({ runs: [], next: null });
+  await mount();
+  fireEvent.click(screen.getByRole('button', { name: 'Запуски' })); await act(async () => {});
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ }));
+  expect(screen.getByRole('heading', { name: 'Мой профиль' })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Отображаемое имя'), { target: { value: 'Changed name' } });
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ }));
+  expect(screen.getByRole('dialog', { name: 'Несохранённые изменения' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Остаться' }));
+  expect(screen.getByLabelText('Отображаемое имя')).toHaveProperty('value', 'Changed name');
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Не сохранять и продолжить' }));
+  expect(screen.getByRole('heading', { name: 'Запуски' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ }));
+  expect(screen.getByRole('heading', { name: 'Запуски' })).toBeTruthy();
+});
+
+test.each(['loading', 'failed'])('profile retains confirmed logout when profile data is %s', async state => {
+  if (state === 'loading') vi.mocked(api.getProfile).mockReturnValue(new Promise(() => {}));
+  else vi.mocked(api.getProfile).mockRejectedValue(new Error('profile unavailable'));
+  await mount();
+  expect(screen.queryByRole('button', { name: 'Выйти' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Выйти' }));
+  expect(screen.getByRole('dialog', { name: 'Выйти из приложения?' })).toBeTruthy();
+});
+
+test('profile restored without a previous screen returns to televisions', async () => {
+  history.replaceState({appNavigation:{owner:'synthetic-owner',route:{screen:'profile'}}},'');
+  await mount();
+  expect(screen.getByRole('heading', { name: 'Мой профиль' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ })); await act(async () => {});
+  expect(screen.getByRole('heading', { name: 'Телевизоры' })).toBeTruthy();
 });
 
 // Each test starts a separate browser history entry; remounts within a test retain it.
