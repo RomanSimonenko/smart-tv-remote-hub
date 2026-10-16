@@ -8,3 +8,4 @@ export * from './tv-devices.js';
 
 export * from './profile.js';
 export * from './test-cases.js';
+export * from './test-runs.js';

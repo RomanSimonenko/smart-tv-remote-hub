@@ -4,6 +4,8 @@ import { apiErrorSchema, loginResponseSchema, sessionResponseSchema, setupStatus
 import { tvPowerStateSchema, tvPowerOperationSchema, type TvPowerRequest } from '@remote-webos-tv/contracts';
 import { tvDevicesResponseSchema, addTvResponseSchema, type TvId, type AddTvRequest } from '@remote-webos-tv/contracts';
 import type { TvHoldRequest } from '@remote-webos-tv/contracts';
+import {testRunSchema,testRunsResponseSchema,type StartTestRun,type RunFailure} from '@remote-webos-tv/contracts';
+import type {CameraSnapshot} from './camera-snapshot.js';
 
 export class ApiFailure extends Error {
   constructor(readonly status: number, readonly code: string) { super('API request failed'); }
@@ -61,6 +63,11 @@ async function dispatchCommand(kind: 'commands' | 'holds', input: TvCommandReque
   return result;
 }
 export const api = {
+  async listTestRuns(before?:string,signal?:AbortSignal,filters:{query?:string;status?:string;tvId?:string;since?:number;until?:number}={}){const params=new URLSearchParams();if(before)params.set('before',before);for(const [key,value]of Object.entries(filters))if(value!==''&&value!==undefined)params.set(key,String(value));return parsed(await request(`/test-runs${params.size?`?${params}`:''}`,{signal:signal??null}),testRunsResponseSchema);},
+  async getTestRun(id:string,signal?:AbortSignal){return parsed(await request(`/test-runs/${encodeURIComponent(id)}`,{signal:signal??null}),testRunSchema);},
+  async startTestRun(input:StartTestRun,csrfToken:string,signal?:AbortSignal){return parsed(await request('/test-runs',{method:'POST',headers:{...jsonHeaders,'x-csrf-token':csrfToken},body:JSON.stringify(input),signal:signal??null}),testRunSchema);},
+  async runAction(id:string,action:'advance'|'stop'|'heartbeat'|'failure',csrfToken:string,body?:{itemId:string}|RunFailure,signal?:AbortSignal){return parsed(await request(`/test-runs/${encodeURIComponent(id)}/${action}`,{method:'POST',headers:{...jsonHeaders,'x-csrf-token':csrfToken},...(body?{body:JSON.stringify(body)}:{}),signal:signal??null}),testRunSchema);},
+  async saveRunSnapshot(id:string,itemId:string,snapshot:CameraSnapshot,csrfToken:string,signal:AbortSignal){return parsed(await request(`/test-runs/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}/snapshot`,{method:'PUT',headers:{'content-type':'image/jpeg','x-csrf-token':csrfToken,'x-captured-at':String(snapshot.capturedAt),'x-camera-label':encodeURIComponent(snapshot.cameraLabel)},body:snapshot.blob,signal:AbortSignal.any([signal,AbortSignal.timeout(10000)])}),testRunSchema);},
   async listTestCases(signal?: AbortSignal) { return parsed(await request('/test-cases', {signal:signal??null}), testCasesResponseSchema); },
   async getTestCase(id:string,signal?:AbortSignal) { return parsed(await request(`/test-cases/${encodeURIComponent(id)}`,{signal:signal??null}),testCaseSchema); },
   async createTestCase(input:CreateTestCase,csrfToken:string,signal?:AbortSignal) { return parsed(await request('/test-cases',{method:'POST',headers:{...jsonHeaders,'x-csrf-token':csrfToken},body:JSON.stringify(input),signal:signal??null}),testCaseSchema); },
@@ -125,6 +132,11 @@ export const api = {
 
 export function friendlyError(error: unknown): string {
   if (error instanceof ApiFailure) {
+    if(error.code==='VERSION_CONFLICT')return 'Кейс изменён. Откройте подготовку заново, чтобы использовать сохранённую версию.';
+    if(error.code==='RUN_OWNED_BY_ANOTHER_SESSION')return 'Запуск управляется из другой сессии.';
+    if(error.code==='ARTIFACT_QUOTA_EXCEEDED')return 'Хранилище снимков заполнено. Запуск остановлен.';
+    if(error.code==='ARTIFACT_STORAGE_FAILED')return 'Не удалось сохранить снимок. Запуск остановлен.';
+    if(error.code==='RUN_CONFLICT'||error.code==='RUN_NOT_ACTIVE')return 'Состояние запуска изменилось. Откройте отчёт.';
     if (error.code === 'OPERATION_CONFLICT') return 'Другая операция с телевизором ещё не завершена.';
     if (error.code === 'INVALID_ACTION') return 'Это действие недоступно для текущей настройки телевизора.';
     if (error.code === 'OPERATION_NOT_FOUND') return 'Операция с телевизором не найдена. Обновите статус.';

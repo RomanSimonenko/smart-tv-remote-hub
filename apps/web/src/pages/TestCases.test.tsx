@@ -4,6 +4,11 @@ import {afterEach,expect,test,vi} from 'vitest';
 import {TestCases} from './TestCases.js';
 afterEach(cleanup);
 const item={id:'00000000-0000-4000-8000-000000000001',title:'Каналы',description:'Поиск',group:'ТВ',steps:[],version:2,status:'draft' as const,createdAt:1,updatedAt:1};
+test('run action opens preparation independently and empty cases explain disabled state',()=>{
+ const open=vi.fn(),run=vi.fn();render(<TestCases cases={[{...item,steps:[{id:item.id,kind:'given',text:'Начало'}],status:'ready'},{...item,id:'empty',title:'Пустой'}]} loading={false} error="" onCreate={vi.fn()} onOpen={open} onRun={run} onRetry={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Запустить тест-кейс: Каналы'}));expect(run).toHaveBeenCalledWith(item.id);expect(open).not.toHaveBeenCalled();
+ expect(screen.getByText('Готов к запуску')).toBeTruthy();expect(screen.getByText('Добавьте шаги').classList.contains('visually-hidden')).toBe(true);expect(screen.getByRole('columnheader',{name:'Запуск'}).classList.contains('visually-hidden')).toBe(false);expect((screen.getByRole('button',{name:'Запустить тест-кейс: Пустой'}) as HTMLButtonElement).disabled).toBe(true);
+});
 test('filters by description and group and opens a case',()=>{
  const open=vi.fn(); render(<TestCases cases={[item,{...item,id:'other',title:'Плеер',description:'Видео',group:'Видео'}]} loading={false} error="" onCreate={vi.fn()} onOpen={open} onRetry={vi.fn()}/>);
  fireEvent.change(screen.getByLabelText('Поиск тест-кейсов'),{target:{value:'поиск'}});

@@ -4,11 +4,12 @@ import { chmod, lstat, open, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { hashPassword, verifyPassword } from './passwords.js';
-import type { OwnerRepository } from './repository.js';
+import type { OwnerRepository, StoredSessionRejection } from './repository.js';
 
 const sessionLifetimeMs = 24 * 60 * 60 * 1000;
 const cookiePattern = /^[A-Za-z0-9_-]{43}$/;
 const csrfPattern = /^[A-Za-z0-9_-]{43}$/;
+export type SessionRejectionReason = StoredSessionRejection | 'SESSION_COOKIE_UNAVAILABLE' | 'SESSION_TOKEN_MALFORMED' | 'SESSION_CSRF_MISMATCH';
 
 function digest(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
@@ -76,7 +77,7 @@ export interface AuthSessionService {
   changePassword(token: string, currentPassword: string, newPassword: string): Promise<{ username: string; token: string; csrfToken: string; cleanupWarning: boolean }>;
   hasActiveSessions(): boolean;
   login(username: string, password: string): Promise<{ readonly username: string; readonly token: string } | undefined>;
-  authenticate(token: string | undefined): { readonly username: string; readonly csrfToken: string } | undefined;
+  authenticate(token: string | undefined, onRejection?: (reason: SessionRejectionReason) => void): { readonly username: string; readonly csrfToken: string } | undefined;
   verifyCsrf(token: string, supplied: unknown): boolean;
   revoke(token: string): Promise<void>;
   onRevoke(listener: (token: string) => void | Promise<void>): () => void;
@@ -137,12 +138,13 @@ export async function createAuthSessionService(input: {
       observe(token);
       return { username: owner.username, token };
     },
-    authenticate(token) {
-      if (!token || !cookiePattern.test(token)) return undefined;
-      const row = repository.findSession(digest(token), now());
+    authenticate(token, onRejection) {
+      if (!token) { onRejection?.('SESSION_COOKIE_UNAVAILABLE'); return undefined; }
+      if (!cookiePattern.test(token)) { onRejection?.('SESSION_TOKEN_MALFORMED'); return undefined; }
+      const row = repository.findSession(digest(token), now(), onRejection);
       if (!row) return undefined;
       const csrfToken = csrfFor(token);
-      if (!/^[a-f0-9]{64}$/.test(row.csrfHash) || !timingSafeEqual(Buffer.from(digest(csrfToken), 'hex'), Buffer.from(row.csrfHash, 'hex'))) return undefined;
+      if (!/^[a-f0-9]{64}$/.test(row.csrfHash) || !timingSafeEqual(Buffer.from(digest(csrfToken), 'hex'), Buffer.from(row.csrfHash, 'hex'))) { onRejection?.('SESSION_CSRF_MISMATCH'); return undefined; }
       observe(token);
       return { username: row.username, csrfToken };
     },

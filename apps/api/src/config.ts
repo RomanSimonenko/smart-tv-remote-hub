@@ -3,6 +3,7 @@ import { isAbsolute } from 'node:path';
 
 export interface AppConfig {
   readonly dataDir: string;
+  readonly runArtifactMaxBytes?:number;
   readonly host: string;
   readonly port: number;
   readonly publicOrigin: string;
@@ -42,6 +43,8 @@ function parseTrustedProxy(value: string | undefined): string[] {
 }
 
 export function loadConfig(env: Environment): AppConfig {
+  const quota=env.RUN_ARTIFACT_MAX_BYTES;
+  if(quota!==undefined&&(!/^\d+$/.test(quota)||!Number.isSafeInteger(Number(quota))||Number(quota)<1))throw new AppConfigError('RUN_ARTIFACT_MAX_BYTES must be a positive safe integer');
   const wolBroadcastAddress = env.REMOTE_WEBOS_WOL_BROADCAST_ADDRESS;
   if (wolBroadcastAddress !== undefined && isIP(wolBroadcastAddress) !== 4) {
     throw new AppConfigError('REMOTE_WEBOS_WOL_BROADCAST_ADDRESS must be an IPv4 address');
@@ -78,6 +81,7 @@ export function loadConfig(env: Environment): AppConfig {
   }
 
   return {
+    ...(quota===undefined?{}:{runArtifactMaxBytes:Number(quota)}),
     dataDir,
     host,
     port: Number(portValue),

@@ -15,3 +15,6 @@ test('restores saved cases and platform-scoped remote and rejects malformed data
  history.replaceState({appNavigation:{owner:'owner',route:{screen:'remote',tvId:'bad',platform:'webos'}}},'');
  expect(readNavigation('owner')).toEqual({screen:'dashboard'});
 });
+test('reload restores run reports without execution data',()=>{
+ const id='00000000-0000-4000-8000-000000000001';writeNavigation('owner',{screen:'report',runId:id});expect(readNavigation('owner')).toEqual({screen:'report',runId:id});
+});

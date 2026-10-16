@@ -25,6 +25,12 @@ test('requires client UUID and positive safe integer version', () => {
  expect(updateTestCaseSchema.safeParse({...draft,version:1}).success).toBe(true);
 });
 
+test('ready cases require steps and preserve explicit readiness', () => {
+ expect(testCaseDraftSchema.safeParse({...draft,status:'ready'}).success).toBe(false);
+ expect(testCaseDraftSchema.parse({...draft,status:'ready',steps:[{id,kind:'then',text:'Состояние'}]}).status).toBe('ready');
+ expect(testCaseDraftSchema.safeParse({...draft,status:'passed'}).success).toBe(false);
+});
+
 test('preserves key actions and legacy steps while validating pauses, keys, count and identity',()=>{
  const step={id,kind:'when',text:'Открыть каталог'};
  const actions=['RIGHT','RIGHT','ENTER','power','wink'].map((action,i)=>({id:`00000000-0000-4000-8000-${String(i+10).padStart(12,'0')}`,action,pauseAfterMs:[0,500,60000,500,500][i]}));

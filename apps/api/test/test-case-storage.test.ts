@@ -5,6 +5,16 @@ import { expect, test } from 'vitest';
 import { openDatabase } from '../src/storage/database.js';
 import { createTestCaseRepository, TestCaseConflictError, TestCaseNotFoundError } from '../src/test-cases/repository.js';
 const input = { id: '00000000-0000-4000-8000-000000000001', title: 'Кейс', description: '', group: '', steps: [] };
+test('persists readiness with version protection and keeps old cases draft', async()=>{
+ const dataDir=await mkdtemp(join(tmpdir(),'case-ready-'));const db=await openDatabase({dataDir});
+ try {const repo=createTestCaseRepository(db.sqlite);repo.create(input);
+ const {id,...draft}=input;
+ const updated=repo.update(id,{...draft,status:'ready',steps:[{id,kind:'given',text:'Начальное состояние'}],version:1});
+ expect(updated.status).toBe('ready');expect(repo.read(input.id)?.status).toBe('ready');
+ expect(repo.update(id,{...draft,title:'Updated',steps:updated.steps,version:2}).status).toBe('ready');
+ expect(()=>repo.update(id,{...draft,steps:[],version:3})).toThrow();expect(repo.read(id)?.status).toBe('ready');
+ }finally{db.close();await rm(dataDir,{recursive:true,force:true});}
+});
 test('persists drafts, detects stale edits and retries creation without duplication', async () => {
  const dataDir=await mkdtemp(join(tmpdir(),'case-storage-'));
  try {

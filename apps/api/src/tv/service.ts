@@ -38,17 +38,21 @@ export interface TvVersionDiagnostic {
   readonly code: 'timeout' | 'invalid_response' | 'version_unavailable' | 'request_rejected' | 'send_failed' | 'read_failed' | 'storage_failed';
 }
 export interface TvService {
+  acquireRunLease(token:symbol):void;
+  releaseRunLease(token:symbol):void;
+  assertNoRunLease():void;
+  sendRunPower(id:string,owner:string,signal:AbortSignal,lease:symbol):Promise<TvCommandResult>;
   powerState(): TvPowerState;
   setMac(mac: string | null): TvPowerState;
-  assertCanStartPower(input: TvPowerRequest): TvPowerRequest;
-  startPower(input: TvPowerRequest, owner: string): TvPowerOperation;
+  assertCanStartPower(input: TvPowerRequest,lease?:symbol): TvPowerRequest;
+  startPower(input: TvPowerRequest, owner: string,lease?:symbol): TvPowerOperation;
   cancelPower(id: string, owner: string): TvPowerOperation;
   cancelOwnedPower(owner: string): Promise<void>;
   /** Internal synchronous retention of terminal results before state replacement. */
   onPowerFinished(listener: (operation: TvPowerOperation, owner: string | symbol) => void): () => void;
   remoteState(): TvRemoteState;
   assertCanSendCommand(input: TvCommandRequest): TvCommandRequest;
-  sendCommand(input: TvCommandRequest, signal: AbortSignal): Promise<TvCommandResult>;
+  sendCommand(input: TvCommandRequest, signal: AbortSignal,lease?:symbol): Promise<TvCommandResult>;
   assertCanHold(input: TvHoldRequest, owner: string): TvHoldRequest;
   hold(input: TvHoldRequest, owner: string, signal: AbortSignal): Promise<TvCommandResult>;
   cancelOwnedHold(owner: string): Promise<void>;
@@ -84,6 +88,11 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
   const recoveryTimeoutMs = dependencies.recoveryTimeoutMs ?? 60_000;
   if (!Number.isInteger(recoveryTimeoutMs) || recoveryTimeoutMs < 1_000 || recoveryTimeoutMs > 300_000) throw new Error('Invalid TV recovery timeout');
   let saved = repository.load();
+  let runLease:symbol|undefined;
+  function assertNoRunLease(){if(runLease)throw new TvServiceError('OPERATION_CONFLICT',409);}
+  function assertLease(lease?:symbol){if(runLease&&runLease!==lease)throw new TvServiceError('OPERATION_CONFLICT',409);}
+  function acquireRunLease(token:symbol){assertNoRunLease();assertIdle();runLease=token;}
+  function releaseRunLease(token:symbol){if(runLease===token)runLease=undefined;}
   const platform = tvPlatformSchema.parse(saved?.platform ?? dependencies.platform ?? 'webos');
   let connection: TvConnectionState = saved ? 'unavailable' : 'unconfigured';
   let error: PublicTvError | undefined;
@@ -380,6 +389,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
   }
 
   function assertCanStart(input: StartTvOperation): StartTvOperation {
+    assertNoRunLease();
     if (closed) throw new TvServiceError('SERVICE_CLOSED', 409);
     if (unsafeCleanup) throw new TvServiceError('CLEANUP_FAILED', 409, { cause: unsafeCleanup });
     if (work || cleanup || command || holding.busy()) throw new TvServiceError('OPERATION_CONFLICT', 409);
@@ -468,7 +478,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
       await probe.promise;
     }
     const result = view();
-    if (recoverAfterProbe && (platform !== 'tizen' || observedPower === 'on') && !closed && !work && !command && !holding.busy() && !probe && !unsafeCleanup && saved) {
+    if (!runLease && recoverAfterProbe && (platform !== 'tizen' || observedPower === 'on') && !closed && !work && !command && !holding.busy() && !probe && !unsafeCleanup && saved) {
       beginPower({ id: dependencies.newId(), action: 'recover' }, serverOwner);
     }
     return result;
@@ -504,7 +514,8 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     return new WebOsError('INVALID_TV_RESPONSE', 'Samsung power observation is unknown');
   }
 
-  function assertIdle(): void {
+  function assertIdle(lease?:symbol): void {
+    assertLease(lease);
     if (closed) throw new TvServiceError('SERVICE_CLOSED', 409);
     if (unsafeCleanup) throw new TvServiceError('CLEANUP_FAILED', 409, { cause: unsafeCleanup });
     if (work || cleanup || command || probe || holding.busy()) throw new TvServiceError('OPERATION_CONFLICT', 409);
@@ -517,9 +528,9 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
   }
 
   function powerState(): TvPowerState {
-    const idle = !closed && !unsafeCleanup && !work && !cleanup && !command && !probe && !holding.busy();
+    const idle = !runLease && !closed && !unsafeCleanup && !work && !cleanup && !command && !probe && !holding.busy();
     return {
-      busy: !!(work || cleanup || command || probe || holding.busy()),
+      busy: !!(runLease || work || cleanup || command || probe || holding.busy()),
       mac: saved?.macAddress ?? null,
       wakeSupported: supportsWake(),
       ...(platform === 'tizen' ? { observedPower } : {}),
@@ -543,10 +554,11 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     return powerState();
   }
 
-  function assertCanStartPower(input: TvPowerRequest): TvPowerRequest {
+  function assertCanStartPower(input: TvPowerRequest,lease?:symbol): TvPowerRequest {
+    assertLease(lease);
     const parsed = tvPowerRequestSchema.safeParse(input);
     if (!parsed.success) throw new TvServiceError('INVALID_REQUEST', 400);
-    if (!(parsed.data.action === 'wake' && canReplaceReconnect())) assertIdle();
+    if (!(parsed.data.action === 'wake' && canReplaceReconnect())) assertIdle(lease);
     if (platform === 'tizen') {
       if (!saved) throw new TvServiceError('INVALID_ACTION', 409);
       if (observedPower === 'unknown' && parsed.data.action === 'power_off') throw unknownPowerObservation();
@@ -585,8 +597,8 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     return { ...operation };
   }
 
-  function startPower(input: TvPowerRequest, owner: string): TvPowerOperation {
-    const accepted = assertCanStartPower(input);
+  function startPower(input: TvPowerRequest, owner: string,lease?:symbol): TvPowerOperation {
+    const accepted = assertCanStartPower(input,lease);
     const previousWork = accepted.action === 'wake' && canReplaceReconnect() ? work : undefined;
     if (previousWork) cancelAttempt(attempt!);
     return beginPower(accepted, owner, previousWork);
@@ -779,10 +791,10 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     } finally { scheduler.clearTimeout(context.timer); }
   }
 
-  function remoteState(): TvRemoteState {
+  function remoteState(lease?:symbol): TvRemoteState {
     // Background reads do not disable the remote. An admitted command retains
     // ownership while awaiting their result before touching the transport.
-    if (work || cleanup || command || holding.busy()) return { enabled: false, reason: 'BUSY' };
+    if (runLease&&runLease!==lease || work || cleanup || command || holding.busy()) return { enabled: false, reason: 'BUSY' };
     if (closed || unsafeCleanup || connection !== 'available' || !activeAdapter || remoteCapability?.generation !== generation) return { enabled: false, reason: 'UNAVAILABLE' };
     if (remoteCapability.buttons !== true) return { enabled: false, reason: 'UNSUPPORTED' };
     return { enabled: true, reason: null, apps: remoteCapability.apps,
@@ -810,17 +822,17 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     catch (cause) { if (cause instanceof TvCommandAdmissionError) return rejectTvCommand(input.id, cause.code); throw cause; }
   }
 
-  function assertCanSendCommand(input: TvCommandRequest): TvCommandRequest {
+  function assertCanSendCommand(input: TvCommandRequest,lease?:symbol): TvCommandRequest {
     const parsed = tvCommandRequestSchema.safeParse(input);
     if (!parsed.success) throw new TvServiceError('INVALID_REQUEST', 400);
-    const state = remoteState();
+    const state = remoteState(lease);
     if (!state.enabled) throw new TvCommandAdmissionError(state.reason === 'BUSY' ? 'TV_BUSY' : state.reason === 'UNSUPPORTED' ? 'UNSUPPORTED_CAPABILITY' : 'TV_UNAVAILABLE');
     if ('app' in parsed.data && remoteCapability?.apps !== true) throw new TvCommandAdmissionError('UNSUPPORTED_CAPABILITY');
     return parsed.data;
   }
 
-  async function sendCommand(input: TvCommandRequest, signal: AbortSignal): Promise<TvCommandResult> {
-    try { input = assertCanSendCommand(input); }
+  async function sendCommand(input: TvCommandRequest, signal: AbortSignal,lease?:symbol): Promise<TvCommandResult> {
+    try { input = assertCanSendCommand(input,lease); }
     catch (cause) {
       if (cause instanceof TvCommandAdmissionError) return rejectTvCommand(input.id, cause.code);
       throw cause;
@@ -899,6 +911,19 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
     return closing;
   }
   return {
+    acquireRunLease,releaseRunLease,assertNoRunLease,
+    async sendRunPower(id,owner,signal,lease){
+      if(signal.aborted)return rejectTvCommand(id,'COMMAND_NOT_SENT');
+      const input:TvPowerRequest=connection==='available'?{id,action:'power_off',confirm:true}:{id,action:'wake'};
+      try{assertCanStartPower(input,lease);}catch(cause){if(cause instanceof TvServiceError)return rejectTvCommand(id,cause.code==='UNSUPPORTED_CAPABILITY'?'UNSUPPORTED_CAPABILITY':'TV_UNAVAILABLE');throw cause;}
+      return new Promise<TvCommandResult>((resolve,reject)=>{
+        const done=(operation:TvPowerOperation)=>{if(operation.id!==id)return;powerFinishedListeners.delete(finished);signal.removeEventListener('abort',abort);resolve(operation.status==='succeeded'&&operation.delivery==='sent'?{id,outcome:'sent'}:operation.delivery==='not_sent'?rejectTvCommand(id,'COMMAND_NOT_SENT'):unknownTvCommand(id));};
+        const finished=(operation:TvPowerOperation)=>done(operation);
+        const abort=()=>{try{done(cancelPower(id,owner));}catch(cause){powerFinishedListeners.delete(finished);signal.removeEventListener('abort',abort);reject(cause);}};
+        powerFinishedListeners.add(finished);signal.addEventListener('abort',abort,{once:true});
+        try{const operation=startPower(input,owner,lease);if(operation.status!=='running')done(operation);}catch(cause){powerFinishedListeners.delete(finished);signal.removeEventListener('abort',abort);reject(cause);}
+      });
+    },
     assertCanStart, start, status, cancel, initialize, close, remoteState, assertCanSendCommand, sendCommand, powerState, setMac, assertCanStartPower, startPower, cancelPower, cancelOwnedPower, assertCanHold, hold, cancelOwnedHold: (owner) => holding.stop(owner), isHolding: holding.isHolding,
     onPowerFinished(listener) { powerFinishedListeners.add(listener); return () => { powerFinishedListeners.delete(listener); }; },
   };

@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type Database from 'better-sqlite3';
 
 interface SessionRecord { readonly tokenHash: string; readonly csrfHash: string; readonly now: number; readonly expiresAt: number }
+export type StoredSessionRejection = 'SESSION_NOT_FOUND' | 'SESSION_EXPIRED' | 'SESSION_NOT_YET_VALID';
 export interface OwnerRepository {
   createSessionIfCredentialsMatch(input: SessionRecord & { readonly username: string; readonly expectedPasswordHash: string }): boolean;
   changePasswordAndRotateSession(input: SessionRecord & { readonly username: string; readonly expectedPasswordHash: string; readonly passwordHash: string; readonly previousTokenHash: string }): boolean;
@@ -13,7 +14,7 @@ export interface OwnerRepository {
   hasSessions(): boolean;
   hasActiveSessions(now: number): boolean;
   createSession(input: { readonly tokenHash: string; readonly csrfHash: string; readonly now: number; readonly expiresAt: number }): void;
-  findSession(tokenHash: string, now: number): { readonly username: string; readonly csrfHash: string } | undefined;
+  findSession(tokenHash: string, now: number, onRejection?: (reason: StoredSessionRejection) => void): { readonly username: string; readonly csrfHash: string } | undefined;
   revokeSession(tokenHash: string): void;
 }
 
@@ -80,16 +81,17 @@ export function createOwnerRepository(sqlite: Database.Database): OwnerRepositor
     createSession({ tokenHash, csrfHash, now, expiresAt }) {
       insertSession.run(tokenHash, now, expiresAt, csrfHash);
     },
-    findSession(tokenHash, now) {
+    findSession(tokenHash, now, onRejection) {
       const row = selectSession.get(tokenHash) as { username: string; csrf_hash: string; created_at: number; expires_at: number } | undefined;
-      if (!row) return undefined;
+      if (!row) { onRejection?.('SESSION_NOT_FOUND'); return undefined; }
       if (row.expires_at <= now) {
         // Persist observed expiry so clock rollback or restart cannot revive it.
         // Authentication reads may maintain expired records, never valid ones.
         deleteSession.run(tokenHash);
+        onRejection?.('SESSION_EXPIRED');
         return undefined;
       }
-      if (row.created_at > now) return undefined;
+      if (row.created_at > now) { onRejection?.('SESSION_NOT_YET_VALID'); return undefined; }
       return { username: row.username, csrfHash: row.csrf_hash };
     },
     revokeSession(tokenHash) { deleteSession.run(tokenHash); },

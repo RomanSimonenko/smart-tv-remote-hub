@@ -46,3 +46,27 @@ test('opening a restored case clears an interrupted list loading state on failur
  await act(async()=>{expect(await result.current.open('00000000-0000-4000-8000-000000000001')).toBe(false);});
  expect(result.current.loading).toBe(false);expect(result.current.opening).toBe(false);expect(result.current.error).not.toBe('');
 });
+
+test('returning from a restored editor reloads the list after its initial read was interrupted',async()=>{
+ const item={id:'00000000-0000-4000-8000-000000000001',title:'Saved',description:'',group:'',steps:[],version:1,status:'draft',createdAt:1,updatedAt:1};
+ let reads=0;let finish:(response:Response)=>void=()=>{};
+ vi.stubGlobal('fetch',async(url:string)=>{
+  if(!url.endsWith('/test-cases'))return new Response(JSON.stringify(item));
+  reads++;return new Promise<Response>(resolve=>{finish=resolve;});
+ });
+ const {result,rerender}=renderHook(({listActive})=>useTestCases('csrf',()=>{},true,listActive),{initialProps:{listActive:false}});
+ await act(async()=>{expect(await result.current.open(item.id)).toBe(true);});
+ rerender({listActive:true});
+ expect(result.current.loading).toBe(true);expect(reads).toBe(1);
+ await act(async()=>{finish(new Response(JSON.stringify({cases:[item]})));});
+ expect(result.current.cases).toEqual([item]);expect(result.current.loading).toBe(false);
+});
+
+test('automatic list activation preserves a failed case-open diagnostic until explicit retry',async()=>{
+ vi.stubGlobal('fetch',async(url:string)=>{if(String(url).includes('/api/test-cases/'))throw new Error('network');return new Response(JSON.stringify({cases:[]}));});
+ const {result,rerender}=renderHook(({list})=>useTestCases('csrf',()=>{},true,list),{initialProps:{list:false}});
+ await act(async()=>{expect(await result.current.open('00000000-0000-4000-8000-000000000001')).toBe(false);});
+ expect(result.current.error).not.toBe('');rerender({list:true});
+ await waitFor(()=>expect(result.current.loading).toBe(false));expect(result.current.error).not.toBe('');
+ act(()=>result.current.refresh());await waitFor(()=>expect(result.current.loading).toBe(false));expect(result.current.error).toBe('');
+});

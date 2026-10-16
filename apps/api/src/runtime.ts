@@ -1,4 +1,7 @@
 import { createTestCaseRepository } from './test-cases/repository.js';
+import {createTestRunRepository} from './test-runs/repository.js';
+import {createArtifactStore} from './test-runs/artifacts.js';
+import {createTestRunService,type TestRunService} from './test-runs/service.js';
 import { createProfileRepository } from './profile/repository.js';
 import { buildApp } from './app.js';
 import type { AppConfig } from './config.js';
@@ -36,6 +39,7 @@ export async function createApiRuntime(config: AppConfig, options: {
 } = {}) {
   const database = await (options.openDatabase ?? openDatabase)({ dataDir: config.dataDir });
   let tv: TvService | undefined;
+  let testRunService:TestRunService|undefined;
   let tvs: TvDeviceRegistry | undefined;
   let unsubscribeRegistry: (() => void) | undefined;
   let logger: FastifyInstance['log'] | undefined;
@@ -47,6 +51,7 @@ export async function createApiRuntime(config: AppConfig, options: {
   const closeResources = async () => {
     const failures: unknown[] = [];
     unsubscribeRegistry?.();
+    try {await testRunService?.close();}catch(cause){failures.push(cause);}
     try { await tvs?.close(); } catch (cause) { failures.push(cause); }
     try { database.close(); } catch (cause) { failures.push(cause); }
     if (failures.length === 1) throw failures[0];
@@ -77,6 +82,10 @@ export async function createApiRuntime(config: AppConfig, options: {
     unsubscribeRegistry = sessions.onRevoke((owner) => tvs!.revoke(owner, !sessions.hasActiveSessions()));
     await tvs.initialize();
     tv = tvs.legacy();
+    const testCases=createTestCaseRepository(database.sqlite,{now});
+    const artifacts=await createArtifactStore({dataDir:config.dataDir,...(config.runArtifactMaxBytes===undefined?{}:{maxBytes:config.runArtifactMaxBytes})});
+    testRunService=createTestRunService({repository:createTestRunRepository(database.sqlite),artifacts,readCase:testCases.read,resolveTv:id=>tvs!.get(id),now,scheduler:options.scheduler??runtimeScheduler,onPersistenceFailure:code=>{if(logger)logger.error({code},'Run lifecycle state could not be persisted; execution was aborted');else console.error(code);}});
+    await testRunService.recover();
     const app = buildApp({
       config,
       tv,
@@ -84,7 +93,8 @@ export async function createApiRuntime(config: AppConfig, options: {
       ...(options.logStream ? { logStream: options.logStream } : {}),
       ...(options.webRoot ? { webRoot: options.webRoot } : {}),
       profile: createProfileRepository(database.sqlite),
-      testCases: createTestCaseRepository(database.sqlite, { now }),
+      testCases,
+      testRuns:{service:testRunService,artifacts},
       getSetupState: async () => repository.getSetupState(),
       auth: {
         setup: createOwnerSetupService({ repository, ...options }),
