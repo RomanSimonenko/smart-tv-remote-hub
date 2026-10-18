@@ -7,7 +7,7 @@ export function useTestRun(csrfToken:string,onSessionExpired:()=>void){
  const [run,setRun]=useState<TestRun|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const active=useRef<{controller:AbortController;id:string}|null>(null),mounted=useRef(true),heartbeat=useRef<ReturnType<typeof setInterval>|null>(null);
  const expired=useRef(onSessionExpired);expired.current=onSessionExpired;
- function update(value:TestRun){if(mounted.current)setRun(value);}
+ function update(value:TestRun){if(mounted.current)setRun(previous=>previous?.id===value.id&&previous.revision>value.revision?previous:value);}
  function finish(controller:AbortController){if(active.current?.controller!==controller)return;if(heartbeat.current)clearInterval(heartbeat.current);heartbeat.current=null;active.current=null;if(mounted.current)setBusy(false);}
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;active.current?.controller.abort();if(heartbeat.current)clearInterval(heartbeat.current);};},[]);
  async function start(input:StartTestRun,capture:(signal:AbortSignal)=>Promise<CameraSnapshot>){
@@ -16,7 +16,7 @@ export function useTestRun(csrfToken:string,onSessionExpired:()=>void){
    const initial=await api.startTestRun(input,csrfToken,AbortSignal.any([controller.signal,AbortSignal.timeout(10000)]));update(initial);
    if(initial.status!=='running'){finish(controller);return;}
    let pinging=false;
-   heartbeat.current=setInterval(()=>{if(pinging||controller.signal.aborted)return;pinging=true;void api.runAction(input.id,'heartbeat',csrfToken,undefined,AbortSignal.any([controller.signal,AbortSignal.timeout(5000)])).then(value=>{if(value.status!=='running'){update(value);controller.abort();}}).catch(cause=>{if(!controller.signal.aborted){if(cause instanceof ApiFailure&&cause.status===401)expired.current();setError('Связь с сервером потеряна. Дальнейшие команды остановлены.');controller.abort();}}).finally(()=>{pinging=false;});},5000);
+   heartbeat.current=setInterval(()=>{if(pinging||controller.signal.aborted)return;pinging=true;void api.runAction(input.id,'heartbeat',csrfToken,undefined,AbortSignal.any([controller.signal,AbortSignal.timeout(5000)])).then(value=>{update(value);if(value.status!=='running')controller.abort();}).catch(cause=>{if(!controller.signal.aborted){if(cause instanceof ApiFailure&&cause.status===401)expired.current();setError('Связь с сервером потеряна. Дальнейшие команды остановлены.');controller.abort();}}).finally(()=>{pinging=false;});},5000);
    await executeTestRun(initial,{signal:controller.signal,capture,onUpdate:update,advance:(id,itemId)=>api.runAction(id,'advance',csrfToken,{itemId},AbortSignal.any([controller.signal,AbortSignal.timeout(70000)])),upload:(id,itemId,snapshot)=>api.saveRunSnapshot(id,itemId,snapshot,csrfToken,controller.signal)});
   }catch(cause){
    if(cause instanceof ApiFailure&&cause.status===401)expired.current();

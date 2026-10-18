@@ -47,12 +47,21 @@ importers:
       '@remote-webos-tv/webos':
         specifier: workspace:*
         version: link:../../packages/webos
+      '@tesseract.js-data/eng':
+        specifier: 1.0.0
+        version: 1.0.0
+      '@tesseract.js-data/rus':
+        specifier: 1.0.0
+        version: 1.0.0
       better-sqlite3:
         specifier: 12.11.1
         version: 12.11.1
       fastify:
         specifier: 5.12.5
         version: 5.12.5
+      tesseract.js:
+        specifier: 7.0.0
+        version: 7.0.0
     devDependencies:
       '@types/better-sqlite3':
         specifier: 9.6.0

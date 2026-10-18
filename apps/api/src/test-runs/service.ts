@@ -1,17 +1,18 @@
+import type {OcrRecognition} from '../ocr/recognizer.js';
 import {createHash,randomUUID} from 'node:crypto';
-import {RUN_LEASE_MS,startTestRunSchema,type StartTestRun,type TestRun,type TestCase,type RunFailure,type TvPlatform,type TvCommandResult} from '@remote-webos-tv/contracts';
+import {RUN_LEASE_MS,startTestRunSchema,matchTextConditions,type StartTestRun,type TestRun,type TestCase,type RunFailure,type TvPlatform,type TvCommandResult} from '@remote-webos-tv/contracts';
 import type {TestRunRepository} from './repository.js';
 import type {ArtifactStore} from './artifacts.js';
 import type {TvService,TvScheduler} from '../tv/service.js';
 export class RunError extends Error {constructor(readonly code:string,readonly statusCode=409){super(code);}}
 interface Active {owner:string;tv:TvService;lease:symbol;controller:AbortController;terminating?:boolean;timer?:unknown;pending?:Promise<TestRun>;saving?:Promise<TestRun>}
-export function createTestRunService(deps:{repository:TestRunRepository;artifacts:ArtifactStore;readCase(id:string):TestCase|undefined;resolveTv(id:string):TvService|null;now():number;scheduler:TvScheduler;newId?:()=>string;onPersistenceFailure?:(code:'RUN_STATE_STORAGE_FAILED')=>void}){
+export function createTestRunService(deps:{repository:TestRunRepository;artifacts:ArtifactStore;readCase(id:string):TestCase|undefined;resolveTv(id:string):TvService|null;now():number;scheduler:TvScheduler;newId?:()=>string;recognize?:(image:Buffer,signal:AbortSignal)=>Promise<OcrRecognition>;onPersistenceFailure?:(code:'RUN_STATE_STORAGE_FAILED')=>void}){
  const {repository,artifacts,now,scheduler}=deps;const active=new Map<string,Active>();let closed=false;
  const read=(id:string)=>{const value=repository.read(id);if(!value)throw new RunError('RUN_NOT_FOUND',404);return value;};
  function owner(id:string,token:string){const entry=active.get(id);if(entry&&entry.owner!==token)throw new RunError('RUN_OWNED_BY_ANOTHER_SESSION',403);return entry;}
  function release(id:string){const entry=active.get(id);if(!entry)return;if(entry.timer!==undefined)scheduler.clearTimeout(entry.timer);entry.tv.releaseRunLease(entry.lease);active.delete(id);}
  function diagnosePersistence(){try{if(deps.onPersistenceFailure)deps.onPersistenceFailure('RUN_STATE_STORAGE_FAILED');else console.error('RUN_STATE_STORAGE_FAILED');}catch{console.error('RUN_DIAGNOSTIC_FAILED');}}
- function terminal(id:string,status:'stopped'|'error'|'needs_review',failure?:RunFailure){
+ function terminal(id:string,status:'stopped'|'error'|'needs_review'|'passed'|'failed',failure?:RunFailure){
   const entry=active.get(id);
   if(entry){entry.terminating=true;entry.controller.abort();if(entry.timer!==undefined)scheduler.clearTimeout(entry.timer);}
   try{const run=read(id);if(run.status!=='running')return run;
@@ -40,7 +41,7 @@ export function createTestRunService(deps:{repository:TestRunRepository;artifact
   const lease=Symbol('test run');tv.acquireRunLease(lease);
   try{
    const newId=deps.newId??randomUUID;let ordinal=0;
-   const items=scenario.steps.flatMap(step=>(step.actions?.length?step.actions:[undefined]).map(action=>({id:newId(),stepId:step.id,ordinal:++ordinal,phase:'pending' as const,...(action?{action}:{})})));
+   const items=scenario.steps.flatMap(step=>(step.actions?.length?step.actions:[undefined]).map(action=>({id:newId(),stepId:step.id,ordinal:++ordinal,phase:'pending' as const,...(action?{action}:{}),...(step.textConditions?.length&&(!action||action.id===step.actions?.at(-1)?.id)?{verificationState:'pending' as const}:{})})));
    const run=repository.create({id:input.id,testCase:scenario,tvId:input.tvId,platform,tvName,...(tvPlatformVersion?{tvPlatformVersion}:{}),startedAt:now(),status:'running',items,revision:0});
    active.set(run.id,{owner:token,tv,lease,controller:new AbortController()});heartbeat(run.id,token);return run;
   }catch(cause){tv.releaseRunLease(lease);throw cause;}
@@ -50,8 +51,9 @@ export function createTestRunService(deps:{repository:TestRunRepository;artifact
  }
  function advance(id:string,itemId:string,token:string):Promise<TestRun>{
   const run=read(id),entry=owner(id,token);if(run.status!=='running')return Promise.resolve(run);if(!entry||entry.terminating)throw new RunError('RUN_NOT_ACTIVE');
+  if(entry.saving||run.items.some(item=>item.phase==='saved'&&!!item.verificationState))throw new RunError('ITEM_SAVE_IN_PROGRESS');
   const current=run.items.find(item=>item.phase!=='saved');if(!current||current.id!==itemId)throw new RunError('ITEM_OUT_OF_ORDER');
-  if(entry.saving)throw new RunError('ITEM_SAVE_IN_PROGRESS');if(entry.pending)return entry.pending;
+  if(entry.pending)return entry.pending;
   if(current.phase!=='pending')return Promise.resolve(run);
   repository.replace({...run,items:run.items.map(item=>item.id===itemId?{...item,phase:'sending'}:item)},run.revision);
   // Publish durable sending before touching transport: ambiguous delivery is never replayed.
@@ -67,15 +69,43 @@ export function createTestRunService(deps:{repository:TestRunRepository;artifact
  }
  async function saveSnapshot(id:string,itemId:string,token:string,data:Buffer,metadata:{capturedAt:number;cameraLabel:string}){
   const run=read(id),entry=owner(id,token);const item=run.items.find(value=>value.id===itemId);if(!item)throw new RunError('ITEM_NOT_FOUND',404);
-  if(item.phase==='saved'){if(item.sha256!==createHash('sha256').update(data).digest('hex'))throw new RunError('SNAPSHOT_CONFLICT');return run;}
+  if(item.phase==='saved'){if(item.sha256!==createHash('sha256').update(data).digest('hex'))throw new RunError('SNAPSHOT_CONFLICT');if(item.verificationState&&run.status==='running'){if(entry?.saving)return entry.saving;throw new RunError('VERIFICATION_NOT_FINISHED');}return run;}
   if(!entry||entry.terminating||run.status!=='running')throw new RunError('RUN_NOT_ACTIVE');if(entry.saving)throw new RunError('ITEM_SAVE_IN_PROGRESS');
   if(item.phase!=='awaiting_snapshot'||run.items.find(value=>value.phase!=='saved')?.id!==itemId||now()<(item.captureNotBefore??Infinity))throw new RunError('SNAPSHOT_NOT_EXPECTED');
   const pending=(async()=>{
-   try{const stored=await artifacts.save(id,itemId,data);const latest=read(id);
-    const updated=repository.replace({...latest,items:latest.items.map(value=>value.id===itemId?{...value,...stored,...metadata,phase:'saved',savedAt:now()}:value)},latest.revision);
-    if(updated.status==='running'&&updated.items.every(value=>value.phase==='saved'))return terminal(id,'needs_review');return updated;
-   }catch(cause){try{terminal(id,'error',{stage:'storage',code:cause instanceof Error&&'code'in cause&&['INVALID_SNAPSHOT','ARTIFACT_QUOTA_EXCEEDED','ARTIFACT_STORAGE_FAILED'].includes(String(cause.code))?String(cause.code):'ARTIFACT_STORAGE_FAILED'});}catch(persistence){diagnosePersistence();throw new AggregateError([cause,persistence],'Snapshot and run failure could not be persisted');}throw cause;}
-  })();entry.saving=pending;
+   let updated:TestRun;
+   const stored=await artifacts.save(id,itemId,data);const latest=read(id);
+   updated=repository.replace({...latest,items:latest.items.map(value=>value.id===itemId?{...value,...stored,...metadata,phase:'saved',savedAt:now()}:value)},latest.revision);
+   if(updated.status!=='running'||entry.terminating)return updated;
+   if(item.verificationState==='pending'){
+    updated=repository.replace({...updated,items:updated.items.map(value=>value.id===itemId?{...value,verificationState:'running'}:value)},updated.revision);
+    const step=updated.testCase.steps.find(step=>step.id===item.stepId)!;
+    let observation:OcrRecognition;
+    try{
+     if(!deps.recognize)throw new RunError('OCR_UNAVAILABLE',503);
+     observation=await deps.recognize(data,entry.controller.signal);
+    }catch(cause){
+     if(entry.terminating||read(id).status!=='running')return read(id);
+     return terminal(id,'error',{stage:'ocr',code:cause instanceof Error&&'code'in cause&&['OCR_UNAVAILABLE','OCR_TIMEOUT','OCR_BUSY','OCR_INVALID_RESPONSE'].includes(String(cause.code))?String(cause.code):'OCR_FAILED'});
+    }
+    const latest=read(id);if(entry.terminating||latest.status!=='running')return latest;
+    const evidence=latest.items.find(value=>value.id===itemId)!;
+    const hash=createHash('sha256').update(data).digest('hex');
+    if(evidence.sha256!==hash)throw new RunError('SNAPSHOT_CONFLICT');
+    const conditions=matchTextConditions(step.textConditions!,observation.blocks),status=conditions.every(condition=>condition.found)?'passed' as const:'failed' as const;
+    updated=repository.replace({...latest,items:latest.items.map(value=>{
+     if(value.id!==itemId)return value;const {verificationState:_,...rest}=value;
+     return {...rest,verification:{status,conditions,recognizedBlocks:observation.blocks,engine:observation.engine,model:observation.model,checkedAt:now(),snapshotSha256:hash}};
+    })},latest.revision);
+    if(status==='failed')return terminal(id,'failed');
+   }
+   if(updated.status==='running'&&updated.items.every(value=>value.phase==='saved'&&!value.verificationState))return terminal(id,updated.testCase.steps.some(step=>step.textConditions?.length)?'passed':'needs_review');
+   return updated;
+  })().catch(cause=>{
+   try{terminal(id,'error',{stage:'storage',code:cause instanceof Error&&'code'in cause&&['INVALID_SNAPSHOT','ARTIFACT_QUOTA_EXCEEDED','ARTIFACT_STORAGE_FAILED'].includes(String(cause.code))?String(cause.code):'RUN_STATE_STORAGE_FAILED'});}
+   catch(persistence){diagnosePersistence();throw new AggregateError([cause,persistence],'Snapshot or verification state and run failure could not be persisted');}
+   throw cause;
+  });entry.saving=pending;
   try{return await pending;}finally{delete entry.saving;settled(id,entry);}
  }
  return {read,start,advance,saveSnapshot,heartbeat,
