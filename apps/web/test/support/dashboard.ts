@@ -6,6 +6,7 @@ export async function openTvWorkspace(page: Page) {
   await expect(page.getByRole('heading', { name: 'Телевизоры', exact: true })).toBeVisible();
   await expect(page.getByText('Загрузка телевизоров…', { exact: true })).toHaveCount(0);
   const card = page.getByRole('button', { name: /^Открыть телевизор / });
+  await expect(card.first().or(page.getByRole('heading', { name: 'Пока нет телевизоров', exact: true }))).toBeVisible();
   if (await card.count()) await card.first().click();
   else await page.getByRole('button', { name: 'Добавить ТВ', exact: true }).click();
 }

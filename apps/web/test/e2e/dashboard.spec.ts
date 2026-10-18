@@ -2,7 +2,7 @@ import { expect } from '@playwright/test';
 import { test, tvHost } from '../support/tv-fixture.js';
 import { openTvWorkspace } from '../support/dashboard.js';
 
-test('Add TV keeps the platform arrow inset and opens shared account settings', async ({ page, tv }, testInfo) => {
+test('Add TV keeps the platform arrow inset and opens profile security', async ({ page, tv }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1100 });
   await tv.setupAndLogin(page);
   await page.getByRole('button', { name: 'Добавить ТВ' }).click();
@@ -15,11 +15,12 @@ test('Add TV keeps the platform arrow inset and opens shared account settings', 
   await select.selectOption('tizen');
   await expect(select).toHaveValue('tizen');
   await page.screenshot({ path: testInfo.outputPath('add-tv-platform.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Аккаунт', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Настройки аккаунта' })).toBeVisible();
+  await page.getByRole('button', { name: /^Мой профиль:/ }).click();
+  await expect(page.getByRole('heading', { name: 'Мой профиль' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Изменить пароль' })).toBeVisible();
   await expect(page.getByLabel('MAC-адрес телевизора')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Закрыть настройки' }).click();
-  await expect(page.getByRole('button', { name: 'Аккаунт', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: /^Мой профиль:/ }).click();
+  await expect(page.getByRole('heading', { name: 'Добавить телевизор' })).toBeVisible();
 });
 
 test('dashboard adds the first TV, opens remote and returns without another pairing or TV mutation', async ({ page, tv }) => {
@@ -39,7 +40,7 @@ test('dashboard adds the first TV, opens remote and returns without another pair
   await expect(page.locator('.device-card').getByRole('button', { name: /^Открыть телевизор / })).toHaveCount(1);
   await expect(page.locator('.device-card').getByRole('button', { name: /^Удалить телевизор / })).toHaveCount(1);
   await card.hover();
-  await expect(card).toHaveCSS('border-color', 'rgb(121, 228, 147)');
+  await expect(card).toHaveCSS('background-color', await page.evaluate(() => { const probe = document.createElement('span'); probe.style.backgroundColor = 'var(--ui-field)'; document.body.append(probe); const color = getComputedStyle(probe).backgroundColor; probe.remove(); return color; }));
   await expect(page.getByRole('heading', { name: 'Телевизоры', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Добавить ТВ' })).toBeVisible();
   const badge = page.locator('.platform-badge');
@@ -47,9 +48,7 @@ test('dashboard adds the first TV, opens remote and returns without another pair
   const badgeBounds = (await badge.boundingBox())!;
   const logoBounds = (await logo.boundingBox())!;
   expect(logoBounds.width).toBeGreaterThan(34);
-  expect(logoBounds.x).toBeGreaterThan(badgeBounds.x);
-  expect(logoBounds.y).toBeGreaterThan(badgeBounds.y);
-  expect(logoBounds.y + logoBounds.height).toBeLessThan(badgeBounds.y + badgeBounds.height);
+  expect(Math.abs(logoBounds.y + logoBounds.height / 2 - badgeBounds.y - badgeBounds.height / 2)).toBeLessThan(1);
   await logo.evaluate((image) => { (image as HTMLElement).style.transform = 'none'; });
   expect(await badge.boundingBox()).toEqual(badgeBounds);
   await logo.evaluate((image) => { (image as HTMLElement).style.removeProperty('transform'); });
@@ -71,10 +70,11 @@ test('dashboard adds the first TV, opens remote and returns without another pair
   await page.getByRole('button', { name: 'К списку телевизоров', exact: true }).click();
   await expect(page.getByRole('group', { name: 'Пульт', exact: true })).toHaveCount(0);
   await page.keyboard.press('ArrowUp');
-  await page.getByRole('button', { name: 'Аккаунт', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Настройки аккаунта' })).toBeVisible();
+  await page.getByRole('button', { name: /^Мой профиль:/ }).click();
+  await expect(page.getByRole('heading', { name: 'Мой профиль' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Изменить пароль' })).toBeVisible();
   await expect(page.getByLabel('MAC-адрес телевизора')).toHaveCount(0);
-  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: /^Мой профиль:/ }).click();
   await page.reload();
   await expect(page.getByRole('button', { name: /^Открыть телевизор / })).toBeVisible();
   await expect(page.locator('body')).not.toContainText(tvHost);

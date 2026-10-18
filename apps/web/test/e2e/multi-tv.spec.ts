@@ -21,6 +21,7 @@ async function pairMixed(page: Page, tv: TvFixture) {
   return { first, second };
 }
 async function logout(page: Page) {
+  await page.getByRole('button', { name: /^Мой профиль:/ }).click();
   await page.getByRole('button', { name: 'Выйти', exact: true }).click();
   await page.getByRole('dialog', { name: 'Выйти из приложения?' }).getByRole('button', { name: 'Выйти', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Вход', exact: true })).toBeVisible();

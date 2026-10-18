@@ -45,7 +45,7 @@ test('profile saves across reload and protects unsaved edits in both menu states
   await expect(page.getByRole('button', { name: 'Мой профиль: QA Team' }).locator('.profile-avatar')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('profile-collapsed.png'), fullPage: true });
   await page.reload();
-  await page.getByRole('button', { name: 'Мой профиль: QA Team' }).click();
+  await expect(page.getByRole('heading', { name: 'Мой профиль' })).toBeVisible();
   await expect(page.getByLabel('Отображаемое имя')).toHaveValue('QA Team');
   await expect(page.getByRole('radio', { name: 'Робот', exact: true })).toBeChecked();
   for (const width of [1280, 640, 320]) {

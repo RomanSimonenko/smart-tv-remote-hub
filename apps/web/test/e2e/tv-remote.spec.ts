@@ -70,6 +70,7 @@ test('all ten browser controls reach the pointer once; saved TV remains usable a
   await page.reload();
   await openTvWorkspace(page);
   await ready(page);
+  await page.getByRole('button', { name: /^Мой профиль:/ }).click();
   await page.getByRole('button', { name: 'Выйти', exact: true }).click();
   await page.getByRole('dialog', { name: 'Выйти из приложения?' }).getByRole('button', { name: 'Выйти', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Вход', exact: true })).toBeVisible();

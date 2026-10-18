@@ -122,6 +122,7 @@ test('CLI token claims one owner and browser session survives reload until logou
   expect(rejectedCsrf.status()).toBe(403);
   expect((await page.context().request.get(`${origin}/api/auth/session`)).status()).toBe(200);
 
+  await page.getByRole('button', { name: /^Мой профиль:/ }).click();
   await page.getByRole('button', { name: 'Выйти' }).click();
   await page.getByRole('dialog', { name: 'Выйти из приложения?' }).getByRole('button', { name: 'Выйти', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Вход' })).toBeVisible();
