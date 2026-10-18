@@ -848,5 +848,6 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .case-step-scroll > .step-text-conditions{flex:0 1 auto;min-height:0}
 .step-text-conditions > :not(.text-condition-list){flex-shrink:0}
 .case-step-parameters .step-text-conditions .case-step-hint{margin:0;font-size:12px;line-height:20px}
-.text-condition-list{min-height:0;max-height:240px;overflow-y:auto;overscroll-behavior:contain}
+/* Reserve the shared 2px outline plus its 3px offset inside the scrollport. */
+.text-condition-list{min-height:0;max-height:240px;overflow-y:auto;overscroll-behavior:contain;padding:5px;margin:-5px}
 .text-condition + .text-condition{margin-top:12px}
