@@ -1,6 +1,8 @@
-import { IconChevronDown } from '@tabler/icons-react';
+import { IconChevronDown, IconVideo, IconVideoOff } from '@tabler/icons-react';
 import { useEffect, useRef, useState,useImperativeHandle,type Ref } from 'react';
 import {captureCameraFrame,CameraCaptureError,type CameraSnapshot} from '../camera-snapshot.js';
+import {rectifyCameraSnapshot} from '../rectify-camera-snapshot.js';
+import {useScreenPreview} from '../use-screen-preview.js';
 export interface WebcamHandle {capture(signal:AbortSignal):Promise<CameraSnapshot>}
 
 function cameraError(cause: unknown): string {
@@ -11,17 +13,28 @@ function cameraError(cause: unknown): string {
   return `Не удалось включить камеру${name ? ` (${name})` : ''}. Попробуйте снова.`;
 }
 
-export function Webcam({ref,onReadyChange,locked=false}:{ref?:Ref<WebcamHandle>;onReadyChange?:(ready:boolean)=>void;locked?:boolean}={}) {
+export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false}:{alignSnapshots?:boolean;ref?:Ref<WebcamHandle>;onReadyChange?:(ready:boolean)=>void;locked?:boolean}={}) {
   const readyCallback=useRef(onReadyChange);readyCallback.current=onReadyChange;
   const captureController=useRef(new AbortController());
-  useImperativeHandle(ref,()=>({capture(signal){if(!video.current)return Promise.reject(new CameraCaptureError('CAMERA_NOT_READY'));return captureCameraFrame(video.current,stream.current,AbortSignal.any([signal,captureController.current.signal]),stream.current?.getVideoTracks()[0]?.label?.slice(0,200)||'Камера по умолчанию');}}));
+  useImperativeHandle(ref,()=>({async capture(signal){
+    if(!video.current)throw new CameraCaptureError('CAMERA_NOT_READY');
+    const combined=AbortSignal.any([signal,captureController.current.signal]);
+    const prior=alignSnapshots?screen.getSearchPrior():undefined;
+    if(alignSnapshots&&!prior)throw new CameraCaptureError('SCREEN_NOT_FOUND');
+    const raw=await captureCameraFrame(video.current,stream.current,combined,stream.current?.getVideoTracks()[0]?.label?.slice(0,200)||'Камера по умолчанию',alignSnapshots?'image/png':'image/jpeg');
+    return alignSnapshots?rectifyCameraSnapshot(raw,prior,combined):raw;
+  }}));
   const supported = !!navigator.mediaDevices?.getUserMedia;
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState('');
   const [enabled, setEnabled] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const video = useRef<HTMLVideoElement>(null);
+  const [mode,setMode]=useState<'source'|'screen'>('source');
+  const screen=useScreenPreview(video,(alignSnapshots||mode==='screen')&&playing);
+  useEffect(()=>{readyCallback.current?.(playing&&!!video.current?.videoWidth&&!!video.current?.videoHeight&&!!video.current?.requestVideoFrameCallback&&(!alignSnapshots||!!screen.image));},[playing,alignSnapshots,screen.image]);
   const stream = useRef<MediaStream | null>(null);
   const generation = useRef(0);
 
@@ -32,6 +45,7 @@ export function Webcam({ref,onReadyChange,locked=false}:{ref?:Ref<WebcamHandle>;
   }
 
   function release() {
+    setPlaying(false);
     readyCallback.current?.(false);captureController.current.abort(new CameraCaptureError('CAMERA_NOT_READY'));captureController.current=new AbortController();
     clearWaiting();
     stream.current?.getTracks().forEach((track) => track.stop());
@@ -44,6 +58,20 @@ export function Webcam({ref,onReadyChange,locked=false}:{ref?:Ref<WebcamHandle>;
   }
   useEffect(() => () => { generation.current += 1; release(); }, []);
 
+  useEffect(() => {
+    let wasHidden = document.visibilityState === 'hidden';
+    const resume = () => {
+      if (document.visibilityState === 'hidden') { wasHidden = true; return; }
+      if (!wasHidden) return;
+      wasHidden = false;
+      // Embedded browsers can keep playing black frames after background capture
+      // is suspended. Reacquire through the same lifecycle as an explicit start.
+      if (enabled && stream.current) void start(deviceId);
+    };
+    document.addEventListener('visibilitychange', resume);
+    return () => document.removeEventListener('visibilitychange', resume);
+  }, [enabled, deviceId]);
+
   async function start(selected = deviceId) {
     const request = ++generation.current;
     release(); setEnabled(true); setError(''); setStatus('');
@@ -52,7 +80,7 @@ export function Webcam({ref,onReadyChange,locked=false}:{ref?:Ref<WebcamHandle>;
       if (request === generation.current) setStatus('Ожидаем доступ к камере…');
     }, 400);
     try {
-      const next = await navigator.mediaDevices.getUserMedia({ audio: false, video: selected ? { deviceId: { exact: selected } } : true });
+      const next = await navigator.mediaDevices.getUserMedia({ audio: false, video: {width:{ideal:1920},height:{ideal:1080},...(selected?{deviceId:{exact:selected}}:{})} });
       if (request !== generation.current) { next.getTracks().forEach((track) => track.stop()); return; }
       clearWaiting();
       stream.current = next;
@@ -72,14 +100,24 @@ export function Webcam({ref,onReadyChange,locked=false}:{ref?:Ref<WebcamHandle>;
   }
 
   return <section className="webcam-card" aria-label="Вебкамера">
-    <video ref={video} autoPlay muted playsInline aria-label="Видео с вебкамеры" onPlaying={()=>readyCallback.current?.(!!stream.current&&!!video.current?.videoWidth&&!!video.current?.videoHeight&&!!video.current?.requestVideoFrameCallback)} onError={() => { stop(); setError('Не удалось воспроизвести видео с камеры. Попробуйте снова.'); }} />
-    <label>Камера<span className="webcam-select"><select value={deviceId} disabled={!supported||locked} onChange={(event) => { const selected = event.target.value; setDeviceId(selected); if (enabled) void start(selected); }}>
+    <div className="webcam-preview" data-mode={mode} data-screen-observations={JSON.stringify(screen.observations)}>
+    <video ref={video} aria-hidden={!playing} autoPlay muted playsInline aria-label="Видео с вебкамеры" onPlaying={()=>{if(!stream.current)return;setPlaying(true);if(!alignSnapshots)readyCallback.current?.(!!video.current?.videoWidth&&!!video.current?.videoHeight&&!!video.current?.requestVideoFrameCallback);}} onError={() => { stop(); setError('Не удалось воспроизвести видео с камеры. Попробуйте снова.'); }} />
+    {!playing && <div className="webcam-placeholder" data-error={!supported||!!error}>
+      {enabled ? <span className="activity-spinner" aria-hidden="true"/> : error||!supported ? <IconVideoOff aria-hidden="true"/> : <IconVideo aria-hidden="true"/>}
+      <strong>{enabled ? 'Подключаем камеру…' : error||!supported ? 'Камера недоступна' : 'Камера выключена'}</strong>
+      {!enabled&&!error&&supported&&<p>Включите камеру, чтобы видеть экран телевизора.</p>}
+      {enabled&&<p className="webcam-status" role="status">{status||'Ожидаем изображение с камеры…'}</p>}
+      {(!supported||error)&&<p role={supported?'alert':undefined}>{!supported?'Браузер не предоставляет доступ к камере. Откройте страницу через HTTPS или localhost.':error}</p>}
+    </div>}
+    {playing&&mode==='screen'&&(screen.image?<img className="webcam-aligned" src={screen.image} alt="Экран ТВ без рамки"/>:<div className="webcam-placeholder" role="status"><IconVideoOff aria-hidden="true"/><strong>{screen.message||'Экран не найден'}</strong></div>)}
+    </div>
+    <div className="webcam-controls"><label>Камера<span className="webcam-select"><select value={deviceId} disabled={!supported||locked} onChange={(event) => { const selected = event.target.value; setDeviceId(selected); if (enabled) void start(selected); }}>
       <option value="">По умолчанию</option>
       {devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Камера ${index + 1}`}</option>)}
     </select><IconChevronDown aria-hidden="true" /></span></label>
-    <div className="webcam-actions"><button type="button" disabled={!supported||locked} onClick={() => enabled ? stop() : void start()}>{enabled ? 'Выключить' : 'Включить'}</button><div className="webcam-feedback">
-    <p className="webcam-status" aria-live="polite">{status}</p>
-    {(!supported || error) && <p role={supported ? "alert" : undefined} className="error">{!supported ? 'Браузер не предоставляет доступ к камере. Откройте страницу через HTTPS или localhost.' : error}</p>}
+    <button type="button" className="webcam-align-toggle" role="switch" aria-checked={mode==='screen'} onClick={()=>setMode(mode==='screen'?'source':'screen')}><span>Выровнять экран</span><span className="webcam-switch-track" aria-hidden="true"/></button></div>
+    <div className="webcam-actions"><button type="button" disabled={!supported||locked} onClick={() => enabled ? stop() : void start()}>{enabled ? playing?'Выключить камеру':'Отмена' : error?'Повторить':'Включить камеру'}</button><div className="webcam-feedback">
+    {playing&&error&&<p role="alert" className="error">{error}</p>}
     </div></div>
   </section>;
 }

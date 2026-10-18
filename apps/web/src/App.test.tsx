@@ -92,7 +92,7 @@ test('claimed installation shows login, then authenticated home after verified s
   expect(screen.getByLabelText('IP-адрес телевизора')).toBeTruthy();
 });
 
-test('account settings open on Add TV and close before returning to dashboard', async () => {
+test('add TV has no duplicate account or logout action and profile remains available', async () => {
   vi.stubGlobal('fetch', vi.fn()
     .mockResolvedValueOnce(response(200, { state: 'claimed' }))
     .mockResolvedValueOnce(response(200, { username: 'alice', csrfToken }))
@@ -100,18 +100,10 @@ test('account settings open on Add TV and close before returning to dashboard', 
   render(<App />);
   await screen.findByRole('heading', { name: 'Пока нет телевизоров' });
   fireEvent.click(screen.getByRole('button', { name: 'Добавить ТВ' }));
-  const settings = screen.getByRole('button', { name: 'Аккаунт' });
-  fireEvent.click(settings);
-  const dialog = screen.getByRole('dialog', { name: 'Настройки аккаунта' });
-  expect(dialog).toHaveProperty('open', true);
-  expect(within(dialog).getByText('Вы вошли как alice.')).toBeTruthy();
-  expect(within(dialog).queryByLabelText('MAC-адрес телевизора')).toBeNull();
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Закрыть настройки' }));
-  expect(dialog).toHaveProperty('open', false);
-  expect(document.activeElement).toBe(settings);
-  fireEvent.click(settings);
-  fireEvent.click(screen.getByRole('button', { name: 'К списку телевизоров' }));
-  expect(dialog).toHaveProperty('open', false);
+  expect(screen.queryByRole('button', { name: 'Аккаунт' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Выйти' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ }));
+  expect(await screen.findByRole('button', { name: 'Выйти' })).toBeTruthy();
 });
 
 test('expired session returns to login when an authenticated operation is rejected', async () => {
@@ -122,6 +114,8 @@ test('expired session returns to login when an authenticated operation is reject
   vi.stubGlobal('fetch', fetch);
   render(<App />);
   expect(await screen.findByRole('heading', { name: 'Пока нет телевизоров' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ }));
+  await act(async () => {});
   fireEvent.click(screen.getByRole('button', { name: 'Выйти' }));
   fireEvent.click(within(screen.getByRole('dialog', { name: 'Выйти из приложения?' })).getByRole('button', { name: 'Выйти' }));
   expect(await screen.findByRole('heading', { name: 'Вход' })).toBeTruthy();
@@ -145,7 +139,8 @@ test('authenticated reload reads TV list without starting a new pairing', async 
   fireEvent.click(screen.getByRole('button', { name: /^Открыть телевизор / }));
   await act(async () => {});
   const gear = screen.getByRole('button', { name: 'Настройки ТВ' });
-  expect(gear.closest('header')).toBe(screen.getByRole('button', { name: 'Выйти' }).closest('header'));
+  expect(gear.closest('header')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Выйти' })).toBeNull();
   expect(screen.queryByRole('textbox', { name: 'IP-адрес телевизора' })).toBeNull();
   expect(screen.queryByRole('textbox', { name: 'MAC-адрес телевизора' })).toBeNull();
   fireEvent.click(gear);
@@ -173,11 +168,13 @@ test('logout during pair stops UI requests immediately and ignores late response
     .mockResolvedValueOnce(response(200, { username: 'alice', csrfToken }))
     .mockReturnValueOnce(pendingStatus).mockReturnValueOnce(pendingLogout);
   vi.stubGlobal('fetch', fetch); render(<App />);
-  await screen.findByRole('button', { name: 'Выйти' });
+  await screen.findByRole('button', { name: /Мой профиль:/ });
   await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
   const signal = fetch.mock.calls[2]?.[1].signal as AbortSignal;
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ }));
+  await act(async () => {});
   fireEvent.click(screen.getByRole('button', { name: 'Выйти' }));
-  expect(signal.aborted).toBe(false);
+  expect(signal.aborted).toBe(true);
   fireEvent.click(within(screen.getByRole('dialog', { name: 'Выйти из приложения?' })).getByRole('button', { name: 'Выйти' }));
   expect(signal.aborted).toBe(true);
   finishStatus(response(200, { tv: { host: '192.168.1.20', identity: { model: 'Late synthetic TV' } }, connection: 'available', operation: null }));
@@ -202,9 +199,11 @@ test('logout stays available while a pair submission is pending and aborts it wi
   fireEvent.change(screen.getByLabelText(/MAC-адрес телевизора/), { target: { value: '02:00:00:00:00:25' } });
   fireEvent.submit(screen.getByRole('button', { name: 'Подключить' }).closest('form')!);
   const signal = fetch.mock.calls[3]?.[1].signal as AbortSignal;
-  expect((screen.getByRole('button', { name: 'Выйти' }) as HTMLButtonElement).disabled).toBe(false);
+  expect((screen.getByRole('button', { name: /Мой профиль:/ }) as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ }));
+  await act(async () => {});
   fireEvent.click(screen.getByRole('button', { name: 'Выйти' }));
-  expect(signal.aborted).toBe(false);
+  expect(signal.aborted).toBe(true);
   fireEvent.click(within(screen.getByRole('dialog', { name: 'Выйти из приложения?' })).getByRole('button', { name: 'Выйти' }));
   expect(signal.aborted).toBe(true);
   await act(async () => {

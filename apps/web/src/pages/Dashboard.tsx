@@ -31,9 +31,10 @@ export function Dashboard({ devices, loading, error, onOpenTv, onAddTv, onRetry,
       <div className="device-grid">{devices.map(({ tvId, platform, status }) => <article key={tvId} className="device-card">
         <button type="button" className="device-delete" aria-label={`Удалить телевизор ${status.tv?.identity.model ?? 'ТВ'}`} title="Удалить телевизор" aria-haspopup="dialog" onClick={() => { setDeleteError(''); setSelected(devices.find(device => device.tvId === tvId)!); }}><IconTrash aria-hidden="true" /></button>
         <button type="button" className="device-card-main" aria-label={`Открыть телевизор ${status.tv?.identity.model ?? 'ТВ'}`} onClick={() => onOpenTv(tvId)}>
-          <span className="device-connection" data-connection={status.connection}><IconCircleFilled aria-hidden="true" />{connectionLabels[status.connection]}</span>
           <IconDeviceDesktop className="device-illustration" stroke={1.2} aria-hidden="true" />
-          <h2>{status.tv?.identity.model ?? 'ТВ'}</h2><span className="platform-badge"><TvBrand platform={platform} /><span>{tvPlatformLabel(platform, status.tv?.identity)}</span></span>
+          <span className="device-identity"><h2>{status.tv?.identity.model ?? 'ТВ'}</h2><span className="platform-badge"><TvBrand platform={platform} /><span>{tvPlatformLabel(platform, status.tv?.identity)}</span></span></span>
+          <span className="device-connection" data-connection={status.connection}><IconCircleFilled aria-hidden="true" />{connectionLabels[status.connection]}</span>
+          <span className="device-open">Открыть ТВ</span>
         </button>
       </article>)}</div> : devices ? <div className="dashboard-empty">
         <div className="empty-illustration"><IconDeviceDesktopPlus stroke={1.2} aria-hidden="true" /></div>

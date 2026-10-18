@@ -493,6 +493,7 @@ test('direct active/token lifecycle stops polls and ignores old command even whe
 });
 
 test('App logout removes pending remote, then a late unauthorized command cannot expire the new login', async () => {
+  vi.spyOn(api, 'getProfile').mockResolvedValue({ username: 'alice', displayName: 'alice', avatarId: null });
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: { configurable: true, value: vi.fn(function (this: HTMLDialogElement) { this.open = true; }) },
     close: { configurable: true, value: vi.fn(function (this: HTMLDialogElement) { this.open = false; }) },
@@ -515,17 +516,18 @@ test('App logout removes pending remote, then a late unauthorized command cannot
   vi.stubGlobal('fetch', fetch); render(<App />); await act(async () => {});
   fireEvent.click(screen.getByRole('button', { name: /^Открыть телевизор / })); await act(async () => {});
   fireEvent.click(screen.getByRole('button', { name: 'OK' })); const command = fetch.mock.calls.find(([path]) => path === '/api/tvs/00000000-0000-4000-8000-000000000001/commands')!;
+  fireEvent.click(screen.getByRole('button', { name: /Мой профиль:/ })); await act(async () => {});
   fireEvent.click(screen.getByRole('button', { name: 'Выйти' }));
-  expect((command[1]!.signal as AbortSignal).aborted).toBe(false);
+  expect((command[1]!.signal as AbortSignal).aborted).toBe(true);
   fireEvent.click(within(screen.getByRole('dialog', { name: 'Выйти из приложения?' })).getByRole('button', { name: 'Выйти' }));
   expect((command[1]!.signal as AbortSignal).aborted).toBe(true);
   expect(screen.queryByRole('group', { name: 'Пульт' })).toBeNull(); await act(async () => {});
   fireEvent.change(screen.getByLabelText('Логин'), { target: { value: 'alice' } });
   fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'correct horse battery staple' } });
   fireEvent.submit(screen.getByRole('button', { name: 'Войти' }).closest('form')!); await act(async () => {});
-  expect(screen.getByRole('group', { name: 'Пульт' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Мой профиль' })).toBeTruthy();
   await act(async () => { pending.resolve(response({ code: 'UNAUTHORIZED', message: 'Unauthorized', requestId: 'synthetic' }, 401)); });
-  expect(screen.getByRole('group', { name: 'Пульт' })).toBeTruthy(); expect(screen.queryByRole('heading', { name: 'Вход' })).toBeNull();
+  expect(screen.getByRole('heading', { name: 'Мой профиль' })).toBeTruthy(); expect(screen.queryByRole('heading', { name: 'Вход' })).toBeNull();
   expect(screen.queryByText('Сессия истекла. Войдите снова.')).toBeNull();
 });
 

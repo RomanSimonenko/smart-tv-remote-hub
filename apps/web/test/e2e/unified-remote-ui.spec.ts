@@ -28,16 +28,17 @@ test('Samsung pointer hold sends native phases with one id and no extra click', 
 for (const width of [1280]) test(`logout requires confirmation, cancels safely and sends one authenticated logout at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 800 });
   const { mutations } = await fixture(page);
-  const opener = page.locator('.app-header').getByRole('button', { name: 'Выйти', exact: true });
+  const opener = page.locator('.profile-session').getByRole('button', { name: 'Выйти', exact: true });
   const confirmation = page.getByRole('dialog', { name: 'Выйти из приложения?', exact: true });
   await page.locator('.keyboard-help summary').click();
+  await page.getByRole('button', { name: /^Мой профиль:/ }).click();
   await opener.click();
   await expect(confirmation).toBeVisible();
   await expect(page.locator('#remote-help')).not.toBeVisible();
   await expect(confirmation.getByRole('button', { name: 'Отмена' })).toBeFocused();
-  const anchor = (await opener.boundingBox())!;
   const popup = (await confirmation.boundingBox())!;
-  expect(popup.y).toBeGreaterThanOrEqual(anchor.y + anchor.height);
+  expect(popup.y).toBeGreaterThanOrEqual(16);
+  expect(popup.y + popup.height).toBeLessThanOrEqual(800 - 16);
   expect(popup.x).toBeGreaterThanOrEqual(0);
   expect(popup.x + popup.width).toBeLessThanOrEqual(width);
   for (let index = 0; index < 12; index++) {
@@ -103,6 +104,7 @@ async function fixture(page: Page, mode = 'idle') {
       }
       reads.push(path);
       const data: Record<string, unknown> = {
+        '/api/profile': { username: 'synthetic-owner', displayName: 'Synthetic Owner', avatarId: null },
         '/api/tvs': { devices: [{ tvId: '00000000-0000-4000-8000-000000000001', platform: mode === 'native-hold' ? 'tizen' : 'webos', status }] },
         '/api/setup/status': { state: mode === 'setup' ? 'unclaimed' : 'claimed' },
         '/api/auth/session': { username: 'synthetic-owner', csrfToken: 'c'.repeat(43) },

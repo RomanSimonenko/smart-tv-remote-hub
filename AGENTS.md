@@ -37,6 +37,17 @@ When rules compete, use this order:
 - **Verify visual fidelity.** Capture the rendered page and compare it with the corresponding mockup at a comparable viewport, theme, and state. Check layout, sizing, spacing, typography, colors, and icons. Passing functional tests alone does not establish design compliance; fix unintended differences before reporting completion and disclose any remaining differences.
 - **Verify the user's running application.** After UI changes, rebuild and restart the local Docker application when that is the active preview. Reload its browser tab safely, protecting unsaved edits, and inspect the actual rendered screen before reporting that the changes are available. A successful build or health response alone is insufficient.
 
+## UI Skills Workflow
+
+- For UI audits and refinement, use the project-local `impeccable` skill as the primary workflow and `ui-ux-pro-max` for relevant UX, accessibility, forms, navigation, and responsive guidance. Load only the references needed for the task.
+- Use `design-taste-frontend` for landing pages and public-facing presentation pages within its declared scope; do not apply its marketing-page rules to working app screens.
+- For `apps/web`, read `apps/web/PRODUCT.md` and run Impeccable helpers from `apps/web` using the shared skill directory at `../../.agents/skills/impeccable`. Run UI UX Pro Max scripts from the repository root using `.agents/skills/ui-ux-pro-max/scripts/`.
+- Skills supplement the source priority above. Do not replace the approved palette, tokens, components, or screen composition with generated design-system recommendations. Report conflicts against the applicable specification.
+- For presentation pages, the recorded workflow starts with an agreed image mockup; working app screens are code-first. Keep this preference in `apps/web/.impeccable/config.json` rather than duplicating its value elsewhere.
+- Use browser automation to inspect actual rendering and behavior. Audit reports must state screens, viewport, theme, states, evidence, applied skills, and unverified areas; verify detector findings before reporting them. Do not fix UI during an audit unless requested.
+- Browser audits must preserve unsaved work and avoid triggering physical-TV commands, executing real test cases, or changing saved data without task-specific authorization. Use synthetic data for isolated additional states and label that evidence separately from the running application.
+- Live mode and automatic hooks are optional and are not prerequisites for an audit. Run the Impeccable detector manually for applicable UI work while hooks are disabled.
+
 ## Safety Basics
 
 - Never put secrets, credentials, customer data, private identifiers, or machine-specific absolute paths in source, fixtures, logs, screenshots, prompts, or temporary artifacts. Use redacted or synthetic values.

@@ -21,6 +21,7 @@ async function pairMixed(page: Page, tv: TvFixture) {
   return { first, second };
 }
 async function logout(page: Page) {
+  await page.getByRole('button', { name: /^Мой профиль:/ }).click();
   await page.getByRole('button', { name: 'Выйти', exact: true }).click();
   await page.getByRole('dialog', { name: 'Выйти из приложения?' }).getByRole('button', { name: 'Выйти', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Вход', exact: true })).toBeVisible();
@@ -123,7 +124,10 @@ test('mixed restart preserves IDs and credentials without another LG or Samsung 
 test('Samsung uses shared desktop geometry, unsupported controls and camera cleanup', async ({ page, tv }, testInfo) => {
   await page.addInitScript(() => {
     const canvas = document.createElement('canvas'); canvas.width = 16; canvas.height = 16;
-    const stream = canvas.captureStream();
+    const context = canvas.getContext('2d')!;
+    const stream = canvas.captureStream(30);
+    const draw = () => { context.fillStyle = '#345678'; context.fillRect(0, 0, canvas.width, canvas.height); requestAnimationFrame(draw); };
+    draw();
     Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, value: async () => stream });
     Object.defineProperty(navigator.mediaDevices, 'enumerateDevices', { configurable: true, value: async () => [] });
     (window as unknown as { syntheticCamera: MediaStream }).syntheticCamera = stream;
@@ -133,11 +137,12 @@ test('Samsung uses shared desktop geometry, unsupported controls and camera clea
   const badges = page.locator('.platform-badge');
   const lgBadge = (await badges.nth(0).boundingBox())!;
   const samsungBadge = (await badges.nth(1).boundingBox())!;
-  expect(lgBadge.height).toBe(38);
-  expect(samsungBadge.height).toBe(lgBadge.height);
+  expect(lgBadge.height).toBe(24);
+  expect(samsungBadge.height).toBe(20);
   const cards = await page.locator('.device-card').evaluateAll((elements) => elements.map(element => {
     const { width, height } = element.getBoundingClientRect(); return { width, height };
   }));
+  expect(cards[1]!.height).toBe(cards[0]!.height);
   await badges.evaluateAll((elements) => elements.forEach(element => { (element as HTMLElement).style.minHeight = '0'; }));
   expect((await badges.nth(0).boundingBox())!.width).toBe(lgBadge.width);
   expect((await badges.nth(1).boundingBox())!.width).toBe(samsungBadge.width);
@@ -164,8 +169,8 @@ test('Samsung uses shared desktop geometry, unsupported controls and camera clea
   await expect(page.getByRole('button', { name: 'Сохранить MAC', exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('samsung-shared-settings.png'), fullPage: true });
   await page.getByRole('button', { name: 'Закрыть настройки', exact: true }).click();
-  await page.getByRole('button', { name: 'Включить', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Выключить', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Включить камеру', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Выключить камеру', exact: true })).toBeEnabled();
   await page.screenshot({ path: testInfo.outputPath('samsung-shared-desktop.png'), fullPage: true });
   await page.getByRole('button', { name: 'К списку телевизоров', exact: true }).click();
   expect(await page.evaluate(() => (window as unknown as { syntheticCamera: MediaStream }).syntheticCamera.getTracks().every(track => track.readyState === 'ended'))).toBe(true);
