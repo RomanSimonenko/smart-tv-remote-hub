@@ -20,7 +20,7 @@ export function useTestRun(csrfToken:string,onSessionExpired:()=>void){
    await executeTestRun(initial,{signal:controller.signal,capture,onUpdate:update,advance:(id,itemId)=>api.runAction(id,'advance',csrfToken,{itemId},AbortSignal.any([controller.signal,AbortSignal.timeout(70000)])),upload:(id,itemId,snapshot)=>api.saveRunSnapshot(id,itemId,snapshot,csrfToken,controller.signal)});
   }catch(cause){
    if(cause instanceof ApiFailure&&cause.status===401)expired.current();
-   if(!controller.signal.aborted&&mounted.current)setError(cause instanceof CameraCaptureError?`Не удалось получить свежий снимок (${cause.code}). Запуск остановлен.`:friendlyError(cause));
+   if(!controller.signal.aborted&&mounted.current)setError(cause instanceof CameraCaptureError?cause.code==='SCREEN_NOT_FOUND'?'Экран не найден. Запуск остановлен.':`Не удалось получить свежий снимок (${cause.code}). Запуск остановлен.`:friendlyError(cause));
    if(!controller.signal.aborted){try{update(await api.runAction(input.id,'failure',csrfToken,{stage:cause instanceof CameraCaptureError?'camera':'connection',code:cause instanceof CameraCaptureError?cause.code:'CLIENT_REQUEST_FAILED'},AbortSignal.timeout(10000)));}catch{if(mounted.current)setError(value=>`${value} Не удалось подтвердить остановку: сервер завершит запуск при потере связи.`);}}
   }finally{finish(controller);}
  }

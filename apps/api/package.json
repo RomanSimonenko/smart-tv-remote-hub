@@ -13,6 +13,7 @@
     "setup-token": "node dist/src/auth/cli.js setup-token"
   },
   "dependencies": {
+    "@remote-webos-tv/screen-vision": "workspace:*",
     "@remote-webos-tv/contracts": "workspace:*",
     "@remote-webos-tv/tizen": "workspace:*",
     "@remote-webos-tv/tv-adapter": "workspace:*",

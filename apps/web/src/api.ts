@@ -6,6 +6,7 @@ import { tvDevicesResponseSchema, addTvResponseSchema, type TvId, type AddTvRequ
 import type { TvHoldRequest } from '@remote-webos-tv/contracts';
 import {testRunSchema,testRunsResponseSchema,type StartTestRun,type RunFailure} from '@remote-webos-tv/contracts';
 import type {CameraSnapshot} from './camera-snapshot.js';
+import {cameraPreviewSchema,type CameraPrior} from '@remote-webos-tv/contracts';
 
 export class ApiFailure extends Error {
   constructor(readonly status: number, readonly code: string) { super('API request failed'); }
@@ -63,10 +64,12 @@ async function dispatchCommand(kind: 'commands' | 'holds', input: TvCommandReque
   return result;
 }
 export const api = {
+  async cameraPreview(image:Blob,csrfToken:string,prior:CameraPrior|undefined,signal:AbortSignal){return parsed(await request('/camera/preview',{method:'POST',headers:{'content-type':'image/png','x-csrf-token':csrfToken,...(prior?{'x-screen-prior':JSON.stringify(prior)}:{})},body:image,signal}),cameraPreviewSchema);},
+  async cameraSnapshot(image:Blob,csrfToken:string,prior:CameraPrior,signal:AbortSignal){return parsed(await request('/camera/snapshot',{method:'POST',headers:{'content-type':'image/png','x-csrf-token':csrfToken,...(prior?{'x-screen-prior':JSON.stringify(prior)}:{})},body:image,signal}),cameraPreviewSchema);},
   async listTestRuns(before?:string,signal?:AbortSignal,filters:{query?:string;status?:string;tvId?:string;since?:number;until?:number}={}){const params=new URLSearchParams();if(before)params.set('before',before);for(const [key,value]of Object.entries(filters))if(value!==''&&value!==undefined)params.set(key,String(value));return parsed(await request(`/test-runs${params.size?`?${params}`:''}`,{signal:signal??null}),testRunsResponseSchema);},
   async getTestRun(id:string,signal?:AbortSignal){return parsed(await request(`/test-runs/${encodeURIComponent(id)}`,{signal:signal??null}),testRunSchema);},
   async startTestRun(input:StartTestRun,csrfToken:string,signal?:AbortSignal){return parsed(await request('/test-runs',{method:'POST',headers:{...jsonHeaders,'x-csrf-token':csrfToken},body:JSON.stringify(input),signal:signal??null}),testRunSchema);},
-  async runAction(id:string,action:'advance'|'stop'|'heartbeat'|'failure',csrfToken:string,body?:{itemId:string}|RunFailure,signal?:AbortSignal){return parsed(await request(`/test-runs/${encodeURIComponent(id)}/${action}`,{method:'POST',headers:{...jsonHeaders,'x-csrf-token':csrfToken},...(body?{body:JSON.stringify(body)}:{}),signal:signal??null}),testRunSchema);},
+  async runAction(id:string,action:'advance'|'stop'|'heartbeat'|'failure',csrfToken:string,body?:{itemId:string}|RunFailure,signal?:AbortSignal){return parsed(await request(`/test-runs/${encodeURIComponent(id)}/${action}`,{method:'POST',headers:{...jsonHeaders,'x-csrf-token':csrfToken},body:JSON.stringify(body??{}),signal:signal??null}),testRunSchema);},
   async saveRunSnapshot(id:string,itemId:string,snapshot:CameraSnapshot,csrfToken:string,signal:AbortSignal){return parsed(await request(`/test-runs/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}/snapshot`,{method:'PUT',headers:{'content-type':'image/jpeg','x-csrf-token':csrfToken,'x-captured-at':String(snapshot.capturedAt),'x-camera-label':encodeURIComponent(snapshot.cameraLabel)},body:snapshot.blob,signal:AbortSignal.any([signal,AbortSignal.timeout(10000)])}),testRunSchema);},
   async listTestCases(signal?: AbortSignal) { return parsed(await request('/test-cases', {signal:signal??null}), testCasesResponseSchema); },
   async getTestCase(id:string,signal?:AbortSignal) { return parsed(await request(`/test-cases/${encodeURIComponent(id)}`,{signal:signal??null}),testCaseSchema); },
@@ -86,7 +89,7 @@ export const api = {
     return parsed(await request('/tvs', { method: 'POST', headers: { ...jsonHeaders, 'x-csrf-token': csrfToken }, body: JSON.stringify(input), signal: signal ?? null }), addTvResponseSchema);
   },
   async status() { return parsed(await request('/setup/status'), setupStatusSchema); },
-  async session() { return parsed(await request('/auth/session'), sessionResponseSchema); },
+  async session(signal?:AbortSignal) { return parsed(await request('/auth/session',signal?{signal}:undefined), sessionResponseSchema); },
   async setup(input: SetupRequest) { await request('/setup', { method: 'POST', headers: jsonHeaders, body: JSON.stringify(input) }); },
   async login(input: LoginRequest) { return parsed(await request('/auth/login', { method: 'POST', headers: jsonHeaders, body: JSON.stringify(input) }), loginResponseSchema); },
   async logout(csrfToken: string) { await request('/auth/logout', { method: 'POST', headers: { 'x-csrf-token': csrfToken } }); },

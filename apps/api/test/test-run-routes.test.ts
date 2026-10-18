@@ -33,6 +33,8 @@ test('authenticated API executes and stores five frames, locks manual paths and 
  const caseId=randomUUID();const steps=(['given','when','then','when','then'] as const).map((kind,index)=>({id:randomUUID(),kind,text:`Synthetic ${index+1}`,...(kind==='when'?{actions:[{id:randomUUID(),action:index===1?'RIGHT':'LEFT',pauseAfterMs:0}]}:{})}));
  expect((await app.inject({method:'POST',url:'/api/test-cases',headers,payload:{id:caseId,title:'Synthetic five frames',description:'',group:'',steps}})).statusCode).toBe(201);
  const id=randomUUID(),input={id,caseId,version:1,tvId};let response=await app.inject({method:'POST',url:'/api/test-runs',headers,payload:input});expect(response.statusCode).toBe(201);let run=response.json();expect(run.items).toHaveLength(5);
+ const emptyHeartbeat=await app.inject({method:'POST',url:`/api/test-runs/${id}/heartbeat`,headers:{...headers,'content-type':'application/json'}});expect(emptyHeartbeat.statusCode).toBe(400);
+ const heartbeat=await app.inject({method:'POST',url:`/api/test-runs/${id}/heartbeat`,headers:{...headers,'content-type':'application/json'},payload:'{}'});expect(heartbeat.statusCode).toBe(200);expect(heartbeat.json().status).toBe('running');
  expect((await app.inject({method:'POST',url:'/api/test-runs',headers,payload:input})).json().id).toBe(id);
  expect((await app.inject({method:'POST',url:`/api/tvs/${tvId}/commands`,headers,payload:{id:randomUUID(),button:'RIGHT'}})).statusCode).toBe(409);
  expect((await app.inject({method:'DELETE',url:`/api/tvs/${tvId}`,headers,payload:{confirm:true}})).statusCode).toBe(409);

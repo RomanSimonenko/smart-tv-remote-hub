@@ -3,11 +3,40 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { Webcam } from './Webcam.js';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+test('video mode defaults to source and changing it never starts the camera',()=>{
+ const get=media();render(<Webcam/>);
+ const toggle=screen.getByRole('switch',{name:'Выровнять экран'});
+ expect(toggle.getAttribute('aria-checked')).toBe('false');
+ fireEvent.click(toggle);
+ expect(toggle.getAttribute('aria-checked')).toBe('true');
+ expect(get).not.toHaveBeenCalled();
+ fireEvent.click(toggle);
+ expect(toggle.getAttribute('aria-checked')).toBe('false');
+});
 function media(getUserMedia = vi.fn()) {
   Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia, enumerateDevices: vi.fn().mockResolvedValue([{ kind: 'videoinput', deviceId: 'one', label: 'Camera One' }, { kind: 'videoinput', deviceId: 'two', label: 'Camera Two' }]) } });
   return getUserMedia;
 }
 function stream() { const stop = vi.fn(); return { value: { getTracks: () => [{ stop }] } as unknown as MediaStream, stop }; }
+test('returning from a hidden tab replaces the active camera stream but never enables a stopped camera', async () => {
+  const first = stream(), second = stream();
+  media(vi.fn().mockResolvedValueOnce(first.value).mockResolvedValueOnce(second.value));
+  const visibility = vi.spyOn(document, 'visibilityState', 'get');
+  visibility.mockReturnValue('visible');
+  const view = render(<Webcam />);
+  fireEvent.click(screen.getByRole('button', { name: 'Включить камеру' }));
+  await waitFor(() => expect(view.container.querySelector('video')?.srcObject).toBe(first.value));
+  visibility.mockReturnValue('hidden'); fireEvent(document, new Event('visibilitychange'));
+  visibility.mockReturnValue('visible'); fireEvent(document, new Event('visibilitychange'));
+  await waitFor(() => expect(view.container.querySelector('video')?.srcObject).toBe(second.value));
+  expect(first.stop).toHaveBeenCalledOnce();
+  fireEvent.playing(view.container.querySelector('video')!);
+  fireEvent.click(screen.getByRole('button', { name: 'Выключить камеру' }));
+  visibility.mockReturnValue('hidden'); fireEvent(document, new Event('visibilitychange'));
+  visibility.mockReturnValue('visible'); fireEvent(document, new Event('visibilitychange'));
+  expect(view.container.querySelector('video')?.srcObject).toBeNull();
+  expect(screen.getByText('Камера выключена')).toBeTruthy();
+});
 test('starts only on request, switches the selected camera and releases it on unmount', async () => {
   const first = stream(), second = stream();
   const get = media(vi.fn().mockResolvedValueOnce(first.value).mockResolvedValueOnce(second.value));
@@ -15,12 +44,29 @@ test('starts only on request, switches the selected camera and releases it on un
   expect(get).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Включить камеру' }));
   await waitFor(() => expect(view.container.querySelector('video')?.srcObject).toBe(first.value));
-  expect(get).toHaveBeenCalledWith({ audio: false, video: true });
+  expect(get).toHaveBeenCalledWith({ audio: false, video: {width:{ideal:1920},height:{ideal:1080}} });
   fireEvent.change(screen.getByLabelText('Камера'), { target: { value: 'two' } });
   await waitFor(() => expect(view.container.querySelector('video')?.srcObject).toBe(second.value));
   expect(first.stop).toHaveBeenCalledOnce();
-  expect(get).toHaveBeenLastCalledWith({ audio: false, video: { deviceId: { exact: 'two' } } });
+  expect(get).toHaveBeenLastCalledWith({ audio: false, video: {width:{ideal:1920},height:{ideal:1080},deviceId: { exact: 'two' } } });
   view.unmount(); expect(second.stop).toHaveBeenCalledOnce();
+});
+test('tab recovery keeps the selected device and reports a failed reacquisition', async () => {
+  const first = stream(), selected = stream();
+  const get = media(vi.fn().mockResolvedValueOnce(first.value).mockResolvedValueOnce(selected.value).mockRejectedValueOnce(Object.assign(new Error('unavailable'), { name: 'NotReadableError' })));
+  const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+  const view = render(<Webcam />);
+  fireEvent.click(screen.getByRole('button', { name: 'Включить камеру' }));
+  await waitFor(() => expect(view.container.querySelector('video')?.srcObject).toBe(first.value));
+  fireEvent.change(screen.getByLabelText('Камера'), { target: { value: 'two' } });
+  await waitFor(() => expect(view.container.querySelector('video')?.srcObject).toBe(selected.value));
+  visibility.mockReturnValue('hidden'); fireEvent(document, new Event('visibilitychange'));
+  visibility.mockReturnValue('visible'); fireEvent(document, new Event('visibilitychange'));
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Камера недоступна. Возможно, её использует другое приложение.');
+  expect(get).toHaveBeenLastCalledWith({ audio: false, video: {width:{ideal:1920},height:{ideal:1080},deviceId: { exact: 'two' } } });
+  expect(selected.stop).toHaveBeenCalledOnce();
+  expect(view.container.querySelector('video')?.srcObject).toBeNull();
+  expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
 });
 test('stopping during permission request releases a late stream', async () => {
   let resolve!: (value: MediaStream) => void;

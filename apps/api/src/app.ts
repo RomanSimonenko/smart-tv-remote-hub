@@ -1,4 +1,5 @@
 import { registerTestCaseRoutes } from './test-cases/routes.js';
+import {registerCameraRoutes} from './camera/routes.js';
 import type { TestCaseRepository } from './test-cases/repository.js';
 import { registerProfileRoutes } from './profile/routes.js';
 import type { ProfileRepository } from './profile/repository.js';
@@ -125,6 +126,7 @@ export function buildApp({ config, getSetupState, webRoot, auth, profile, testCa
   if (auth) {
     installAuthRateLimit(app);
     sessionForRequest = registerAuthRoutes(app, { config, ...auth });
+    registerCameraRoutes(app,request=>{const token=sessionForRequest!(request);return token&&auth.sessions.authenticate(token)?token:undefined;});
   }
   if (testCases) {
     if (!auth) throw new Error('Test case routes require owner authentication');

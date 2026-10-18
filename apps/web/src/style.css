@@ -228,6 +228,18 @@ body:has(.settings-dialog[open]) { overflow: hidden; }
 .webcam-card video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #080d11; border-radius: 12px; margin-bottom: 16px; }
 .webcam-preview { position: relative; margin-bottom: 16px; }
 .webcam-preview video { margin-bottom: 0; }
+.webcam-preview[data-mode=screen] video { visibility: hidden; }
+.webcam-aligned { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; border-radius: 12px; background: var(--ui-bg); }
+.webcam-controls { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; }
+.webcam-controls > label { flex: 0 1 420px; min-width: 0; max-width: 100%; margin: 0; }
+.webcam-controls > .webcam-align-toggle { flex-shrink: 0; }
+.webcam-align-toggle { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; padding: 0; border: 0; border-radius: 4px; background: transparent; font-size: 14px; font-weight: 500; }
+.webcam-align-toggle:hover:not(:disabled) { background: transparent; }
+.webcam-switch-track { position: relative; width: 36px; height: 22px; flex-shrink: 0; border: 1px solid var(--ui-muted); border-radius: 11px; background: var(--ui-field); }
+.webcam-switch-track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--ui-muted); transition: transform 160ms ease-out; }
+.webcam-align-toggle[aria-checked=true] .webcam-switch-track { background: var(--ui-accent); border-color: var(--ui-accent); }
+.webcam-align-toggle[aria-checked=true] .webcam-switch-track::after { transform: translateX(14px); background: var(--ui-on-accent); }
+@media (prefers-reduced-motion: reduce) { .webcam-switch-track::after { transition: none; } }
 .webcam-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; border-radius: 12px; background: var(--ui-bg); color: var(--ui-muted); }
 .webcam-placeholder > svg { width: 40px; height: 40px; stroke-width: 1.75; }
 .webcam-placeholder strong { color: var(--ui-text); font-size: 20px; line-height: 28px; }

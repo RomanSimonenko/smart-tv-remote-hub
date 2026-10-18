@@ -1,8 +1,8 @@
 export class CameraCaptureError extends Error {
- constructor(readonly code:'CAMERA_NOT_READY'|'CAMERA_FRAME_TIMEOUT'|'CAMERA_CAPTURE_UNSUPPORTED'|'CAMERA_ENCODE_FAILED'){super(code);}
+ constructor(readonly code:'CAMERA_NOT_READY'|'CAMERA_FRAME_TIMEOUT'|'CAMERA_CAPTURE_UNSUPPORTED'|'CAMERA_ENCODE_FAILED'|'SCREEN_NOT_FOUND'|'SCREEN_PROCESSING_FAILED'){super(code);}
 }
 export interface CameraSnapshot {blob:Blob;capturedAt:number;cameraLabel:string}
-export function captureCameraFrame(video:HTMLVideoElement,stream:MediaStream|null,signal:AbortSignal,cameraLabel:string):Promise<CameraSnapshot>{
+export function captureCameraFrame(video:HTMLVideoElement,stream:MediaStream|null,signal:AbortSignal,cameraLabel:string,format:'image/jpeg'|'image/png'='image/jpeg'):Promise<CameraSnapshot>{
  const track=stream?.getVideoTracks()[0];
  if(!track||track.readyState!=='live'||video.readyState<2||!video.videoWidth||!video.videoHeight)return Promise.reject(new CameraCaptureError('CAMERA_NOT_READY'));
  if(!video.requestVideoFrameCallback)return Promise.reject(new CameraCaptureError('CAMERA_CAPTURE_UNSUPPORTED'));
@@ -21,7 +21,7 @@ export function captureCameraFrame(video:HTMLVideoElement,stream:MediaStream|nul
    const capturedAt=Date.now();const scale=Math.min(1,1920/Math.max(video.videoWidth,video.videoHeight));
    const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(video.videoWidth*scale));canvas.height=Math.max(1,Math.round(video.videoHeight*scale));
    try{const context=canvas.getContext('2d');if(!context)throw new CameraCaptureError('CAMERA_ENCODE_FAILED');context.drawImage(video,0,0,canvas.width,canvas.height);
-    canvas.toBlob(blob=>{if(settled)return;if(!blob){fail(new CameraCaptureError('CAMERA_ENCODE_FAILED'));return;}settled=true;cleanup();resolve({blob,capturedAt,cameraLabel});},'image/jpeg',.9);
+    canvas.toBlob(blob=>{if(settled)return;if(!blob){fail(new CameraCaptureError('CAMERA_ENCODE_FAILED'));return;}settled=true;cleanup();resolve({blob,capturedAt,cameraLabel});},format,.9);
    }catch(cause){fail(cause instanceof CameraCaptureError?cause:new CameraCaptureError('CAMERA_ENCODE_FAILED'));}
   });
  });
