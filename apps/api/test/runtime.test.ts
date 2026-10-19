@@ -133,3 +133,24 @@ test('failed signal shutdown reports safe cause types and sets a failing exit co
     await app.close();
   }
 });
+
+test('startup waits for OCR warmup and closes the same recognizer on shutdown',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'ocr-startup-'));
+ const config:AppConfig={dataDir:join(directory,'data'),host:'127.0.0.1',port:8080,publicOrigin:'https://remote.example.test',secureCookies:true,trustedProxy:[]};
+ let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});let entered!:()=>void;const started=new Promise<void>(resolve=>{entered=resolve;});
+ const ocr={warmup:vi.fn(async()=>{entered();await gate;}),recognize:vi.fn(),close:vi.fn(async()=>{})};
+ try{
+  let ready=false;const pending=createApiRuntime(config,{warmOcr:true,ocrRecognizer:ocr}).then(app=>{ready=true;return app;});
+  await started;expect(ready).toBe(false);release();const app=await pending;
+  expect(ocr.warmup).toHaveBeenCalledTimes(1);await app.close();expect(ocr.close).toHaveBeenCalledTimes(1);
+ }finally{await rm(directory,{recursive:true,force:true});}
+});
+test('failed startup warmup releases OCR and database resources',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'ocr-startup-failure-'));
+ const config:AppConfig={dataDir:join(directory,'data'),host:'127.0.0.1',port:8080,publicOrigin:'https://remote.example.test',secureCookies:true,trustedProxy:[]};
+ const ocr={warmup:vi.fn(async()=>{throw new Error('warmup failed');}),recognize:vi.fn(),close:vi.fn(async()=>{})};
+ try{
+  await expect(createApiRuntime(config,{warmOcr:true,ocrRecognizer:ocr})).rejects.toThrow('warmup failed');expect(ocr.close).toHaveBeenCalledTimes(1);
+  const app=await createApiRuntime(config);await app.close();
+ }finally{await rm(directory,{recursive:true,force:true});}
+});

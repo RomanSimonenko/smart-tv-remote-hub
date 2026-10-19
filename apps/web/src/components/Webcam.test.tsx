@@ -2,7 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Webcam } from './Webcam.js';
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 test('video mode defaults to source and changing it never starts the camera',()=>{
  const get=media();render(<Webcam/>);
  const toggle=screen.getByRole('switch',{name:'Выровнять экран'});
@@ -147,4 +147,14 @@ test('retry replaces the error with connecting and then live video', async () =>
   fireEvent.playing(view.container.querySelector('video')!);
   expect(screen.queryByText('Камера недоступна')).toBeNull();
   expect(screen.getByRole('button', { name: 'Выключить камеру' })).toBeTruthy();
+});
+
+test('settings resolution is saved and used when the camera is reopened',async()=>{
+ const capture=media(vi.fn().mockResolvedValue(stream().value));
+ const view=render(<Webcam showResolution/>);
+ fireEvent.change(screen.getByLabelText('Разрешение'),{target:{value:'720'}});
+ view.unmount();render(<Webcam showResolution/>);
+ expect((screen.getByLabelText('Разрешение') as HTMLSelectElement).value).toBe('720');
+ fireEvent.click(screen.getByRole('button',{name:'Включить камеру'}));
+ await waitFor(()=>expect(capture).toHaveBeenCalledWith({audio:false,video:{width:{ideal:1280},height:{ideal:720}}}));
 });

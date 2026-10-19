@@ -23,3 +23,7 @@ export function matchTextConditions(expected:string[],blocks:OcrBlock[]):Array<{
   });return{expected,found};
  });
 }
+/** Transient camera calibration result; never persisted as run evidence. */
+export const ocrDiagnosticsSchema=z.strictObject({blocks:z.array(ocrBlockSchema).max(1000),engine:z.string().min(1).max(100),model:z.string().min(1).max(200),elapsedMs:z.number().int().nonnegative()});
+
+export type OcrDiagnostics= z.infer<typeof ocrDiagnosticsSchema>;

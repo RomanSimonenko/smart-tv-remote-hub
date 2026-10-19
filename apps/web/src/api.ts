@@ -1,3 +1,4 @@
+import {ocrDiagnosticsSchema} from '@remote-webos-tv/contracts';
 import { testCasesResponseSchema, testCaseSchema, type CreateTestCase, type UpdateTestCase } from '@remote-webos-tv/contracts';
 import { profileResponseSchema, passwordChangeResponseSchema, type PasswordChangeRequest, type ProfileUpdate } from '@remote-webos-tv/contracts';
 import { apiErrorSchema, loginResponseSchema, sessionResponseSchema, setupStatusSchema, tvStatusResponseSchema, tvOperationSchema, tvCommandResultSchema, tvRemoteStateSchema, type LoginRequest, type SetupRequest, type StartTvOperation, type TvOperation, type TvStatusResponse, type TvCommandRequest, type TvCommandResult, type TvRemoteState } from '@remote-webos-tv/contracts';
@@ -64,6 +65,7 @@ async function dispatchCommand(kind: 'commands' | 'holds', input: TvCommandReque
   return result;
 }
 export const api = {
+  async diagnoseOcr(image:Blob,csrfToken:string,signal:AbortSignal){return parsed(await request('/camera/ocr',{method:'POST',headers:{'content-type':'image/jpeg','x-csrf-token':csrfToken},body:image,signal}),ocrDiagnosticsSchema);},
   async cameraPreview(image:Blob,csrfToken:string,prior:CameraPrior|undefined,signal:AbortSignal){return parsed(await request('/camera/preview',{method:'POST',headers:{'content-type':'image/png','x-csrf-token':csrfToken,...(prior?{'x-screen-prior':JSON.stringify(prior)}:{})},body:image,signal}),cameraPreviewSchema);},
   async cameraSnapshot(image:Blob,csrfToken:string,prior:CameraPrior,signal:AbortSignal){return parsed(await request('/camera/snapshot',{method:'POST',headers:{'content-type':'image/png','x-csrf-token':csrfToken,...(prior?{'x-screen-prior':JSON.stringify(prior)}:{})},body:image,signal}),cameraPreviewSchema);},
   async listTestRuns(before?:string,signal?:AbortSignal,filters:{query?:string;status?:string;tvId?:string;since?:number;until?:number}={}){const params=new URLSearchParams();if(before)params.set('before',before);for(const [key,value]of Object.entries(filters))if(value!==''&&value!==undefined)params.set(key,String(value));return parsed(await request(`/test-runs${params.size?`?${params}`:''}`,{signal:signal??null}),testRunsResponseSchema);},
