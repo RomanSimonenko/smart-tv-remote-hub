@@ -18,6 +18,8 @@ test('only run rows scroll while title, filters and column headers stay visible'
   expect(header!.height).toBeLessThan(60);
   const headerColors=await page.locator('.test-runs thead').evaluate(element=>({corner:getComputedStyle(element).backgroundColor,cell:getComputedStyle(element.querySelector('th')!).backgroundColor}));
   expect(headerColors.corner).toBe(headerColors.cell);
+  const clippedHeaders=await page.locator('.test-runs th').evaluateAll(cells=>cells.some(cell=>cell.scrollWidth>cell.clientWidth));
+  expect(clippedHeaders).toBe(false);
   expect(body!.y).toBeGreaterThanOrEqual(header!.y+header!.height-1);
   await scroll.evaluate(element=>{element.scrollTop=0;});
   const positions=async()=>page.locator('.test-runs').evaluate(element=>({title:element.querySelector('h1')!.getBoundingClientRect().top,filters:element.querySelector('.runs-filters')!.getBoundingClientRect().top,header:element.querySelector('th')!.getBoundingClientRect().top,row:element.querySelector('tbody tr')!.getBoundingClientRect().top,documentScroll:document.documentElement.scrollHeight,windowHeight:innerHeight}));
