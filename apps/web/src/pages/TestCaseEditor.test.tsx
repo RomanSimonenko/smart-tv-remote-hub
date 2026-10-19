@@ -137,3 +137,23 @@ test('invalid action pause is reported as pause validation instead of a text err
  expect(screen.getByRole('alert').textContent).toContain('Пауза');expect(screen.getByRole('alert').textContent).not.toContain('Текст');
  expect(screen.getByLabelText('Описание шага').getAttribute('aria-invalid')).not.toBe('true');
 });
+
+test('stages text conditions, retains them across selection and saves them only after applying the step',async()=>{
+ const save=vi.fn().mockResolvedValue(true),dirty=vi.fn();
+ const steps=[{id:crypto.randomUUID(),kind:'then' as const,text:'Профиль'},{id:crypto.randomUUID(),kind:'when' as const,text:'Далее'}];
+ render(<TestCaseEditor initialCase={{id:crypto.randomUUID(),title:'OCR',description:'',group:'',steps,status:'draft',version:1,createdAt:0,updatedAt:0}} onSave={save} onBack={vi.fn()} onDirtyChange={dirty} saving={false} error="" onReloadConflict={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));
+ for(const [index,text] of ['Мое кино','Мои подписки'].entries()){fireEvent.click(screen.getByRole('button',{name:'Добавить условие'}));fireEvent.change(screen.getByLabelText(`Надпись ${index+1}`),{target:{value:text}});}
+ expect(dirty).toHaveBeenLastCalledWith(true);
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 2/}));fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));
+ expect((screen.getByLabelText('Надпись 2') as HTMLInputElement).value).toBe('Мои подписки');
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));expect(save).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));
+ await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({steps:[expect.objectContaining({textConditions:['Мое кино','Мои подписки']}),steps[1]]})));
+});
+test('empty condition prevents applying the step with a condition error',()=>{
+ render(<TestCaseEditor initialCase={null} onSave={vi.fn()} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="" onReloadConflict={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Тогда'}));fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Профиль'}});
+ fireEvent.click(screen.getByRole('button',{name:'Добавить условие'}));fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));
+ expect(screen.getByRole('alert').textContent).toContain('Надпись');expect(screen.getByLabelText('Надпись 1').getAttribute('aria-invalid')).toBe('true');
+});

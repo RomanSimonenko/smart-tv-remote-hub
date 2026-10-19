@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node -e \"require('fs').copyFileSync('src/ocr/worker.py','dist/src/ocr/worker.py')\"",
     "pretest": "pnpm --filter @remote-webos-tv/api... build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",

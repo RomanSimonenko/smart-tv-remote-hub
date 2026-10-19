@@ -710,7 +710,7 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .key-actions-remote { margin: 0; }
 .case-step-parameters .step-key-sequence .case-step-hint { font-size: 12px; line-height: 20px; }
 
-/* Only the key list scrolls; step fields and save controls stay in place. */
+/* Only action and condition lists scroll; step fields and save controls stay in place. */
 .case-step-parameters { display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }
 .case-step-scroll { display: flex; flex-direction: column; min-height: 0; overflow: hidden; margin: 12px 0; padding: 12px 24px; }
 .case-step-scroll > * { flex-shrink: 0; }
@@ -803,9 +803,18 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .runner-page .runner-panel .danger:hover:not(:disabled) { background: color-mix(in srgb,var(--ui-error) 10%,var(--ui-panel)); }
 .run-evidence-list button:hover:not(:disabled):not([aria-pressed=true]) { border-color: var(--ui-border); background: var(--ui-field); }
 
-.app-content[data-screen=runs] { display: flex; flex-direction: column; min-height: 100dvh; }
+.app-content[data-screen=runs] { display: flex; flex-direction: column; height: 100dvh; min-height: 0; overflow: hidden; }
 .app-content[data-screen=runs] > .app-header { flex-shrink: 0; }
 .test-runs { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.test-runs > :not(.cases-table-scroll):not(.cases-empty) { flex-shrink: 0; }
+.test-runs > .cases-table-scroll { flex: 1; min-height: 0; overflow: hidden; }
+.test-runs .cases-table-scroll table { display: flex; flex-direction: column; height: 100%; }
+.test-runs .cases-table-scroll thead { flex-shrink: 0; overflow: hidden; scrollbar-gutter: stable; background: var(--ui-field); }
+.test-runs .cases-table-scroll tbody { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.test-runs .cases-table-scroll tr { display: grid; grid-template-columns: minmax(0,2.2fr) minmax(130px,.8fr) minmax(175px,1.25fr) minmax(145px,1.05fr) minmax(150px,.8fr) minmax(90px,.55fr); }
+.test-runs .cases-table-scroll :is(th,td) { min-width: 0; overflow-wrap: anywhere; }
+.test-runs .cases-table-scroll th { white-space: nowrap; overflow-wrap: normal; }
+
 .test-runs > .cases-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .runs-filters .field-error { font-size: 12px; line-height: 16px; }
 
@@ -826,3 +835,28 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .runner-page button.report-case-link { font-size: 20px; line-height: 28px; display: inline; height: auto; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--ui-muted); font-weight: 400; text-align: left; text-decoration: underline; text-underline-offset: 3px; }
 .runner-page button.report-case-link:hover { color: var(--ui-text); background: transparent; }
 .report-explanation { color: var(--ui-muted); font-size: 12px; line-height: 16px; }
+
+.step-text-conditions{display:flex;flex-direction:column;min-height:0;gap:8px;margin-top:24px;padding-top:16px;border-top:1px solid var(--ui-border)}
+.step-text-conditions h3{margin:0}
+.text-condition-row{display:flex;gap:8px;align-items:flex-end}
+.text-condition-row label{flex:1;min-width:0}
+.text-condition-row input{width:100%;min-width:0}
+.text-condition-row button{flex:none}
+
+.step-text-conditions h3{font-size:16px;line-height:24px}
+.step-text-conditions .step-key-heading{margin-bottom:0}
+.text-condition-row svg{width:20px;height:20px}
+.run-status[data-status=passed],.ocr-evidence [data-found=true]{color:var(--ui-accent)}
+.run-status[data-status=failed],.ocr-evidence [data-found=false]{color:var(--ui-error)}
+.ocr-evidence{margin-top:24px;overflow-wrap:anywhere}
+.ocr-evidence h2{font-size:20px;line-height:28px}
+.ocr-evidence li{margin:8px 0;white-space:pre-wrap}
+.ocr-evidence details{color:var(--ui-muted)}
+.ocr-evidence [data-found]{display:flex;align-items:flex-start;gap:8px}.ocr-evidence [data-found] svg{width:20px;height:20px;flex:none}.ocr-evidence{padding:0 16px 16px}
+
+.case-step-scroll > .step-text-conditions{flex:0 1 auto;min-height:0}
+.step-text-conditions > :not(.text-condition-list){flex-shrink:0}
+.case-step-parameters .step-text-conditions .case-step-hint{margin:0;font-size:12px;line-height:20px}
+/* Reserve the shared 2px outline plus its 3px offset inside the scrollport. */
+.text-condition-list{min-height:0;max-height:240px;overflow-y:auto;overscroll-behavior:contain;padding:5px;margin:-5px}
+.text-condition + .text-condition{margin-top:12px}

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import {textConditionsSchema} from './text-conditions.js';
 import { tvActionCatalog, type TvActionId } from './tv-actions.js';
 export const MAX_STEP_KEY_ACTIONS = 200;
 export const DEFAULT_KEY_PAUSE_MS = 500;
@@ -12,7 +13,7 @@ export const testCaseKeyActionsSchema = z.array(testCaseKeyActionSchema).max(MAX
 export type TestCaseKeyAction = z.infer<typeof testCaseKeyActionSchema>;
 export const testCaseIdSchema = z.uuid();
 const boundedText = (min: number, max: number) => z.string().trim().refine(value => [...value].length >= min && [...value].length <= max);
-export const testCaseStepSchema = z.strictObject({ id: z.uuid(), kind: z.enum(['given', 'when', 'then']), text: boundedText(1, 2000), actions: testCaseKeyActionsSchema.optional() });
+export const testCaseStepSchema = z.strictObject({ id: z.uuid(), kind: z.enum(['given', 'when', 'then']), text: boundedText(1, 2000), actions: testCaseKeyActionsSchema.optional(), textConditions: textConditionsSchema.optional() });
 const fields = { title: boundedText(1, 200), description: z.string().max(10000), group: boundedText(0, 100), steps: z.array(testCaseStepSchema).max(200).refine(steps => new Set(steps.map(step => step.id)).size === steps.length) };
 const readiness = {status:z.enum(['draft','ready']).optional()};
 const readyHasSteps = (value:{status?:string|undefined;steps:unknown[]}) => value.status !== 'ready' || value.steps.length > 0;

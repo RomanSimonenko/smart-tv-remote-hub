@@ -28,8 +28,19 @@ FROM toolchain AS production-dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 RUN pnpm install --prod --frozen-lockfile
 
-FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS runtime
+FROM python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce AS ocr-runtime
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 libglib2.0-0 libgl1 && rm -rf /var/lib/apt/lists/*
+COPY apps/api/src/ocr/requirements.txt /opt/ocr/requirements.txt
+RUN pip install --no-cache-dir -r /opt/ocr/requirements.txt
+ENV PADDLE_PDX_CACHE_HOME=/opt/ocr/cache
+COPY apps/api/src/ocr/package-models.py /opt/ocr/package-models.py
+RUN python /opt/ocr/package-models.py
+
+FROM ocr-runtime AS runtime
+COPY --from=toolchain /usr/local/bin/node /usr/local/bin/node
+RUN groupadd --gid 1000 node && useradd --uid 1000 --gid node --create-home node
 ENV NODE_ENV=production
+ENV REMOTE_WEBOS_OCR_MODELS=/opt/ocr/cache/official_models
 WORKDIR /app
 COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --from=production-dependencies /app/apps/api/node_modules ./apps/api/node_modules

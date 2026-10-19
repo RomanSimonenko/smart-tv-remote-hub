@@ -1,3 +1,4 @@
+import {createOcrRecognizer,type OcrRecognizer} from './ocr/recognizer.js';
 import { createTestCaseRepository } from './test-cases/repository.js';
 import {createTestRunRepository} from './test-runs/repository.js';
 import {createArtifactStore} from './test-runs/artifacts.js';
@@ -36,10 +37,12 @@ export async function createApiRuntime(config: AppConfig, options: {
   readonly newId?: () => string;
   readonly openDatabase?: typeof openDatabase;
   readonly logStream?: Writable;
+  readonly ocrRecognizer?: OcrRecognizer;
 } = {}) {
   const database = await (options.openDatabase ?? openDatabase)({ dataDir: config.dataDir });
   let tv: TvService | undefined;
   let testRunService:TestRunService|undefined;
+  const ocr=options.ocrRecognizer??createOcrRecognizer();
   let tvs: TvDeviceRegistry | undefined;
   let unsubscribeRegistry: (() => void) | undefined;
   let logger: FastifyInstance['log'] | undefined;
@@ -52,6 +55,7 @@ export async function createApiRuntime(config: AppConfig, options: {
     const failures: unknown[] = [];
     unsubscribeRegistry?.();
     try {await testRunService?.close();}catch(cause){failures.push(cause);}
+    try {await ocr.close();}catch(cause){failures.push(cause);}
     try { await tvs?.close(); } catch (cause) { failures.push(cause); }
     try { database.close(); } catch (cause) { failures.push(cause); }
     if (failures.length === 1) throw failures[0];
@@ -84,7 +88,7 @@ export async function createApiRuntime(config: AppConfig, options: {
     tv = tvs.legacy();
     const testCases=createTestCaseRepository(database.sqlite,{now});
     const artifacts=await createArtifactStore({dataDir:config.dataDir,...(config.runArtifactMaxBytes===undefined?{}:{maxBytes:config.runArtifactMaxBytes})});
-    testRunService=createTestRunService({repository:createTestRunRepository(database.sqlite),artifacts,readCase:testCases.read,resolveTv:id=>tvs!.get(id),now,scheduler:options.scheduler??runtimeScheduler,onPersistenceFailure:code=>{if(logger)logger.error({code},'Run lifecycle state could not be persisted; execution was aborted');else console.error(code);}});
+    testRunService=createTestRunService({recognize:(image,signal,expected)=>ocr.recognize(image,signal,expected),repository:createTestRunRepository(database.sqlite),artifacts,readCase:testCases.read,resolveTv:id=>tvs!.get(id),now,scheduler:options.scheduler??runtimeScheduler,onPersistenceFailure:code=>{if(logger)logger.error({code},'Run lifecycle state could not be persisted; execution was aborted');else console.error(code);}});
     await testRunService.recover();
     const app = buildApp({
       config,
