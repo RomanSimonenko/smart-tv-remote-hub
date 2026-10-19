@@ -10,7 +10,12 @@ const allowedCodes = new Set<string>([
   'KEY_STORE_CORRUPT', 'KEY_STORE_WRITE_FAILED', 'CLEANUP_FAILED', 'STORAGE_FAILED',
 ]);
 
-export async function waitForListening(child: ChildProcess): Promise<void> {
+/** Forward only the local OCR settings required by the production startup. */
+export function ocrStartupEnvironment(env:NodeJS.ProcessEnv=process.env):NodeJS.ProcessEnv {
+  return Object.fromEntries(['REMOTE_WEBOS_OCR_PYTHON','REMOTE_WEBOS_OCR_MODELS','PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'].flatMap(key=>env[key]===undefined?[]:[[key,env[key]!]]));
+}
+
+export async function waitForListening(child: ChildProcess,timeoutMs=15_000): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     let tail = '';
     let stderrTail = '';
@@ -35,7 +40,7 @@ export async function waitForListening(child: ChildProcess): Promise<void> {
       }
     };
     const diagnostic = () => `cause=${[...codes].join(',') || 'unavailable'}`;
-    const timeout = setTimeout(() => finish(new Error(`API did not start (${diagnostic()})`)), 15_000);
+    const timeout = setTimeout(() => finish(new Error(`API did not start (${diagnostic()})`)), timeoutMs);
     const output = (chunk: Buffer) => {
       tail = (tail + chunk.toString('utf8')).slice(-200);
       if (tail.includes('API listening')) finish();

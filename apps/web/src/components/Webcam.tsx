@@ -1,5 +1,6 @@
+import {readCameraPreferences,saveCameraPreferences} from '../camera-preferences.js';
 import { IconChevronDown, IconVideo, IconVideoOff } from '@tabler/icons-react';
-import { useEffect, useRef, useState,useImperativeHandle,type Ref } from 'react';
+import { useEffect, useRef, useState,useImperativeHandle,type Ref,type ReactNode } from 'react';
 import {captureCameraFrame,CameraCaptureError,type CameraSnapshot} from '../camera-snapshot.js';
 import {rectifyCameraSnapshot} from '../rectify-camera-snapshot.js';
 import {useScreenPreview} from '../use-screen-preview.js';
@@ -13,7 +14,7 @@ function cameraError(cause: unknown): string {
   return `Не удалось включить камеру${name ? ` (${name})` : ''}. Попробуйте снова.`;
 }
 
-export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false}:{alignSnapshots?:boolean;ref?:Ref<WebcamHandle>;onReadyChange?:(ready:boolean)=>void;locked?:boolean}={}) {
+export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false,showResolution=false,footer}:{footer?:ReactNode;showResolution?:boolean;alignSnapshots?:boolean;ref?:Ref<WebcamHandle>;onReadyChange?:(ready:boolean)=>void;locked?:boolean}={}) {
   const readyCallback=useRef(onReadyChange);readyCallback.current=onReadyChange;
   const captureController=useRef(new AbortController());
   useImperativeHandle(ref,()=>({async capture(signal){
@@ -26,7 +27,11 @@ export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false}:{al
   }}));
   const supported = !!navigator.mediaDevices?.getUserMedia;
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [deviceId, setDeviceId] = useState('');
+  const [initialPreferences]=useState(readCameraPreferences);
+  const [deviceId, setDeviceId] = useState(initialPreferences.deviceId);
+  const [height,setHeight]=useState<720|1080>(initialPreferences.height);
+  const [preferencesError,setPreferencesError]=useState('');
+  function persist(selected:string,resolution:720|1080){try{saveCameraPreferences({deviceId:selected,height:resolution});setPreferencesError('');}catch{setPreferencesError('Не удалось сохранить параметры камеры в браузере.');}}
   const [enabled, setEnabled] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState('');
@@ -70,9 +75,9 @@ export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false}:{al
     };
     document.addEventListener('visibilitychange', resume);
     return () => document.removeEventListener('visibilitychange', resume);
-  }, [enabled, deviceId]);
+  }, [enabled, deviceId,height]);
 
-  async function start(selected = deviceId) {
+  async function start(selected = deviceId,resolution = height) {
     const request = ++generation.current;
     release(); setEnabled(true); setError(''); setStatus('');
     waitingTimer.current = setTimeout(() => {
@@ -80,7 +85,7 @@ export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false}:{al
       if (request === generation.current) setStatus('Ожидаем доступ к камере…');
     }, 400);
     try {
-      const next = await navigator.mediaDevices.getUserMedia({ audio: false, video: {width:{ideal:1920},height:{ideal:1080},...(selected?{deviceId:{exact:selected}}:{})} });
+      const next = await navigator.mediaDevices.getUserMedia({ audio: false, video: {width:{ideal:resolution===1080?1920:1280},height:{ideal:resolution},...(selected?{deviceId:{exact:selected}}:{})} });
       if (request !== generation.current) { next.getTracks().forEach((track) => track.stop()); return; }
       clearWaiting();
       stream.current = next;
@@ -111,13 +116,16 @@ export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false}:{al
     </div>}
     {playing&&mode==='screen'&&(screen.image?<img className="webcam-aligned" src={screen.image} alt="Экран ТВ без рамки"/>:<div className="webcam-placeholder" role="status"><IconVideoOff aria-hidden="true"/><strong>{screen.message||'Экран не найден'}</strong></div>)}
     </div>
-    <div className="webcam-controls"><label>Камера<span className="webcam-select"><select value={deviceId} disabled={!supported||locked} onChange={(event) => { const selected = event.target.value; setDeviceId(selected); if (enabled) void start(selected); }}>
+    <div className="webcam-controls"><label>Камера<span className="webcam-select"><select value={deviceId} disabled={!supported||locked} onChange={(event) => { const selected = event.target.value; setDeviceId(selected); persist(selected,height); if (enabled) void start(selected); }}>
       <option value="">По умолчанию</option>
       {devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Камера ${index + 1}`}</option>)}
     </select><IconChevronDown aria-hidden="true" /></span></label>
+    {showResolution&&<label>Разрешение<span className="webcam-select"><select aria-label="Разрешение" value={height} disabled={locked} onChange={event=>{const selected=Number(event.target.value) as 720|1080;setHeight(selected);persist(deviceId,selected);if(enabled)void start(deviceId,selected);}}><option value="1080">Full HD · 1920 × 1080</option><option value="720">HD · 1280 × 720</option></select><IconChevronDown aria-hidden="true"/></span></label>}
     <button type="button" className="webcam-align-toggle" role="switch" aria-checked={mode==='screen'} onClick={()=>setMode(mode==='screen'?'source':'screen')}><span>Выровнять экран</span><span className="webcam-switch-track" aria-hidden="true"/></button></div>
+    {preferencesError&&<p role="alert">{preferencesError}</p>}
     <div className="webcam-actions"><button type="button" disabled={!supported||locked} onClick={() => enabled ? stop() : void start()}>{enabled ? playing?'Выключить камеру':'Отмена' : error?'Повторить':'Включить камеру'}</button><div className="webcam-feedback">
     {playing&&error&&<p role="alert" className="error">{error}</p>}
     </div></div>
+    {footer}
   </section>;
 }
