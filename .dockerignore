@@ -37,6 +37,11 @@
 !packages/webos/tsconfig.json
 !packages/webos/src/
 !packages/webos/src/**
+!packages/screen-vision/
+!packages/screen-vision/package.json
+!packages/screen-vision/tsconfig.json
+!packages/screen-vision/src/
+!packages/screen-vision/src/**
 **/*.test.*
 **/__tests__/**
 **/.env*

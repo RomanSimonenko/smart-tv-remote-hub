@@ -21,7 +21,7 @@ async function fixture(recognize=vi.fn(async(_image:Buffer,_signal:AbortSignal)=
 }
 test('checks one snapshot and persists all conditions before allowing next step',async()=>{
  const f=await fixture();try{
- const checked=await f.upload();expect(checked.items[0]?.verification).toMatchObject({status:'passed',conditions:[{found:true},{found:true}],recognizedBlocks:observation.blocks});expect(f.recognize).toHaveBeenCalledTimes(1);
+ const checked=await f.upload();expect(f.recognize).toHaveBeenCalledWith(expect.any(Buffer),expect.any(AbortSignal),f.scenario.steps[0]!.textConditions);expect(checked.items[0]?.verification).toMatchObject({status:'passed',conditions:[{found:true},{found:true}],recognizedBlocks:observation.blocks});expect(f.recognize).toHaveBeenCalledTimes(1);
  const result=await f.upload(1);expect(result.status).toBe('passed');expect(f.repo.list().runs[0]?.status).toBe('passed');
  const retry=await f.runner.saveSnapshot(f.run.id,f.run.items[0]!.id,'session',syntheticJpeg,{capturedAt:0,cameraLabel:'Synthetic'});expect(retry.status).toBe('passed');expect(f.recognize).toHaveBeenCalledTimes(1);
  }finally{await f.close();}

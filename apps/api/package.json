@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json && node -e \"require('fs').copyFileSync('src/ocr/worker.mjs','dist/src/ocr/worker.mjs')\"",
+    "build": "tsc -p tsconfig.json && node -e \"require('fs').copyFileSync('src/ocr/worker.py','dist/src/ocr/worker.py')\"",
     "pretest": "pnpm --filter @remote-webos-tv/api... build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -22,10 +22,7 @@
     "@fastify/rate-limit": "11.2.0",
     "@fastify/static": "8.3.0",
     "better-sqlite3": "12.11.1",
-    "fastify": "5.12.5",
-    "tesseract.js": "7.0.0",
-    "@tesseract.js-data/rus": "1.0.0",
-    "@tesseract.js-data/eng": "1.0.0"
+    "fastify": "5.12.5"
   },
   "devDependencies": {
     "@types/better-sqlite3": "9.6.0"

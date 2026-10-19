@@ -7,6 +7,7 @@ const expected={both:[true,true,true],one:[true,false,true],none:[false,false,tr
 const recognizer=createOcrRecognizer();
 try{for(const [name,found]of Object.entries(expected)){
  const observation=await recognizer.recognize(await readFile(join(directory,`${name}.jpg`)),new AbortController().signal);
+ if(observation.engine!=='paddleocr-3.2.0')throw new Error('Unexpected OCR engine');
  const result=matchTextConditions(['Мое кино','Мои подписки','Settings'],observation.blocks).map(item=>item.found);
  console.log(JSON.stringify({name,blocks:observation.blocks,result,expected:found}));if(JSON.stringify(result)!==JSON.stringify(found))process.exitCode=1;
 }

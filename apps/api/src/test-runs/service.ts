@@ -6,7 +6,7 @@ import type {ArtifactStore} from './artifacts.js';
 import type {TvService,TvScheduler} from '../tv/service.js';
 export class RunError extends Error {constructor(readonly code:string,readonly statusCode=409){super(code);}}
 interface Active {owner:string;tv:TvService;lease:symbol;controller:AbortController;terminating?:boolean;timer?:unknown;pending?:Promise<TestRun>;saving?:Promise<TestRun>}
-export function createTestRunService(deps:{repository:TestRunRepository;artifacts:ArtifactStore;readCase(id:string):TestCase|undefined;resolveTv(id:string):TvService|null;now():number;scheduler:TvScheduler;newId?:()=>string;recognize?:(image:Buffer,signal:AbortSignal)=>Promise<OcrRecognition>;onPersistenceFailure?:(code:'RUN_STATE_STORAGE_FAILED')=>void}){
+export function createTestRunService(deps:{repository:TestRunRepository;artifacts:ArtifactStore;readCase(id:string):TestCase|undefined;resolveTv(id:string):TvService|null;now():number;scheduler:TvScheduler;newId?:()=>string;recognize?:(image:Buffer,signal:AbortSignal,expected:string[])=>Promise<OcrRecognition>;onPersistenceFailure?:(code:'RUN_STATE_STORAGE_FAILED')=>void}){
  const {repository,artifacts,now,scheduler}=deps;const active=new Map<string,Active>();let closed=false;
  const read=(id:string)=>{const value=repository.read(id);if(!value)throw new RunError('RUN_NOT_FOUND',404);return value;};
  function owner(id:string,token:string){const entry=active.get(id);if(entry&&entry.owner!==token)throw new RunError('RUN_OWNED_BY_ANOTHER_SESSION',403);return entry;}
@@ -83,7 +83,7 @@ export function createTestRunService(deps:{repository:TestRunRepository;artifact
     let observation:OcrRecognition;
     try{
      if(!deps.recognize)throw new RunError('OCR_UNAVAILABLE',503);
-     observation=await deps.recognize(data,entry.controller.signal);
+     observation=await deps.recognize(data,entry.controller.signal,step.textConditions!);
     }catch(cause){
      if(entry.terminating||read(id).status!=='running')return read(id);
      return terminal(id,'error',{stage:'ocr',code:cause instanceof Error&&'code'in cause&&['OCR_UNAVAILABLE','OCR_TIMEOUT','OCR_BUSY','OCR_INVALID_RESPONSE'].includes(String(cause.code))?String(cause.code):'OCR_FAILED'});

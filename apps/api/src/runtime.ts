@@ -88,7 +88,7 @@ export async function createApiRuntime(config: AppConfig, options: {
     tv = tvs.legacy();
     const testCases=createTestCaseRepository(database.sqlite,{now});
     const artifacts=await createArtifactStore({dataDir:config.dataDir,...(config.runArtifactMaxBytes===undefined?{}:{maxBytes:config.runArtifactMaxBytes})});
-    testRunService=createTestRunService({recognize:(image,signal)=>ocr.recognize(image,signal),repository:createTestRunRepository(database.sqlite),artifacts,readCase:testCases.read,resolveTv:id=>tvs!.get(id),now,scheduler:options.scheduler??runtimeScheduler,onPersistenceFailure:code=>{if(logger)logger.error({code},'Run lifecycle state could not be persisted; execution was aborted');else console.error(code);}});
+    testRunService=createTestRunService({recognize:(image,signal,expected)=>ocr.recognize(image,signal,expected),repository:createTestRunRepository(database.sqlite),artifacts,readCase:testCases.read,resolveTv:id=>tvs!.get(id),now,scheduler:options.scheduler??runtimeScheduler,onPersistenceFailure:code=>{if(logger)logger.error({code},'Run lifecycle state could not be persisted; execution was aborted');else console.error(code);}});
     await testRunService.recover();
     const app = buildApp({
       config,

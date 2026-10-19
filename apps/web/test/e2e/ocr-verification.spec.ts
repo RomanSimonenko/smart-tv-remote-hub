@@ -22,6 +22,13 @@ for(const missing of [false,true])test(`OCR conditions persist through API, hist
  await page.screenshot({path:`.local/playwright/ocr-report-${missing?'failed':'passed'}.png`});
  await page.reload();await expect(page.getByText(`Мои подписки — ${missing?'не найдено':'найдено'}`,{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Тест-кейсы',exact:true}).click();await page.getByRole('button',{name:'Синтетические условия OCR',exact:true}).click();await page.getByRole('button',{name:/Выбрать шаг 1/}).click();await expect(page.getByLabel('Надпись 2',{exact:true})).toHaveValue('Мои подписки');
+ await expect(page.locator('.case-editor-actions .case-version')).toHaveCount(0);
+ await expect(page.locator('.cases-heading .case-version')).toHaveCount(0);
+ await expect(page.getByText('Создание и редактирование шагов тест-кейса.',{exact:true})).toHaveCount(0);
+ await expect(page.getByText('Нажатия не настроены.',{exact:true})).toHaveCount(0);
+ const heading=page.locator('.step-text-conditions .step-key-heading');
+ await expect(heading.getByRole('button',{name:'Добавить условие',exact:true})).toBeVisible();
+ const alignment=await heading.evaluate(element=>{const title=element.querySelector('h3')!.getBoundingClientRect(),button=element.querySelector('button')!.getBoundingClientRect();return Math.abs((title.top+title.bottom)/2-(button.top+button.bottom)/2);});expect(alignment).toBeLessThan(1);
  const input=page.getByLabel('Надпись 1',{exact:true});await input.focus();
  const focus=await input.evaluate(element=>{const box=element.getBoundingClientRect(),clip=element.closest('.text-condition-list')!.getBoundingClientRect(),style=getComputedStyle(element);return {space:box.left-clip.left,ring:parseFloat(style.outlineWidth)+parseFloat(style.outlineOffset)};});expect(focus.space).toBeGreaterThanOrEqual(focus.ring);
  await expect(page.getByText('При запуске после каждого нажатия и паузы сохраняется снимок.',{exact:true})).toHaveCount(0);

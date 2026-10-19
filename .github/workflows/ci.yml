@@ -37,6 +37,16 @@ jobs:
         run: pnpm test
       - name: Install Chromium
         run: pnpm --filter @remote-webos-tv/web exec playwright install --with-deps chromium
+      - name: Prepare local PaddleOCR
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libglib2.0-0
+          python3 -m venv .local/ocr
+          .local/ocr/bin/python -m pip install -r apps/api/src/ocr/requirements.txt
+          export PADDLE_PDX_CACHE_HOME="$PWD/.local/ocr-cache"
+          .local/ocr/bin/python apps/api/src/ocr/package-models.py
+          printf 'REMOTE_WEBOS_OCR_PYTHON=%s\n' "$PWD/.local/ocr/bin/python" >> "$GITHUB_ENV"
+          printf 'REMOTE_WEBOS_OCR_MODELS=%s\n' "$PADDLE_PDX_CACHE_HOME/official_models" >> "$GITHUB_ENV"
       - name: Browser tests with synthetic TV
         run: pnpm --filter @remote-webos-tv/web test:e2e --reporter=list,html
         env:

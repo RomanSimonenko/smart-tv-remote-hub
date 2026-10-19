@@ -4,8 +4,10 @@ import {MAX_TEXT_CONDITIONS,MAX_CONDITION_LENGTH} from '@remote-webos-tv/contrac
 export function StepTextConditions({value,onChange,disabled}:{value:string[];onChange(value:string[]):void;disabled:boolean}){
  const id=useId();
  return <section className="step-text-conditions" aria-labelledby={`${id}-title`}>
-  <h3 id={`${id}-title`}>Условия</h3>
-  <p className="case-step-hint">{value.length?'На экране должны присутствовать все заданные надписи.':'Автоматическая проверка не настроена.'}</p>
+  <div className="step-key-heading"><h3 id={`${id}-title`}>Условия</h3>
+   <button type="button" disabled={disabled||value.length>=MAX_TEXT_CONDITIONS} onClick={()=>onChange([...value,''])}><IconPlus aria-hidden="true"/>Добавить условие</button>
+  </div>
+  {!!value.length&&<p className="case-step-hint">На экране должны присутствовать все заданные надписи.</p>}
   {!!value.length&&<div className="text-condition-list">{value.map((text,index)=>{
    const invalid=[...text.trim()].length<1||[...text.trim()].length>MAX_CONDITION_LENGTH;
    return <div className="text-condition" key={index}>
@@ -14,6 +16,5 @@ export function StepTextConditions({value,onChange,disabled}:{value:string[];onC
     {invalid&&<p id={`${id}-${index}-error`} className="field-error">Надпись: от 1 до {MAX_CONDITION_LENGTH} символов.</p>}
    </div>;
   })}</div>}
-  <button type="button" disabled={disabled||value.length>=MAX_TEXT_CONDITIONS} onClick={()=>onChange([...value,''])}><IconPlus aria-hidden="true"/>Добавить условие</button>
  </section>;
 }

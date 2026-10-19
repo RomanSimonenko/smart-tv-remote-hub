@@ -803,9 +803,17 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .runner-page .runner-panel .danger:hover:not(:disabled) { background: color-mix(in srgb,var(--ui-error) 10%,var(--ui-panel)); }
 .run-evidence-list button:hover:not(:disabled):not([aria-pressed=true]) { border-color: var(--ui-border); background: var(--ui-field); }
 
-.app-content[data-screen=runs] { display: flex; flex-direction: column; min-height: 100dvh; }
+.app-content[data-screen=runs] { display: flex; flex-direction: column; height: 100dvh; min-height: 0; overflow: hidden; }
 .app-content[data-screen=runs] > .app-header { flex-shrink: 0; }
 .test-runs { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.test-runs > :not(.cases-table-scroll):not(.cases-empty) { flex-shrink: 0; }
+.test-runs > .cases-table-scroll { flex: 1; min-height: 0; overflow: hidden; }
+.test-runs .cases-table-scroll table { display: flex; flex-direction: column; height: 100%; }
+.test-runs .cases-table-scroll thead { flex-shrink: 0; overflow: hidden; scrollbar-gutter: stable; background: var(--ui-field); }
+.test-runs .cases-table-scroll tbody { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.test-runs .cases-table-scroll tr { display: grid; grid-template-columns: minmax(0,2.2fr) minmax(110px,.8fr) minmax(175px,1.25fr) minmax(145px,1.05fr) minmax(140px,.8fr) minmax(75px,.55fr); }
+.test-runs .cases-table-scroll :is(th,td) { min-width: 0; overflow-wrap: anywhere; }
+
 .test-runs > .cases-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .runs-filters .field-error { font-size: 12px; line-height: 16px; }
 
@@ -835,8 +843,8 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .text-condition-row button{flex:none}
 
 .step-text-conditions h3{font-size:16px;line-height:24px}
-.step-text-conditions>button{justify-self:start;display:inline-flex;align-items:center;gap:8px}
-.step-text-conditions svg{width:20px;height:20px}
+.step-text-conditions .step-key-heading{margin-bottom:0}
+.text-condition-row svg{width:20px;height:20px}
 .run-status[data-status=passed],.ocr-evidence [data-found=true]{color:var(--ui-accent)}
 .run-status[data-status=failed],.ocr-evidence [data-found=false]{color:var(--ui-error)}
 .ocr-evidence{margin-top:24px;overflow-wrap:anywhere}
