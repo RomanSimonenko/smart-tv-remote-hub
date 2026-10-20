@@ -35,12 +35,12 @@ test('report opens the original case and shows saved OS version without a perman
  await act(async()=>{});expect(get).toHaveBeenCalledTimes(2);
  });
 
-test('failed OCR report shows each expected label, recognition evidence and coverage',async()=>{
+test('failed OCR report shows expected labels and coverage without raw recognized text',async()=>{
  const id='00000000-0000-4000-8000-000000000001';
  const run:TestRun={id,testCase:{id,title:'Synthetic',description:'',group:'',steps:[{id,kind:'then',text:'Профиль',textConditions:['Мое кино','Мои подписки']}],status:'draft',version:1,createdAt:0,updatedAt:0},tvId:id,platform:'webos',tvName:'Synthetic',status:'failed',startedAt:1,endedAt:2,revision:1,items:[{id,stepId:id,ordinal:1,phase:'saved',capturedAt:1,savedAt:2,verification:{status:'failed',conditions:[{expected:'Мое кино',found:true},{expected:'Мои подписки',found:false}],recognizedBlocks:[{text:'Мое кино'}],engine:'synthetic',model:'1',checkedAt:2,snapshotSha256:'0'.repeat(64)}}]};
  run.testCase.steps.unshift({id:'00000000-0000-4000-8000-000000000002',kind:'given',text:'Начало'});run.items.unshift({id:'00000000-0000-4000-8000-000000000003',stepId:run.testCase.steps[0]!.id,ordinal:1,phase:'saved',capturedAt:1,savedAt:1});
  vi.spyOn(api,'getTestRun').mockResolvedValue(run);
  render(<TestRunReport runId={id} initialRun={run} onBack={()=>{}} onNewRun={()=>{}} onSessionExpired={()=>{}}/>);
- expect(screen.getByText('Тест провален')).toBeTruthy();expect(screen.getByText('Мои подписки — не найдено')).toBeTruthy();expect(screen.getByText('Мое кино — найдено')).toBeTruthy();expect(screen.getByText(/Автоматические условия: 1 из 2/)).toBeTruthy();
+ expect(screen.getByText('Тест провален')).toBeTruthy();expect(screen.getByText('Мои подписки — не найдено')).toBeTruthy();expect(screen.getByText('Мое кино — найдено')).toBeTruthy();expect(screen.getByText(/Автоматические условия: 1 из 2/)).toBeTruthy();expect(screen.queryByText('Распознанный текст')).toBeNull();expect(screen.getByText('Условия не выполнены').closest('button')?.getAttribute('data-verification')).toBe('failed');
  await act(async()=>{});
 });

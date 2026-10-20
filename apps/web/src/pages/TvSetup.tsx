@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { startTvOperationSchema, type StartTvOperation, type TvOperation, type SavedTvView, type TvPowerState, type TvId, type TvPlatform } from '@remote-webos-tv/contracts';
 import { api, ApiFailure, friendlyError } from '../api.js';
 import { useTvStatus } from '../useTvStatus.js';
-import { Webcam } from '../components/Webcam.js';
+import { DiagnosticWebcam } from '../components/DiagnosticWebcam.js';
 import { Remote } from './Remote.js';
 import { PowerControls } from './PowerControls.js';
 import { SettingsDialog } from '../components/SettingsDialog.js';
@@ -169,7 +169,7 @@ function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, u
       <PowerControls {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active quietOffline={quietOffline || running} settingsOpen={settingsOpen} settingsTarget={settingsTarget} activityTarget={powerActivityTarget} {...(onConfirmationChange ? { onConfirmationChange } : {})} onSessionExpired={onSessionExpired} onStateChange={observePowerState} onBusyChange={setPowerBusy} />
       <Remote {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active quietOffline={quietRemoteUnavailable || samsungNotOn} interactionBlocked={settingsOpen || samsungNotOn} activityTarget={remoteActivityTarget} onSessionExpired={onSessionExpired} onBusyChange={setRemoteBusy} />
     </div>}
-    {tv && <Webcam />}
+    {tv && <DiagnosticWebcam csrfToken={csrfToken} onSessionExpired={onSessionExpired}/>}
     <div className="tv-activity">
       {!tv && (status || error) && <div className={status?.connection === 'unconfigured' ? 'visually-hidden' : undefined}>{connectionIndicator}</div>}
       <div className={settingsOpen ? 'reserved-activity' : undefined} aria-hidden={settingsOpen || undefined} inert={settingsOpen}>{activity(true)}</div>

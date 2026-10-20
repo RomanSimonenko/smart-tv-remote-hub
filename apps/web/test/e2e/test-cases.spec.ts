@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
 import { expect, test } from '@playwright/test';
-import { waitForListening } from '../api-process.js';
+import { waitForListening,ocrStartupEnvironment } from '../api-process.js';
 
 test.use({timezoneId:'Asia/Tokyo'});
 const runFile = promisify(execFile);
@@ -33,6 +33,7 @@ async function availablePort(): Promise<number> {
 }
 
 test.beforeEach(async () => {
+  test.setTimeout(150_000);
   directory = await mkdtemp(join(tmpdir(), 'remote-webos-browser-'));
   const dataDir = join(directory, 'data');
   const { stdout } = await runFile(process.execPath, [tokenEntry, 'setup-token'], {
@@ -43,6 +44,7 @@ test.beforeEach(async () => {
   origin = `http://127.0.0.1:${await availablePort()}`;
   apiProcess = spawn(process.execPath, [apiEntry], {
     env: {
+      ...ocrStartupEnvironment(),
       REMOTE_WEBOS_DATA_DIR: dataDir,
       REMOTE_WEBOS_HOST: '127.0.0.1',
       REMOTE_WEBOS_PORT: new URL(origin).port,
@@ -51,7 +53,7 @@ test.beforeEach(async () => {
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  await waitForListening(apiProcess);
+  await waitForListening(apiProcess,125_000);
 });
 
 test.afterEach(async () => {

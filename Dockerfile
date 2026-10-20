@@ -72,5 +72,5 @@ COPY --from=dependencies /app/packages/screen-vision/dist ./packages/screen-visi
 RUN mkdir /data && chown node:node /data && chmod 700 /data
 USER node
 EXPOSE 8080
-HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 CMD node -e "fetch('http://127.0.0.1:'+process.env.REMOTE_WEBOS_PORT+'/api/health',{signal:AbortSignal.timeout(2000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+HEALTHCHECK --interval=5s --timeout=3s --start-period=125s --retries=3 CMD node -e "fetch('http://127.0.0.1:'+process.env.REMOTE_WEBOS_PORT+'/api/health',{signal:AbortSignal.timeout(2000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 CMD ["node", "apps/api/dist/src/index.js"]

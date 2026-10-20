@@ -6,7 +6,7 @@ import { formatStartupError } from './startup-errors.js';
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
   const webRoot = fileURLToPath(new URL('../../../web/dist/', import.meta.url));
-  const app = await createApiRuntime(config, { webRoot });
+  const app = await createApiRuntime(config, { webRoot, warmOcr: true });
 
   await serveApi(app, config);
 }

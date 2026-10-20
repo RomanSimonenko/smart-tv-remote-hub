@@ -1,3 +1,5 @@
+import {registerOcrDiagnostics} from './ocr/routes.js';
+import type {OcrRecognizer} from './ocr/recognizer.js';
 import { registerTestCaseRoutes } from './test-cases/routes.js';
 import {registerCameraRoutes} from './camera/routes.js';
 import type { TestCaseRepository } from './test-cases/repository.js';
@@ -28,6 +30,7 @@ import { addressedTvService, registerTvDeviceRoutes } from './tv/device-routes.j
 import { projectTvError, TvServiceError } from './tv/service.js';
 
 export interface AppDependencies {
+  readonly ocr?:OcrRecognizer;
   readonly testRuns?:{service:TestRunService;artifacts:ArtifactStore};
   readonly config: AppConfig;
   readonly getSetupState: () => Promise<SetupState>;
@@ -58,7 +61,7 @@ function routingError(error: Error & { code?: string }, request: FastifyRequest,
     });
 }
 
-export function buildApp({ config, getSetupState, webRoot, auth, profile, testCases, testRuns, tv, tvs, reportError, logStream }: AppDependencies) {
+export function buildApp({ ocr, config, getSetupState, webRoot, auth, profile, testCases, testRuns, tv, tvs, reportError, logStream }: AppDependencies) {
   const app = Fastify({
     logger: safeLoggerOptions(logStream),
     bodyLimit: 16 * 1024,
@@ -126,6 +129,7 @@ export function buildApp({ config, getSetupState, webRoot, auth, profile, testCa
   if (auth) {
     installAuthRateLimit(app);
     sessionForRequest = registerAuthRoutes(app, { config, ...auth });
+    if(ocr)registerOcrDiagnostics(app,ocr,request=>{const token=sessionForRequest!(request);return token&&auth.sessions.authenticate(token)?token:undefined;},listener=>auth.sessions.onRevoke(listener));
     registerCameraRoutes(app,request=>{const token=sessionForRequest!(request);return token&&auth.sessions.authenticate(token)?token:undefined;});
   }
   if (testCases) {

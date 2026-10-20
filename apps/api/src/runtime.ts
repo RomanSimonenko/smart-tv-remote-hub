@@ -39,6 +39,7 @@ export async function createApiRuntime(config: AppConfig, options: {
   readonly openDatabase?: typeof openDatabase;
   readonly logStream?: Writable;
   readonly ocrRecognizer?: OcrRecognizer;
+  readonly warmOcr?: boolean;
 } = {}) {
   const database = await (options.openDatabase ?? openDatabase)({ dataDir: config.dataDir });
   let tv: TvService | undefined;
@@ -92,6 +93,7 @@ export async function createApiRuntime(config: AppConfig, options: {
     testRunService=createTestRunService({recognize:(image,signal,expected)=>ocr.recognize(image,signal,expected),repository:createTestRunRepository(database.sqlite),artifacts,readCase:testCases.read,resolveTv:id=>tvs!.get(id),now,scheduler:options.scheduler??runtimeScheduler,onPersistenceFailure:code=>{if(logger)logger.error({code},'Run lifecycle state could not be persisted; execution was aborted');else console.error(code);}});
     await testRunService.recover();
     const app = buildApp({
+      ocr,
       config,
       tv,
       tvs,
@@ -107,6 +109,13 @@ export async function createApiRuntime(config: AppConfig, options: {
       },
     });
     logger = app.log;
+    if(options.warmOcr){
+      const started=performance.now();
+      logger.info({code:'OCR_WARMUP_STARTED'},'OCR startup warmup started');
+      if(!ocr.warmup)throw new Error('OCR startup warmup is unavailable');
+      await ocr.warmup();
+      logger.info({code:'OCR_WARMUP_READY',durationMs:Math.round(performance.now()-started)},'OCR startup warmup completed');
+    }
     for (const diagnostic of pendingVersionDiagnostics.splice(0)) logVersionDiagnostic(diagnostic);
     app.addHook('onClose', async () => {
       try { await closeResources(); }

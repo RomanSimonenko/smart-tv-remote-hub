@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
-import { waitForListening } from './api-process.js';
+import { waitForListening,ocrStartupEnvironment } from './api-process.js';
 
 test.each(['KEY_STORE_CORRUPT', 'KEY_STORE_WRITE_FAILED', 'CLEANUP_FAILED', 'STORAGE_FAILED'])('browser fixture preserves typed TV startup cause %s without private error text', async (code) => {
   const child = spawn(process.execPath, ['-e', `
@@ -54,4 +54,10 @@ test('browser fixture accepts readiness and removes its diagnostic listeners', a
   await expect(waitForListening(child)).resolves.toBeUndefined();
   expect(child.stdout?.listenerCount('data')).toBe(0);
   expect(child.stderr?.listenerCount('data')).toBe(0);
+});
+
+
+test('production browser startup forwards only configured OCR environment',()=>{
+ expect(ocrStartupEnvironment({REMOTE_WEBOS_OCR_PYTHON:'synthetic-python',REMOTE_WEBOS_OCR_MODELS:'synthetic-models',PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK:'True',UNRELATED_SECRET:'private'})).toEqual({REMOTE_WEBOS_OCR_PYTHON:'synthetic-python',REMOTE_WEBOS_OCR_MODELS:'synthetic-models',PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK:'True'});
+ expect(ocrStartupEnvironment({})).toEqual({});
 });
