@@ -189,3 +189,20 @@ test('migrationFailureRollsBack', async () => {
   try { expect(unchanged.prepare('SELECT host FROM tv_config').get()).toEqual({ host: '10.2.3.4' }); expect(unchanged.prepare('SELECT max(version) AS version FROM migration_version').get()).toEqual({ version: 3 }); }
   finally { unchanged.close(); }
 });
+
+test('Whale migration preserves v9 records, default, sequence and reconnect credential across restart',async()=>{
+ const dataDir=await directory();const old=new Database(join(dataDir,'app.sqlite'));
+ for(const m of schemaMigrations.filter(m=>m.version<=9)){m.up(old);old.prepare('INSERT INTO migration_version VALUES (?,1)').run(m.version);}
+ const envelope=JSON.stringify(tv.encryptedCredential);
+ old.prepare('INSERT INTO tv_devices(position,tv_id,platform,host,identity_json,encrypted_credential_json,mac_address) VALUES(7,?,?,?,?,?,?)').run(first,'webos',tv.host,JSON.stringify(tv.identity),envelope,tv.macAddress);
+ old.prepare('INSERT INTO tv_devices(position,tv_id,platform,host,identity_json,encrypted_credential_json,mac_address) VALUES(9,?,?,?,?,?,NULL)').run(second,'tizen','10.2.3.8',JSON.stringify(tv.identity),envelope);
+ old.prepare('INSERT INTO tv_default VALUES(1,?)').run(second);
+ const before=old.prepare('SELECT * FROM tv_devices ORDER BY position').all();old.close();
+ const db=await openDatabase({dataDir});
+ expect(db.sqlite.prepare('SELECT * FROM tv_devices ORDER BY position').all()).toEqual(before);
+ expect(db.sqlite.prepare('SELECT tv_id FROM tv_default').get()).toEqual({tv_id:second});
+ const whale='00000000-0000-4000-8000-000000000003';
+ repositories.createTvDeviceRepository(db.sqlite).forDevice(whale).replace({...tv,platform:'whale',host:'10.2.3.9'});
+ expect((db.sqlite.prepare('SELECT position FROM tv_devices WHERE tv_id=?').get(whale) as {position:number}).position).toBe(10);db.close();
+ const reopened=await openDatabase({dataDir});try{expect(repositories.createTvDeviceRepository(reopened.sqlite).forDevice(whale).load()).toEqual({...tv,platform:'whale',host:'10.2.3.9'});expect(reopened.sqlite.pragma('foreign_key_check')).toEqual([]);}finally{reopened.close();}
+});

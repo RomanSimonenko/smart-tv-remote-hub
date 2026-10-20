@@ -356,7 +356,7 @@ test('drags steps in both directions without losing pending text and persists or
  await page.getByRole('button',{name:'Перетащить шаг 1',exact:true}).dragTo(page.locator('.case-step-row').nth(2),{targetPosition:{x:80,y:55}});
  await expect(page.locator('.case-step-text')).toHaveText(['Второй','Третий','Первый']);
  await expect(page.getByLabel('Описание шага',{exact:true})).toHaveValue('Первый — правка');
- await expect(page.locator('.case-parameter-number')).toHaveText('Шаг 3');
+ await expect(page.getByRole('heading',{name:'Параметры шага 3',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Сохранить шаг',exact:true}).click();
  await page.getByRole('button',{name:'Перетащить шаг 3',exact:true}).dragTo(page.locator('.case-step-row').first(),{targetPosition:{x:80,y:3}});
  await expect(page.locator('.case-step-text')).toHaveText(['Первый — правка','Второй','Третий']);
@@ -385,10 +385,10 @@ test('autoscrolls a dragged step and Escape cancels without changing order',asyn
  expect(await page.locator('.case-sequence').evaluate(el=>el.scrollTop)).toBe(stopped);
  await expect(page.locator('.case-step-text').first()).toHaveText('Шаг 1');await expect(page.locator('.case-step-text').last()).toHaveText('Шаг 40');
  await expect(page.getByRole('button',{name:'Сохранить тест-кейс',exact:true})).toBeDisabled();
- await page.getByRole('heading',{name:'Параметры шага',exact:true}).hover();
+ await page.getByRole('heading',{name:/^Параметры шага/}).hover();
  await page.locator('.case-sequence').evaluate(el=>{el.scrollTop=0;});
  await expect.poll(()=>page.locator('.case-sequence').evaluate(el=>el.scrollTop)).toBe(0);
- await page.getByRole('button',{name:'Перетащить шаг 1',exact:true}).dragTo(page.getByRole('heading',{name:'Параметры шага',exact:true}));
+ await page.getByRole('button',{name:'Перетащить шаг 1',exact:true}).dragTo(page.getByRole('heading',{name:/^Параметры шага/}));
  await expect(page.locator('[data-dragged=true]')).toHaveCount(0);
  await expect(page.locator('.case-step-text').first()).toHaveText('Шаг 1');
  await expect(page.getByRole('button',{name:'Сохранить тест-кейс',exact:true})).toBeDisabled();

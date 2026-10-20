@@ -1,3 +1,4 @@
+import {TvPairingPin} from '../components/TvPairingPin.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { startTvOperationSchema, type StartTvOperation, type TvOperation, type SavedTvView, type TvPowerState, type TvId, type TvPlatform } from '@remote-webos-tv/contracts';
@@ -10,7 +11,7 @@ import { SettingsDialog } from '../components/SettingsDialog.js';
 import { connectionLabels } from '../tv-connection.js';
 import { TvBrand, tvPlatformLabel } from '../tv-presentation.js';
 
-interface Props { tvId?: TvId; platform?: TvPlatform; onReady?(): void; username?: string; csrfToken: string; identityTarget?: HTMLElement | null; onSessionExpired(): void; settingsOpen: boolean; onCloseSettings(): void; onConfirmationChange?(confirming: boolean): void; statusState?: ReturnType<typeof useTvStatus> }
+interface Props { initialHost?: string; tvId?: TvId; platform?: TvPlatform; onReady?(): void; username?: string; csrfToken: string; identityTarget?: HTMLElement | null; onSessionExpired(): void; settingsOpen: boolean; onCloseSettings(): void; onConfirmationChange?(confirming: boolean): void; statusState?: ReturnType<typeof useTvStatus> }
 
 export function TvSetup(props: Props) {
   return props.statusState ? <TvSetupContent {...props} statusState={props.statusState} /> : <StandaloneTvSetup {...props} />;
@@ -19,9 +20,9 @@ function StandaloneTvSetup(props: Props) {
   const statusState = useTvStatus(props.onSessionExpired, props.tvId);
   return <TvSetupContent {...props} statusState={statusState} />;
 }
-function TvSetupContent({ tvId, platform = 'webos', onReady, username, csrfToken, identityTarget, onSessionExpired, settingsOpen, onCloseSettings, onConfirmationChange, statusState }: Props & { statusState: ReturnType<typeof useTvStatus> }) {
+function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, username, csrfToken, identityTarget, onSessionExpired, settingsOpen, onCloseSettings, onConfirmationChange, statusState }: Props & { statusState: ReturnType<typeof useTvStatus> }) {
   const { status, statusReadVersion, getReadVersion, loading, refreshing, error, refresh } = statusState;
-  const [host, setHost] = useState('');
+  const [host, setHost] = useState(initialHost);
   const [message, setMessage] = useState('');
   const [manualOperationId, setManualOperationId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -135,17 +136,17 @@ function TvSetupContent({ tvId, platform = 'webos', onReady, username, csrfToken
   // from the modal copy that unmounts when settings close.
   const activity = (withFocusRef: boolean) => <>
     {(withFocusRef ? backgroundDiagnostic : diagnostic) && <p ref={withFocusRef ? alert : undefined} tabIndex={-1} role="alert" className="error">{withFocusRef ? backgroundDiagnostic : diagnostic}</p>}
-    {running && !powerRunning && (!withFocusRef || !tv) && <div>
-      {(operation.action === 'pair' || operation.action === 'repair') && <p>Подтвердите доступ на экране телевизора.</p>}
+    {running && !powerRunning && (!withFocusRef || !tv) && (operation.challenge ? <TvPairingPin key={operation.id} operationId={operation.id} expiresAt={operation.challenge.expiresAt} busy={busy} onSubmit={pin => mutate(signal => api.submitTvPin(operation.id,pin,csrfToken,signal,tvId))} onCancel={() => void mutate(signal => api.cancelTvOperation(operation.id,csrfToken,signal,tvId))}/> : <div>
+      {(operation.action === 'pair' || operation.action === 'repair') && <p>{platform === 'whale' ? 'Выполняем сопряжение с телевизором…' : 'Подтвердите доступ на экране телевизора.'}</p>}
       <p>Осталось: {Math.max(0, Math.ceil((operation.deadlineAt - now) / 1000))} с</p>
       <button type="button" disabled={busy} onClick={() => void mutate((signal) => api.cancelTvOperation(operation.id, csrfToken, signal, tvId))}>Отменить</button>
-    </div>}
+    </div>)}
   </>;
   const addressForm = status && !running && <>
     {!tv && <p>Телевизор должен быть включён и доступен серверу. Разрешите управление мобильными устройствами в настройках ТВ.</p>}
     <form className={tv ? 'settings-edit-row' : undefined} onSubmit={(event) => { event.preventDefault(); start({ action: tv ? 'change_address' : 'pair', host }); }} noValidate>
       <label>IP-адрес телевизора<input inputMode="decimal" autoComplete="off" value={host} disabled={controlsBusy} onChange={(event) => setHost(event.target.value)} /></label>
-      <button className="settings-primary" type="submit" disabled={controlsBusy}>{tv ? 'Изменить адрес' : 'Подключить'}</button>
+      <button className="settings-primary" type="submit" disabled={controlsBusy}>{tv ? 'Изменить адрес' : platform === 'whale' && operation?.error ? 'Получить новый код' : 'Подключить'}</button>
     </form>
     {tv && <div className="settings-actions">
       <button type="button" disabled={controlsBusy} onClick={() => start({ action: 'reconnect' })}>Подключиться снова</button>
@@ -178,7 +179,7 @@ function TvSetupContent({ tvId, platform = 'webos', onReady, username, csrfToken
     {!tv && (status || error) && <>{addressForm}<button type="button" disabled={loading} onClick={refresh}>Обновить статус</button></>}
     <SettingsDialog open={settingsOpen} onClose={onCloseSettings}>
       {tv ? <><section className="settings-section">
-        <p className="settings-identity"><span className="settings-model">Модель: {tv.identity.model}</span>{settingsOpen && <span className="tv-version">{tv.identity.platformVersion ? tvPlatformLabel(platform, tv.identity) : platform === 'tizen' ? 'Tizen' : 'Версия неизвестна'}</span>}</p>
+        <p className="settings-identity"><span className="settings-model">Модель: {tv.identity.model}</span>{settingsOpen && <span className="tv-version">{tv.identity.platformVersion ? tvPlatformLabel(platform, tv.identity) : platform === 'tizen' ? 'Tizen' : platform === 'whale' ? 'Whale OS — версия неизвестна' : 'Версия неизвестна'}</span>}</p>
       </section><section className="settings-section"><h3>Подключение</h3>
         {settingsOpen && activity(false)}<p>Соединение: {connectionText}</p><p>Сохранённый IP: {tv.host}</p>{addressForm}
       </section></> : <>{settingsOpen && activity(false)}<p>Добавьте телевизор на основном экране.</p></>}

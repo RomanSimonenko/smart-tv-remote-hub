@@ -1,0 +1,13 @@
+import {expect,type Page} from '@playwright/test';
+import {test,whaleHost} from '../support/tv-fixture.js';
+async function start(page:Page){await page.getByRole('button',{name:'Добавить ТВ',exact:true}).click();await page.getByLabel('Платформа телевизора').selectOption('whale');await expect(page.getByLabel(/MAC-адрес/)).toHaveCount(0);await page.getByLabel('IP-адрес телевизора').fill(whaleHost);await page.getByRole('button',{name:'Подключить',exact:true}).click();await expect(page.getByLabel('PIN с экрана телевизора')).toBeVisible();}
+test('Whale PIN, single key and API restart reconnect without another PIN',async({page,tv})=>{
+ await tv.setupAndLogin(page);await start(page);await page.getByLabel('PIN с экрана телевизора').fill('0123');await page.getByLabel('PIN с экрана телевизора').press('Enter');
+ await expect(page.getByRole('button',{name:'Открыть телевизор Synthetic Philips Whale',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Открыть телевизор Synthetic Philips Whale',exact:true}).click();await expect(page.getByRole('button',{name:'Вправо',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Вправо',exact:true}).click();await expect.poll(()=>tv.whaleKeys).toEqual(['CursorRight']);
+ await expect(page.getByRole('button',{name:'Запустить Wink',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Питание ТВ',exact:true})).toBeDisabled();
+ const requests=tv.whaleRequests.filter(x=>x==='pair/request').length;await tv.restart();await page.reload();await expect(page.getByRole('button',{name:'Вправо',exact:true})).toBeEnabled();expect(tv.whaleRequests.filter(x=>x==='pair/request')).toHaveLength(requests);await expect(page.getByLabel('PIN с экрана телевизора')).toHaveCount(0);
+});
+test('Whale invalid PIN offers new code for the same IP and cancellation stores no TV',async({page,tv})=>{
+ await tv.setupAndLogin(page);await start(page);await page.getByLabel('PIN с экрана телевизора').fill('9999');await page.getByRole('button',{name:'Подтвердить',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Неверный PIN');await expect(page.getByLabel('IP-адрес телевизора')).toHaveValue(whaleHost);await page.getByRole('button',{name:'Получить новый код',exact:true}).click();await expect(page.getByLabel('PIN с экрана телевизора')).toHaveValue('');await page.getByRole('button',{name:'Отменить',exact:true}).click();await page.getByRole('button',{name:'К списку телевизоров',exact:true}).click();await expect(page.getByRole('heading',{name:'Пока нет телевизоров',exact:true})).toBeVisible();expect(tv.whaleRequests.filter(x=>x==='pair/grant')).toHaveLength(1);
+});

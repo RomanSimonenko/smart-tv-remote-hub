@@ -1,4 +1,4 @@
-:root { --screen-header-gap: 20px; font-family: system-ui, sans-serif; color: var(--ui-text); background: var(--ui-bg); color-scheme: dark; font-synthesis: none; }
+:root { scrollbar-gutter: stable; --screen-header-gap: 20px; font-family: system-ui, sans-serif; color: var(--ui-text); background: var(--ui-bg); color-scheme: dark; font-synthesis: none; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--ui-bg); }
 .shell { width: 100%; max-width: 1120px; margin: 0 auto; padding: 20px 16px 40px; }
@@ -547,11 +547,10 @@ button.primary:disabled { background: var(--ui-field); border-color: var(--ui-bo
 .case-parameters-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
 .case-parameters-heading h2 { margin: 0; }
 .case-parameters-heading button { display: grid; place-items: center; width: 32px; min-height: 32px; padding: 6px; border-color: transparent; background: transparent; }
-.case-step-parameters .case-parameter-number { margin: 0 0 24px; color: var(--ui-text); font-weight: 600; font-size: 16px; line-height: 24px; }
 .case-step-parameters label + label { margin-top: 24px; }
 .case-step-parameters select { width: 100%; min-width: 0; box-sizing: border-box; height: 40px; padding: 8px 40px; font: inherit; color: var(--ui-text); background: var(--ui-field); border: 1px solid var(--ui-border); border-radius: 8px; }
 .case-step-type > .case-type-icon { left: 12px; right: auto; width: 20px; height: 20px; }
-.case-step-parameters textarea { min-height: 96px; }
+.case-step-parameters textarea { min-height: 64px; }
 .case-step-parameters .case-step-save { width: 100%; justify-content: center; margin-top: 24px; background: transparent; border-color: var(--ui-accent); color: var(--ui-accent); }
 .case-step-parameters .case-step-hint { margin: 16px 0 0; line-height: 24px; }
 .case-insert-anchor { position: relative; }
@@ -715,11 +714,14 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .case-step-scroll { display: flex; flex-direction: column; min-height: 0; overflow: hidden; margin: 12px 0; padding: 12px 24px; }
 .case-step-scroll > * { flex-shrink: 0; }
 .case-step-scroll > .case-parameters-heading { min-height: 28px; }
+.case-step-save-group { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; }
+.case-step-save-group .case-step-notice-slot { margin-top: 0; }
+.case-step-parameters .case-step-save-group .case-step-save { margin-top: 0; }
 .case-step-scroll > .step-key-sequence { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; }
 .step-key-sequence > * { flex-shrink: 0; }
 .step-key-sequence > .step-key-table { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; }
 .step-key-table > .step-key-columns { flex-shrink: 0; }
-.step-key-table > ol { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.step-key-table > ol { max-height: 240px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .case-step-scroll .textarea-frame { max-height: 160px; }
 .case-step-scroll .textarea-frame textarea { max-height: 148px; }
 @media (max-height: 900px) {

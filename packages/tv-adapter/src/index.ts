@@ -8,6 +8,7 @@ export interface PairingRequest {
   readonly host: string;
   readonly credential?: string;
   readonly signal: AbortSignal;
+  readonly requestPin?: (challenge: { readonly expiresAt: number }) => Promise<string>;
 }
 
 export interface PairingResult {

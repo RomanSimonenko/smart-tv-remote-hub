@@ -716,3 +716,14 @@ test('manual reconnect keeps its legacy cancel path alongside a previous complet
 
 // Each test starts a separate browser history entry; remounts within a test retain it.
 afterEach(()=>history.replaceState(null,''));
+
+test('failed Whale addition retries the entered IP without requiring it again',async()=>{
+ const sent:unknown[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(path:string,options?:RequestInit)=>{
+  if(options?.method==='POST'){sent.push(JSON.parse(options.body as string));return response({id:'new',action:'pair',status:'running',startedAt:1000,deadlineAt:61000},202);}
+  return response({...empty,connection:'unavailable',operation:{id:'old',action:'pair',status:'failed',startedAt:1,deadlineAt:30001,error:{code:'INVALID_PIN',message:'Неверный PIN'}}});
+ }));
+ render(<TvSetup platform="whale" initialHost="10.2.3.4" csrfToken={csrfToken} settingsOpen={false} onCloseSettings={()=>{}} onSessionExpired={()=>{}}/>);
+ await act(async()=>{});await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Получить новый код'}));});
+ expect(sent).toEqual([{action:'pair',host:'10.2.3.4'}]);
+});

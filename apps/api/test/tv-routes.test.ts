@@ -126,3 +126,28 @@ test('unexpected TV status failures have safe requestId responses and safe cause
   expect(logs.join('')).toContain('SyntaxError');
   expect(response.body + logs.join('')).not.toMatch(/synthetic-secret|192\.168\.1\.10|raw-failure/);
 });
+
+test('PIN route validates CSRF, owner, one-use code and never logs secrets', async () => {
+ const {app,h,headers,logs}=await fixture();
+ const accepted=await app.inject({method:'POST',url:'/api/tv/operations',headers,payload:{action:'pair',host:'192.168.1.10'}});
+ await drain();const adapter=h.adapters[0]!;const req=await adapter.enteredPair.promise;
+ const pin=req.requestPin!({expiresAt:1030000});
+ const id=accepted.json().id,url=`/api/tv/operations/${id}/pin`;
+ expect((await app.inject({method:'POST',url,headers:{...headers,'x-csrf-token':'bad'},payload:{pin:'0123'}})).statusCode).toBe(403);
+ expect((await app.inject({method:'POST',url,headers,payload:{pin:1234}})).statusCode).toBe(400);
+ const response=await app.inject({method:'POST',url,headers,payload:{pin:'0123'}});
+ expect(response.statusCode).toBe(202);expect(await pin).toBe('0123');expect(response.json().challenge).toBeUndefined();
+ expect((await app.inject({method:'POST',url,headers,payload:{pin:'0123'}})).statusCode).toBe(409);
+ h.service.cancel(id);adapter.pairResult.reject(new Error('cancelled synthetic pairing'));await drain();
+ expect(logs.join('')).not.toContain('0123');expect(logs.join('')).not.toContain('synthetic-key');
+});
+
+test('third pairing still accepts its PIN after two invalid codes within one setup window',async()=>{
+ const {app,h,headers}=await fixture();
+ for(let i=0;i<3;i++){
+  const start=await app.inject({method:'POST',url:'/api/tv/operations',headers,payload:{action:'pair',host:'192.168.1.10'}});expect(start.statusCode).toBe(202);await drain();
+  const a=h.adapters[i]!,request=await a.enteredPair.promise;const pin=request.requestPin!({expiresAt:1030000});
+  const response=await app.inject({method:'POST',url:`/api/tv/operations/${start.json().id}/pin`,headers,payload:{pin:'0123'}});
+  expect(response.statusCode).toBe(202);expect(await pin).toBe('0123');a.pairResult.reject(new WebOsError('INVALID_PIN','Synthetic invalid PIN'));await drain();
+ }
+});

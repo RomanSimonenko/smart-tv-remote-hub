@@ -1,6 +1,6 @@
 import {z} from 'zod';
 import {ocrBlockSchema,textConditionResultSchema} from './text-conditions.js';
-import {tvIdentitySchema} from './tv.js';
+import {tvIdentitySchema,tvPlatformSchema} from './tv.js';
 import {testCaseSchema,testCaseKeyActionSchema} from './test-cases.js';
 import {tvCommandResultSchema} from './tv-command.js';
 export const MAX_SNAPSHOT_BYTES=5*1024*1024;
@@ -18,7 +18,7 @@ export const testRunItemSchema=z.strictObject({
  cameraLabel:z.string().max(200).optional(),bytes:z.number().int().positive().optional(),sha256:z.string().regex(/^[a-f0-9]{64}$/).optional(),
 });
 export const testRunSchema=z.strictObject({
- id:z.uuid(),testCase:testCaseSchema,tvId:z.uuid(),platform:z.enum(['webos','tizen']),tvName:z.string().max(200),tvPlatformVersion:tvIdentitySchema.shape.platformVersion,
+ id:z.uuid(),testCase:testCaseSchema,tvId:z.uuid(),platform:tvPlatformSchema,tvName:z.string().max(200),tvPlatformVersion:tvIdentitySchema.shape.platformVersion,
  startedAt:z.number().int().nonnegative(),endedAt:z.number().int().nonnegative().optional(),
  status:z.enum(['running','needs_review','stopped','error','passed','failed']),settling:z.boolean().optional(),failure:runFailureSchema.optional(),
  items:z.array(testRunItemSchema).max(40_000),revision:z.number().int().nonnegative(),

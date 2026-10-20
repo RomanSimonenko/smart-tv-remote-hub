@@ -45,6 +45,9 @@ const webOsErrorCodeSchema = z.enum([
   'CONNECTION_LOST',
   'KEY_STORE_CORRUPT',
   'KEY_STORE_WRITE_FAILED',
+  'INVALID_PIN',
+  'PAIRING_BUSY',
+  'TV_CERTIFICATE_CHANGED',
   'UNKNOWN',
 ]);
 const probeCheckSchema = z

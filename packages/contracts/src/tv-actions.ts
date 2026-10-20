@@ -1,3 +1,4 @@
+import type { TvPlatform } from './tv.js';
 import type { BasicTvButton } from './tv-command.js';
 
 export type TvActionId = BasicTvButton | 'wink' | 'power';
@@ -9,12 +10,12 @@ export interface TvActionDefinition {
   readonly group: TvActionGroup;
   readonly kind: 'button' | 'app' | 'power';
   readonly keyboardKeys: readonly string[];
-  readonly holdByPlatform: Readonly<{ webos: TvHoldMode; tizen: TvHoldMode }>;
+  readonly holdByPlatform: Readonly<Record<TvPlatform, TvHoldMode>>;
 }
 
 function button(id: BasicTvButton, label: string, group: TvActionGroup, keyboardKeys: readonly string[] = [], repeat = false, native = false): TvActionDefinition {
   return { id, label, group, kind: 'button', keyboardKeys,
-    holdByPlatform: { webos: repeat ? 'repeat' : 'none', tizen: native ? 'native' : 'none' } };
+    holdByPlatform: { webos: repeat ? 'repeat' : 'none', tizen: native ? 'native' : 'none', whale: 'none' } };
 }
 
 /** Protocol-independent actions. Runtime capabilities still gate execution. */
@@ -33,8 +34,8 @@ export const tvActionCatalog: readonly TvActionDefinition[] = [
   button('CHANNEL_DOWN', 'Канал −', 'channel'), button('CHANNEL_UP', 'Канал +', 'channel'),
   button('RED', 'Красная', 'color'), button('GREEN', 'Зелёная', 'color'),
   button('YELLOW', 'Жёлтая', 'color'), button('BLUE', 'Синяя', 'color'),
-  { id: 'wink', label: 'Запустить Wink', group: 'app', kind: 'app', keyboardKeys: [], holdByPlatform: { webos: 'none', tizen: 'none' } },
-  { id: 'power', label: 'Питание', group: 'power', kind: 'power', keyboardKeys: [], holdByPlatform: { webos: 'none', tizen: 'none' } },
+  { id: 'wink', label: 'Запустить Wink', group: 'app', kind: 'app', keyboardKeys: [], holdByPlatform: { webos: 'none', tizen: 'none', whale: 'none' } },
+  { id: 'power', label: 'Питание', group: 'power', kind: 'power', keyboardKeys: [], holdByPlatform: { webos: 'none', tizen: 'none', whale: 'none' } },
 ];
 
 export function getTvAction(id: TvActionId): TvActionDefinition {

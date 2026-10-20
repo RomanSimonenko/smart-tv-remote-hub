@@ -44,9 +44,23 @@ When rules compete, use this order:
 - For `apps/web`, read `apps/web/PRODUCT.md` and run Impeccable helpers from `apps/web` using the shared skill directory at `../../.agents/skills/impeccable`. Run UI UX Pro Max scripts from the repository root using `.agents/skills/ui-ux-pro-max/scripts/`.
 - Skills supplement the source priority above. Do not replace the approved palette, tokens, components, or screen composition with generated design-system recommendations. Report conflicts against the applicable specification.
 - For presentation pages, the recorded workflow starts with an agreed image mockup; working app screens are code-first. Keep this preference in `apps/web/.impeccable/config.json` rather than duplicating its value elsewhere.
+- **Use the built-in browser by default.** Perform browser work and verification in the Codex built-in browser unless the user explicitly requests another browser. Do not switch to an external browser merely because it is already open.
 - Use browser automation to inspect actual rendering and behavior. Audit reports must state screens, viewport, theme, states, evidence, applied skills, and unverified areas; verify detector findings before reporting them. Do not fix UI during an audit unless requested.
 - Browser audits must preserve unsaved work and avoid triggering physical-TV commands, executing real test cases, or changing saved data without task-specific authorization. Use synthetic data for isolated additional states and label that evidence separately from the running application.
 - Live mode and automatic hooks are optional and are not prerequisites for an audit. Run the Impeccable detector manually for applicable UI work while hooks are disabled.
+
+## Small UI Fixes: Efficient Workflow
+
+These rules apply to bounded visual fixes and minor UI interactions. Broader behavior, API, persistence, security, and lifecycle changes still require appropriate engineering checks.
+
+- Inspect the relevant screen once, then read only the owning code and styles. Reuse project context, skills, and browser documentation already read in the session; reload them only when changed, missing, or required after a tool reset.
+- Batch the user's related UI comments into one patch. Avoid unrelated cleanup, redesign, and speculative improvements.
+- Before waiting on a browser selector, confirm it against the rendered DOM or accessibility tree. Prefer accessible names or verified existing selectors; do not spend a full timeout on a guessed selector.
+- Use the existing fast local frontend preview when available. Check layout and behavior there before building Docker. Do not introduce a separate development setup as an incidental part of a small fix.
+- Run the narrowest useful check. Do not run the full test suite or delegate to separate agents for cosmetic fixes; broaden verification only for changed behavior, failures, or concrete regression risks.
+- Batch visual verification, fix the findings together, and perform one final Docker build/deployment and inspection of the user's running app. Repeat only if new evidence shows a defect; preserve unsaved work and existing data.
+- Keep progress updates brief and meaningful. Summarize routine checks; avoid narrating each command or repeating unchanged status.
+- Report the result and relevant verification concisely. Disclose any unverified area without claiming completion beyond the evidence.
 
 ## Safety Basics
 

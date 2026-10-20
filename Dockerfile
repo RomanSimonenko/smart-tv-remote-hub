@@ -8,6 +8,7 @@ COPY packages/contracts/package.json packages/contracts/tsconfig.json ./packages
 COPY packages/tv-adapter/package.json packages/tv-adapter/tsconfig.json ./packages/tv-adapter/
 COPY packages/webos/package.json packages/webos/tsconfig.json ./packages/webos/
 COPY packages/tizen/package.json packages/tizen/tsconfig.json ./packages/tizen/
+COPY packages/philips/package.json packages/philips/tsconfig.json ./packages/philips/
 COPY packages/screen-vision/package.json packages/screen-vision/tsconfig.json ./packages/screen-vision/
 
 FROM toolchain AS dependencies
@@ -20,9 +21,10 @@ COPY packages/contracts/src ./packages/contracts/src
 COPY packages/tv-adapter/src ./packages/tv-adapter/src
 COPY packages/webos/src ./packages/webos/src
 COPY packages/tizen/src ./packages/tizen/src
+COPY packages/philips/src ./packages/philips/src
 COPY packages/screen-vision/src ./packages/screen-vision/src
 RUN pnpm --filter @remote-webos-tv/screen-vision build
-RUN pnpm --filter @remote-webos-tv/contracts build && pnpm --filter @remote-webos-tv/tv-adapter build && pnpm --filter @remote-webos-tv/webos build && pnpm --filter @remote-webos-tv/tizen build && pnpm --filter @remote-webos-tv/api build && pnpm --filter @remote-webos-tv/web build
+RUN pnpm --filter @remote-webos-tv/contracts build && pnpm --filter @remote-webos-tv/tv-adapter build && pnpm --filter @remote-webos-tv/webos build && pnpm --filter @remote-webos-tv/tizen build && pnpm --filter @remote-webos-tv/philips build && pnpm --filter @remote-webos-tv/api build && pnpm --filter @remote-webos-tv/web build
 
 FROM toolchain AS production-dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
@@ -49,6 +51,7 @@ COPY --from=production-dependencies /app/packages/contracts/node_modules ./packa
 COPY --from=production-dependencies /app/packages/tv-adapter/node_modules ./packages/tv-adapter/node_modules
 COPY --from=production-dependencies /app/packages/webos/node_modules ./packages/webos/node_modules
 COPY --from=production-dependencies /app/packages/tizen/node_modules ./packages/tizen/node_modules
+COPY --from=production-dependencies /app/packages/philips/node_modules ./packages/philips/node_modules
 COPY --from=production-dependencies /app/packages/screen-vision/node_modules ./packages/screen-vision/node_modules
 COPY --from=dependencies /app/apps/api/package.json ./apps/api/package.json
 COPY --from=dependencies /app/apps/api/dist ./apps/api/dist
@@ -61,7 +64,9 @@ COPY --from=dependencies /app/packages/tv-adapter/dist ./packages/tv-adapter/dis
 COPY --from=dependencies /app/packages/webos/package.json ./packages/webos/package.json
 COPY --from=dependencies /app/packages/webos/dist ./packages/webos/dist
 COPY --from=dependencies /app/packages/tizen/package.json ./packages/tizen/package.json
+COPY --from=dependencies /app/packages/philips/package.json ./packages/philips/package.json
 COPY --from=dependencies /app/packages/tizen/dist ./packages/tizen/dist
+COPY --from=dependencies /app/packages/philips/dist ./packages/philips/dist
 COPY --from=dependencies /app/packages/screen-vision/package.json ./packages/screen-vision/package.json
 COPY --from=dependencies /app/packages/screen-vision/dist ./packages/screen-vision/dist
 RUN mkdir /data && chown node:node /data && chmod 700 /data

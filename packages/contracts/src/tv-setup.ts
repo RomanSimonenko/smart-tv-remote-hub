@@ -32,10 +32,13 @@ export const tvOperationSchema = z.strictObject({
   startedAt: timestampSchema,
   deadlineAt: timestampSchema,
   error: publicTvErrorSchema.optional(),
+  challenge: z.strictObject({ type: z.literal('pin'), expiresAt: timestampSchema }).optional(),
 }).refine((operation) => operation.deadlineAt > operation.startedAt, {
   message: 'Operation deadline must be after its start',
   path: ['deadlineAt'],
-});
+}).refine(op => !op.challenge || op.status === 'running' && op.challenge.expiresAt > op.startedAt && op.challenge.expiresAt <= op.deadlineAt, { message: 'PIN challenge must belong to an active operation budget' });
+
+export const submitTvPinSchema = z.strictObject({ pin: z.string().regex(/^[0-9]{4}$/) });
 export type TvOperation = Readonly<Omit<z.infer<typeof tvOperationSchema>, 'error'> & {
   error?: PublicTvError;
 }>;

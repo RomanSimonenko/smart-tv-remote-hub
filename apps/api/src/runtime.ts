@@ -1,3 +1,4 @@
+import {createPhilipsAdapter} from '@remote-webos-tv/philips';
 import {createOcrRecognizer,type OcrRecognizer} from './ocr/recognizer.js';
 import { createTestCaseRepository } from './test-cases/repository.js';
 import {createTestRunRepository} from './test-runs/repository.js';
@@ -75,7 +76,7 @@ export async function createApiRuntime(config: AppConfig, options: {
       scheduler: options.scheduler ?? runtimeScheduler,
       recoveryTimeoutMs: config.recoveryTimeoutMs ?? 60_000,
       onVersionDiagnostic: logVersionDiagnostic,
-      createAdapter: options.createAdapter ?? ((host, keyStore, requestTimeoutMs, allowPairingPrompt, platform = 'webos') => platform === 'tizen' ? createSamsungAdapter({
+      createAdapter: options.createAdapter ?? ((host, keyStore, requestTimeoutMs, allowPairingPrompt, platform = 'webos') => platform === 'whale' ? createPhilipsAdapter({host,requestTimeoutMs,allowPairingPrompt,now}) : platform === 'tizen' ? createSamsungAdapter({
         host, requestTimeoutMs, handshakeTimeoutMs: requestTimeoutMs, allowPairingPrompt,
         scheduler: options.scheduler ?? runtimeScheduler,
       }) : new Lgtv2Adapter({

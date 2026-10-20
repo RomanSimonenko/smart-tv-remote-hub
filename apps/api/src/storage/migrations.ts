@@ -38,6 +38,7 @@ export const tvDevicesTableSql = `CREATE TABLE tv_devices (
   encrypted_credential_json TEXT NOT NULL,
   mac_address TEXT
 )`;
+export const tvDevicesV10TableSql = tvDevicesTableSql.replace("('webos', 'tizen')", "('webos', 'tizen', 'whale')");
 export const tvDefaultTableSql = `CREATE TABLE tv_default (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   tv_id TEXT NOT NULL REFERENCES tv_devices(tv_id)
@@ -125,4 +126,15 @@ export const schemaMigrations: readonly Migration[] = [
   { version: 7, up(sqlite) { sqlite.exec(testCasesTableSql); } },
   { version: 8, up(sqlite) { sqlite.exec("ALTER TABLE test_cases ADD COLUMN status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','ready'))"); } },
   { version: 9, up(sqlite) { sqlite.exec(`${testRunsTableSql}; CREATE INDEX test_runs_history ON test_runs(started_at DESC,id DESC);`); } },
+  { version: 10, up(sqlite) {
+    const selected = sqlite.prepare('SELECT tv_id FROM tv_default WHERE id = 1').get() as {tv_id:string}|undefined;
+    sqlite.exec(`DROP TABLE tv_default;
+      ALTER TABLE tv_devices RENAME TO tv_devices_v9;
+      ${tvDevicesV10TableSql};
+      INSERT INTO tv_devices SELECT * FROM tv_devices_v9;
+      UPDATE sqlite_sequence SET seq = (SELECT seq FROM sqlite_sequence WHERE name = 'tv_devices_v9') WHERE name = 'tv_devices';
+      DROP TABLE tv_devices_v9;
+      ${tvDefaultTableSql};`);
+    if (selected) sqlite.prepare('INSERT INTO tv_default VALUES (1, ?)').run(selected.tv_id);
+  } },
 ];

@@ -34,11 +34,11 @@ export function AddTv({ csrfToken, onSessionExpired, onReady }: Props) {
       else setError(friendlyError(cause));
     } finally { pending.current = false; if (active.current) setBusy(false); }
   }
-  return tvId ? <TvSetup key={tvId} tvId={tvId} platform={platform} csrfToken={csrfToken} onReady={onReady} onSessionExpired={onSessionExpired} settingsOpen={false} onCloseSettings={() => {}} /> : <section className="form-card">
+  return tvId ? <TvSetup key={tvId} tvId={tvId} initialHost={host} platform={platform} csrfToken={csrfToken} onReady={onReady} onSessionExpired={onSessionExpired} settingsOpen={false} onCloseSettings={() => {}} /> : <section className="form-card">
     <h1>Добавить телевизор</h1>
-    <p>Включите телевизор и подтвердите доступ на его экране.</p>
+    <p>{platform === 'whale' ? 'Включите телевизор. После подключения введите PIN с его экрана.' : 'Включите телевизор и подтвердите доступ на его экране.'}</p>
     <form noValidate onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      <label>Платформа телевизора<span className="platform-select"><select disabled={busy} value={platform} onChange={(event) => setPlatform(tvPlatformSchema.parse(event.target.value))}><option value="webos">LG webOS</option><option value="tizen">Samsung Tizen</option></select><IconChevronDown aria-hidden="true" /></span></label>
+      <label>Платформа телевизора<span className="platform-select"><select disabled={busy} value={platform} onChange={(event) => setPlatform(tvPlatformSchema.parse(event.target.value))}><option value="webos">LG webOS</option><option value="tizen">Samsung Tizen</option><option value="whale">Philips Whale</option></select><IconChevronDown aria-hidden="true" /></span></label>
       <label>IP-адрес телевизора<input inputMode="decimal" autoComplete="off" disabled={busy} value={host} onChange={(event) => setHost(event.target.value)} /></label>
       {platform === 'webos' && <label>MAC-адрес телевизора<input autoComplete="off" spellCheck={false} placeholder="AA:BB:CC:DD:EE:FF" disabled={busy} value={mac} onChange={(event) => setMac(event.target.value)} /><span className="muted">Укажите MAC активного подключения: Wi-Fi или кабель. Он нужен для включения телевизора.</span></label>}
       <button type="submit" disabled={busy}>{busy ? 'Подключение…' : 'Подключить'}</button>

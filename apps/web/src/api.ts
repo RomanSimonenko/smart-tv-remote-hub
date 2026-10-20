@@ -99,6 +99,9 @@ export const api = {
   async startTvOperation(input: StartTvOperation, csrfToken: string, signal?: AbortSignal, tvId?: TvId) {
     return await parsed(await request(`${tvPath(tvId)}/operations`, { method: 'POST', headers: { ...jsonHeaders, 'x-csrf-token': csrfToken }, body: JSON.stringify(input), signal: signal ?? null }), tvOperationSchema) as TvOperation;
   },
+  async submitTvPin(id: string, pin: string, csrfToken: string, signal: AbortSignal, tvId?: TvId) {
+    return await parsed(await request(`${tvPath(tvId)}/operations/${encodeURIComponent(id)}/pin`, {method:'POST',headers:{...jsonHeaders,'x-csrf-token':csrfToken},body:JSON.stringify({pin}),signal}),tvOperationSchema) as TvOperation;
+  },
   async cancelTvOperation(id: string, csrfToken: string, signal?: AbortSignal, tvId?: TvId) {
     return await parsed(await request(`${tvPath(tvId)}/operations/${encodeURIComponent(id)}/cancel`, { method: 'POST', headers: { 'x-csrf-token': csrfToken }, signal: signal ?? null }), tvOperationSchema) as TvOperation;
   },

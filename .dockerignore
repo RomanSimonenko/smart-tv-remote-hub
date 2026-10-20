@@ -37,6 +37,16 @@
 !packages/webos/tsconfig.json
 !packages/webos/src/
 !packages/webos/src/**
+!packages/tizen/
+!packages/tizen/package.json
+!packages/tizen/tsconfig.json
+!packages/tizen/src/
+!packages/tizen/src/**
+!packages/philips/
+!packages/philips/package.json
+!packages/philips/tsconfig.json
+!packages/philips/src/
+!packages/philips/src/**
 !packages/screen-vision/
 !packages/screen-vision/package.json
 !packages/screen-vision/tsconfig.json
