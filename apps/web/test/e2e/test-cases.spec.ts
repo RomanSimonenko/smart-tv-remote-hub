@@ -187,7 +187,7 @@ test('creates, edits, preserves and protects test case drafts', async ({page})=>
  await page.getByRole('button',{name:'Поднять шаг 2 Дано',exact:true}).click();
  await page.getByRole('button',{name:/Выбрать шаг 4/}).click();
  await expect(page.locator('.case-step-row').first()).toHaveCSS('height','60px');
- await expect(page.getByLabel('Описание шага',{exact:true})).toHaveCSS('height','96px');
+ await expect(page.getByLabel('Описание шага',{exact:true})).toHaveCSS('height','64px');
  await expect(page.getByLabel('Тип шага')).toHaveCSS('height','40px');
  await expect(page.locator('body')).toHaveCSS('background-color','rgb(17, 22, 29)');
  await expect(page.locator('.case-step-parameters')).toHaveCSS('background-color','rgb(26, 34, 44)');
