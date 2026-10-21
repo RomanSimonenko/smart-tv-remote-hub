@@ -32,6 +32,9 @@ importers:
       '@remote-webos-tv/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@remote-webos-tv/philips':
+        specifier: workspace:*
+        version: link:../../packages/philips
       '@remote-webos-tv/screen-vision':
         specifier: workspace:*
         version: link:../../packages/screen-vision
@@ -115,6 +118,15 @@ importers:
       zod:
         specifier: 4.1.5
         version: 4.1.5
+
+  packages/philips:
+    dependencies:
+      '@remote-webos-tv/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@remote-webos-tv/tv-adapter':
+        specifier: workspace:*
+        version: link:../tv-adapter
 
   packages/screen-vision:
     dependencies:

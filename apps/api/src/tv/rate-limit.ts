@@ -33,3 +33,9 @@ export function createTvPowerLimiter(app: FastifyInstance) {
   const limiter = createAcceptedAttemptLimiter(app, { max: 5, timeWindow: 60_000, key: 'tv-power-owner' });
   return (request: FastifyRequest, reply: FastifyReply) => limiter(request, reply, () => ({ code: 'RATE_LIMITED', message: 'Too many requests', requestId: request.id }));
 }
+
+/** PIN confirms an admitted setup. Two start windows can overlap one PIN window. */
+export function createTvPinLimiter(app: FastifyInstance) {
+  const limiter = createAcceptedAttemptLimiter(app, { max: 10, timeWindow: 60_000, key: 'tv-pin-owner' });
+  return (request: FastifyRequest, reply: FastifyReply) => limiter(request, reply, () => ({ code: 'RATE_LIMITED', message: 'Too many requests', requestId: request.id }));
+}

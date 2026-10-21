@@ -1,8 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { startTvOperationSchema, tvOperationSchema, tvStatusResponseSchema } from '@remote-webos-tv/contracts';
+import { submitTvPinSchema, startTvOperationSchema, tvOperationSchema, tvStatusResponseSchema } from '@remote-webos-tv/contracts';
 import { projectTvError, TvServiceError, type TvService } from './service.js';
 import type { AuthSessionService } from '../auth/sessions.js';
-import type { TvSetupAdmission } from './rate-limit.js';
+import { createTvPinLimiter, type TvSetupAdmission } from './rate-limit.js';
 
 export interface TvRoutesDependencies {
   readonly service: TvService;
@@ -15,6 +15,7 @@ export interface TvRoutesDependencies {
 }
 
 export function registerTvRoutes(app: FastifyInstance, { service: defaultService, resolveService, prefixes = ['/api/tv'], admission = { pending: Promise.resolve() }, sessions, sessionForRequest, beforeTvAttempt }: TvRoutesDependencies): void {
+  const beforePinAttempt = createTvPinLimiter(app);
   let closing = false;
   app.addHook('preClose', async () => { closing = true; await admission.pending; });
   const safeFailure = (cause: unknown, request: FastifyRequest, reply: FastifyReply) => {
@@ -43,11 +44,30 @@ export function registerTvRoutes(app: FastifyInstance, { service: defaultService
       if (!sessions.authenticate(token)) return unauthorized();
       if (closing) throw new TvServiceError('SERVICE_CLOSED', 409);
       service.assertCanStart(parsed.data);
-      const operation = service.start(parsed.data, parsed.data.action === 'reconnect' ? token : undefined);
+      const operation = service.start(parsed.data, token);
       await charge();
       return reply.code(202).send(tvOperationSchema.parse(operation));
     } catch (cause) { return safeFailure(cause, request, reply); }
     finally { release(); }
+  });
+  app.post<{ Params: { id: string } }>(`${prefix}/operations/:id/pin`, async (request, reply) => {
+    const parsed = submitTvPinSchema.safeParse(request.body);
+    if (!parsed.success) throw new TvServiceError('INVALID_REQUEST',400);
+    const token = sessionForRequest(request);
+    if (!token || !sessions.authenticate(token)) return reply.code(401).send({code:'UNAUTHORIZED',message:'Unauthorized',requestId:request.id});
+    const previous = admission.pending; let release!:()=>void;
+    admission.pending = new Promise<void>(resolve=>{release=resolve;});
+    await previous;
+    try {
+      if (!sessions.authenticate(token)) return reply.code(401).send({code:'UNAUTHORIZED',message:'Unauthorized',requestId:request.id});
+      if (closing) throw new TvServiceError('SERVICE_CLOSED',409);
+      const charge = await beforePinAttempt(request,reply); if (!charge) return reply;
+      if (!sessions.authenticate(token)) return reply.code(401).send({code:'UNAUTHORIZED',message:'Unauthorized',requestId:request.id});
+      const operation = (resolveService?.(request) ?? defaultService).submitPin(request.params.id,parsed.data.pin,token);
+      await charge();
+      return reply.code(202).send(tvOperationSchema.parse(operation));
+    } catch(cause) { return safeFailure(cause,request,reply); }
+    finally {release();}
   });
   app.post<{ Params: { id: string } }>(`${prefix}/operations/:id/cancel`, async (request, reply) => {
     const service = resolveService?.(request) ?? defaultService;

@@ -10,6 +10,7 @@ import type { TvStatusResponse } from '../../../../packages/contracts/src/index.
 import { Lgtv2Adapter, createLgtv2Client } from '../../../../packages/webos/dist/src/index.js';
 import { MockWebOsTv, type MockScenario } from '../../../../packages/webos/test/support/mock-webos-tv.js';
 import { mockClientKey } from '../../../../packages/webos/test/support/fixtures.js';
+import {createPhilipsAdapter} from '../../../../packages/philips/dist/src/index.js';
 import { createSamsungAdapter } from '../../../../packages/tizen/dist/src/index.js';
 import { ControlledSocket, identitySample, connectSample } from '../../../../packages/tizen/test/support/mock-samsung.js';
 import { createApiRuntime } from '../../../api/dist/src/runtime.js';
@@ -22,6 +23,7 @@ export const tvHost = '192.168.50.20';
 export const failedHost = '192.168.50.21';
 export const secondHost = '192.168.50.22';
 export const samsungHost = '192.168.50.23';
+export const whaleHost = '192.168.50.24';
 const password = 'synthetic browser acceptance password';
 
 export function gate() {
@@ -63,6 +65,8 @@ async function availablePort() {
 }
 
 export class TvFixture {
+  readonly whaleRequests: string[] = [];
+  readonly whaleKeys: string[] = [];
   readonly clock = new Clock();
   readonly promptGate = gate();
   readonly policies: Array<{ host: string; prompt: boolean }> = [];
@@ -147,6 +151,21 @@ export class TvFixture {
         newId: () => `00000000-0000-4000-8000-${String(++this.#id).padStart(12, '0')}`,
         logStream: new Writable({ write: (chunk, _encoding, done) => { this.#logs.push(String(chunk)); done(); } }),
         createAdapter: (host, keyStore, requestTimeoutMs, allowPairingPrompt, platform = 'webos') => {
+          if (platform === 'whale') {
+            if (host !== whaleHost) throw new Error('Unmapped synthetic Whale address');
+            return createPhilipsAdapter({host,requestTimeoutMs,allowPairingPrompt,now:()=>this.#epoch+this.clock.time,transport:{
+              fingerprint:()=> 'ab'.repeat(32),close(){},
+              request:async(path,body,signal)=>{
+                signal.throwIfAborted();this.whaleRequests.push(path);
+                if(path==='pair/request')return {error_id:'SUCCESS',timestamp:42,timeout:30,auth_key:'synthetic-whale-key'};
+                if(path==='pair/grant')return {error_id:(body as {auth:{pin:string}}).auth.pin==='0123'?'SUCCESS':'INVALID_PIN'};
+                if(path==='system')return {model:'Synthetic Philips Whale',api_version:{Major:6,Minor:1,Patch:0}};
+                if(path==='powerstate')return {powerstate:'On'};
+                if(path==='input/key'){this.whaleKeys.push((body as {key:string}).key);return '<html><head><title>Ok</title></head><body>Ok</body></html>';}
+                throw new Error('Unexpected synthetic Whale endpoint');
+              },
+            }});
+          }
           if (platform === 'tizen') {
             if (host !== samsungHost) throw new Error('Unmapped synthetic Samsung address');
             this.policies.push({ host, prompt: allowPairingPrompt });

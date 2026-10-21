@@ -3,6 +3,61 @@ import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,expect,test,vi} from 'vitest';
 import {TestCaseEditor} from './TestCaseEditor.js';
 afterEach(cleanup);
+test('duplicates a step immediately after its source with independent actions and focuses its text',async()=>{
+ const source={id:crypto.randomUUID(),kind:'when' as const,text:'Открыть каталог',actions:[{id:crypto.randomUUID(),action:'RIGHT' as const,pauseAfterMs:0},{id:crypto.randomUUID(),action:'ENTER' as const,pauseAfterMs:1000}]};
+ const last={id:crypto.randomUUID(),kind:'then' as const,text:'Каталог открыт'};
+ const save=vi.fn().mockResolvedValue(true),dirty=vi.fn();
+ render(<TestCaseEditor initialDraft={{title:'Копирование',description:'',group:'',steps:[source,last]}} initialCase={null} onSave={save} onBack={vi.fn()} onDirtyChange={dirty} saving={false} error="" onReloadConflict={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Дублировать шаг 1 Когда'}));
+ expect(screen.getByRole('button',{name:'Выбрать шаг 2 Когда: Открыть каталог'}).getAttribute('aria-pressed')).toBe('true');
+ await waitFor(()=>expect(document.activeElement).toBe(screen.getByLabelText('Описание шага')));
+ expect(dirty).toHaveBeenLastCalledWith(true);
+ fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Открыть другой каталог'}});
+ fireEvent.change(screen.getByLabelText('Пауза после нажатия 1, мс'),{target:{value:'200'}});
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));
+ await waitFor(()=>expect(save).toHaveBeenCalledOnce());
+ const steps=save.mock.calls[0]![0].steps;
+ expect(steps).toEqual([source,expect.objectContaining({kind:'when',text:'Открыть другой каталог',actions:[expect.objectContaining({action:'RIGHT',pauseAfterMs:200}),expect.objectContaining({action:'ENTER',pauseAfterMs:1000})]}),last]);
+ expect(steps[1].id).not.toBe(source.id);
+ expect(steps[1].actions.map((action:{id:string})=>action.id).every((id:string)=>!source.actions.some(action=>action.id===id))).toBe(true);
+});
+
+test('duplicates current unapplied values while retaining the original pending edits',async()=>{
+ const source={id:crypto.randomUUID(),kind:'when' as const,text:'Исходный текст',actions:[{id:crypto.randomUUID(),action:'ENTER' as const,pauseAfterMs:500}]};
+ const save=vi.fn().mockResolvedValue(true);
+ render(<TestCaseEditor initialDraft={{title:'Правки',description:'',group:'',steps:[source]}} initialCase={null} onSave={save} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="" onReloadConflict={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));
+ fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Текущий текст'}});
+ fireEvent.change(screen.getByLabelText('Тип шага'),{target:{value:'then'}});
+ fireEvent.change(screen.getByLabelText('Пауза после нажатия 1, мс'),{target:{value:'0'}});
+ fireEvent.click(screen.getByRole('button',{name:'Дублировать шаг 1 Когда'}));
+ expect((screen.getByLabelText('Описание шага') as HTMLTextAreaElement).value).toBe('Текущий текст');
+ expect((screen.getByLabelText('Тип шага') as HTMLSelectElement).value).toBe('then');
+ expect((screen.getByLabelText('Пауза после нажатия 1, мс') as HTMLInputElement).value).toBe('0');
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));expect(save).not.toHaveBeenCalled();
+ expect((screen.getByLabelText('Описание шага') as HTMLTextAreaElement).value).toBe('Текущий текст');
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));
+ await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({steps:[expect.objectContaining({id:source.id,kind:'then',text:'Текущий текст'}),expect.objectContaining({kind:'then',text:'Текущий текст',actions:[expect.objectContaining({action:'ENTER',pauseAfterMs:0})]})]})));
+});
+
+test('duplicates an empty step without actions and disables duplication at the limit and during saving',()=>{
+ const draft={title:'Лимит',description:'',group:'',steps:[{id:crypto.randomUUID(),kind:'given' as const,text:''}]};
+ const props={initialCase:null,onSave:vi.fn(),onBack:vi.fn(),onDirtyChange:vi.fn(),error:'',onReloadConflict:vi.fn()};
+ const view=render(<TestCaseEditor {...props} initialDraft={draft} saving={false}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Дублировать шаг 1 Дано'}));
+ expect(screen.getAllByRole('button',{name:/Выбрать шаг/})).toHaveLength(2);
+ expect((screen.getByLabelText('Описание шага') as HTMLTextAreaElement).value).toBe('');
+ view.rerender(<TestCaseEditor {...props} initialDraft={draft} saving={true}/>);
+ expect(screen.getByRole('button',{name:'Дублировать шаг 1 Дано'}).matches(':disabled')).toBe(true);
+ view.unmount();
+ const steps=Array.from({length:199},()=>({id:crypto.randomUUID(),kind:'given' as const,text:'Шаг'}));
+ render(<TestCaseEditor {...props} initialDraft={{...draft,steps}} saving={false}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Дублировать шаг 199 Дано'}));
+ expect(screen.getAllByRole('button',{name:/Выбрать шаг/})).toHaveLength(200);
+ expect(screen.getAllByRole('button',{name:/Дублировать шаг/}).every(button=>button.matches(':disabled'))).toBe(true);
+});
 test('creates a draft with editable ordered steps and keeps values after a failed save',async()=>{
  const save=vi.fn().mockResolvedValue(false);
  render(<TestCaseEditor initialCase={null} onSave={save} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="Ошибка сохранения" onReloadConflict={vi.fn()}/>);

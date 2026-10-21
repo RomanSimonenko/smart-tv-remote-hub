@@ -9,6 +9,9 @@ export type WebOsErrorCode =
   | 'CONNECTION_LOST'
   | 'KEY_STORE_CORRUPT'
   | 'KEY_STORE_WRITE_FAILED'
+  | 'INVALID_PIN'
+  | 'PAIRING_BUSY'
+  | 'TV_CERTIFICATE_CHANGED'
   | 'UNKNOWN';
 
 const safeMessages: Readonly<Record<WebOsErrorCode, string>> = {
@@ -22,6 +25,9 @@ const safeMessages: Readonly<Record<WebOsErrorCode, string>> = {
   CONNECTION_LOST: 'Соединение с телевизором потеряно.',
   KEY_STORE_CORRUPT: 'Сохранённый ключ сопряжения повреждён.',
   KEY_STORE_WRITE_FAILED: 'Не удалось безопасно сохранить ключ сопряжения.',
+  INVALID_PIN: 'Неверный PIN-код. Получите новый код с экрана телевизора.',
+  PAIRING_BUSY: 'На телевизоре уже выполняется сопряжение. Дождитесь его завершения.',
+  TV_CERTIFICATE_CHANGED: 'Сертификат телевизора изменился. Повторите сопряжение.',
   UNKNOWN: 'Произошла неизвестная ошибка управления телевизором.',
 };
 

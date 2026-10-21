@@ -1,3 +1,4 @@
+import {waitForPairingPin} from './pairing-pin.js';
 import { startTvOperationSchema, supportsTvButtons, tvCommandRequestSchema, tvIdentitySchema, tvMacAddressSchema, tvPlatformSchema, tvPowerRequestSchema, tvSnapshotSchema, type StartTvOperation, type TvCommandRequest, type TvCommandResult, type TvConnectionState, type TvOperation, type TvPlatform, type TvPowerOperation, type TvPowerRequest, type TvPowerState, type TvRemoteState, type TvStatusResponse } from '@remote-webos-tv/contracts';
 import type { PairingResult, TvAdapter, TvObservedPower } from '@remote-webos-tv/tv-adapter';
 import { TvPowerSendError, WebOsError } from '@remote-webos-tv/tv-adapter';
@@ -38,6 +39,7 @@ export interface TvVersionDiagnostic {
   readonly code: 'timeout' | 'invalid_response' | 'version_unavailable' | 'request_rejected' | 'send_failed' | 'read_failed' | 'storage_failed';
 }
 export interface TvService {
+  submitPin(id:string,pin:string,owner:string):TvOperation;
   acquireRunLease(token:symbol):void;
   releaseRunLease(token:symbol):void;
   assertNoRunLease():void;
@@ -75,6 +77,7 @@ interface Attempt {
   readonly timer: unknown;
   readonly power?: Power;
   readonly owner?: string | symbol;
+  pin?: ReturnType<typeof waitForPairingPin>;
   lastFailure?: unknown;
 }
 interface Power { operation: TvPowerOperation; readonly owner: string | symbol }
@@ -201,7 +204,21 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
       observedPower = state;
       if (state !== 'on') throw context.lastFailure ?? unknownPowerObservation();
     }
-    const result = await abortable(adapter.pair({ host, signal, ...(initialKey === undefined ? {} : { credential: initialKey }) }), signal);
+    const result = await abortable(adapter.pair({ host, signal,
+      ...(allowPrompt ? { requestPin: async (challenge: {expiresAt:number}) => {
+        checkConnection();
+        const expiresAt = Math.min(challenge.expiresAt, context.operation.deadlineAt);
+        const delay = Math.min(expiresAt - dependencies.now(), context.expiresAt - scheduler.now());
+        if (!Number.isFinite(delay) || delay <= 0) throw new TvServiceError('PIN_EXPIRED', 409);
+        context.operation = { ...context.operation, challenge: { type: 'pin', expiresAt } };
+        const pending = waitForPairingPin(signal, delay, scheduler, () => {
+          const { challenge: _challenge, ...rest } = context.operation;
+          context.operation = rest;
+          delete context.pin;
+        }, () => context.controller.abort(new WebOsError('PAIRING_TIMEOUT', 'PIN challenge expired')));
+        context.pin = pending;
+        return pending.promise;
+      }} : {}), ...(initialKey === undefined ? {} : { credential: initialKey }) }), signal);
     checkConnection();
     if (!result.credential) throw new WebOsError('INVALID_TV_RESPONSE', 'Registered response lacks a credential');
     const identity = tvIdentitySchema.strict().safeParse(result.identity);
@@ -302,7 +319,8 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
   function finish(context: Attempt, status: TvOperation['status'], cause?: unknown): void {
     if (attempt !== context) return;
     const projected = cause === undefined ? undefined : projectTvError(cause);
-    context.operation = { ...context.operation, status, ...(projected ? { error: projected } : {}) };
+    const { challenge: _challenge, ...withoutChallenge } = context.operation;
+    context.operation = { ...withoutChallenge, status, ...(projected ? { error: projected } : {}) };
     if (context.power) context.power.operation = { ...context.power.operation, status, phase: 'finished', ...(projected ? { error: projected } : {}) };
     if (status !== 'running') scheduler.clearTimeout(context.timer);
     if (context.power && status !== 'running') {
@@ -923,6 +941,16 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
         powerFinishedListeners.add(finished);signal.addEventListener('abort',abort,{once:true});
         try{const operation=startPower(input,owner,lease);if(operation.status!=='running')done(operation);}catch(cause){powerFinishedListeners.delete(finished);signal.removeEventListener('abort',abort);reject(cause);}
       });
+    },
+    submitPin(id,pin,owner) {
+      if (!attempt || attempt.operation.id !== id) throw new TvServiceError('OPERATION_NOT_FOUND',404);
+      if (attempt.owner !== owner) throw new TvServiceError('PIN_NOT_OWNER',403);
+      if (!/^[0-9]{4}$/.test(pin)) throw new TvServiceError('INVALID_REQUEST',400);
+      check(attempt);
+      if (!attempt.pin || !attempt.operation.challenge) throw new TvServiceError('PIN_NOT_WAITING',409);
+      if (dependencies.now() >= attempt.operation.challenge.expiresAt) throw new TvServiceError('PIN_EXPIRED',409);
+      attempt.pin.submit(pin);
+      return copyOperation(attempt.operation);
     },
     assertCanStart, start, status, cancel, initialize, close, remoteState, assertCanSendCommand, sendCommand, powerState, setMac, assertCanStartPower, startPower, cancelPower, cancelOwnedPower, assertCanHold, hold, cancelOwnedHold: (owner) => holding.stop(owner), isHolding: holding.isHolding,
     onPowerFinished(listener) { powerFinishedListeners.add(listener); return () => { powerFinishedListeners.delete(listener); }; },

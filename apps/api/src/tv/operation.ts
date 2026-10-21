@@ -3,6 +3,9 @@ import { WebOsError } from '@remote-webos-tv/tv-adapter';
 
 export type PublicTvError = NonNullable<TvStatusResponse['error']>;
 const messages = {
+  PIN_EXPIRED: 'Время ввода PIN истекло. Получите новый код.',
+  PIN_NOT_WAITING: 'PIN уже отправлен или запрос завершён.',
+  PIN_NOT_OWNER: 'Сопряжение управляется из другой сессии.',
   OPERATION_CONFLICT: 'Другая операция с телевизором ещё не завершена.',
   DUPLICATE_TV_HOST: 'Телевизор с этим адресом уже добавлен или подключается.',
   TV_NOT_FOUND: 'Телевизор не найден.',

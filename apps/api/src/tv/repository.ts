@@ -6,7 +6,7 @@ import type Database from 'better-sqlite3';
 export type StoredTv = SavedTvView & {
   readonly encryptedCredential: EncryptedEnvelopeV1;
   readonly macAddress: string | null;
-} & ({ readonly platform: 'webos' } | { readonly platform: 'tizen' });
+} & { readonly platform: TvPlatform };
 export interface TvRepository {
   load(): StoredTv | null;
   replace(value: StoredTv): void;

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const nonEmptyTextSchema = z.string().trim().min(1);
 
-export const tvPlatformSchema = z.enum(['webos', 'tizen']);
+export const tvPlatformSchema = z.enum(['webos', 'tizen', 'whale']);
 export type TvPlatform = z.infer<typeof tvPlatformSchema>;
 
 export const tvConnectionStateSchema = z.enum([
@@ -18,7 +18,7 @@ export const tvConnectionStateSchema = z.enum([
 
 export type TvConnectionState = z.infer<typeof tvConnectionStateSchema>;
 
-export const tvTransportSchema = z.enum(['wss:3001', 'ws:3000', 'wss:8002']);
+export const tvTransportSchema = z.enum(['wss:3001', 'ws:3000', 'wss:8002', 'https:1926']);
 
 export type TvTransport = z.infer<typeof tvTransportSchema>;
 
