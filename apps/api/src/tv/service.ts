@@ -126,7 +126,9 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
   const holding = createTvHold({ scheduler, onUnsafe: (adapter) => disconnect(adapter, false) });
 
   const view = (): TvStatusResponse => ({
-    tv: saved ? { host: saved.host, identity: platform === 'tizen' && !currentTizenVersion
+    // Offline cards retain the last known OS version, as they do for webOS.
+    // A live Samsung session still requires a fresh SDB capability result.
+    tv: saved ? { host: saved.host, identity: platform === 'tizen' && connection !== 'unavailable' && !currentTizenVersion
       ? withoutPlatformVersion(saved.identity) : { ...saved.identity } } : null,
     connection,
     operation: attempt && !attempt.power ? copyOperation(attempt.operation) : null,

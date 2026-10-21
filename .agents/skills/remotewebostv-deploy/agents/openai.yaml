@@ -1,0 +1,3 @@
+interface:
+  display_name: "Обновление RemoteWebOSTV"
+  short_description: "Обновление Docker с сохранением данных и проверкой UI"

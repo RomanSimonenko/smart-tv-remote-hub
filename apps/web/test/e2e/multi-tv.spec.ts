@@ -137,6 +137,13 @@ test('Samsung uses shared desktop geometry, unsupported controls and camera clea
   const badges = page.locator('.platform-badge');
   const lgBadge = (await badges.nth(0).boundingBox())!;
   const samsungBadge = (await badges.nth(1).boundingBox())!;
+  await expect(page.locator('.device-open')).toHaveCount(0);
+  const tileBoxes = await page.locator('.device-card').evaluateAll(elements => elements.map(element => {
+    const box = element.getBoundingClientRect(); return {x: box.x, y: box.y, width: box.width, height: box.height};
+  }));
+  expect(tileBoxes[1]!.x).toBeGreaterThan(tileBoxes[0]!.x);
+  expect(tileBoxes[1]!.y).toBe(tileBoxes[0]!.y);
+  expect(tileBoxes[0]!.width).toBeGreaterThan(tileBoxes[0]!.height);
   expect(lgBadge.height).toBe(24);
   expect(samsungBadge.height).toBe(20);
   const cards = await page.locator('.device-card').evaluateAll((elements) => elements.map(element => {
@@ -160,7 +167,7 @@ test('Samsung uses shared desktop geometry, unsupported controls and camera clea
   await expect(page.getByRole('button', { name: 'Выключить ТВ', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Запустить Wink', exact: true })).toBeDisabled();
   await expect(page.getByRole('img', { name: 'LG', exact: true })).toHaveCount(0);
-  await expect(page.locator('.tv-info')).toContainText('Samsung');
+  await expect(page.locator('.tv-info').getByRole('img', { name: 'Samsung', exact: true })).toBeVisible();
   const posts: string[] = []; page.on('request', request => { if (request.method() === 'POST') posts.push(request.url()); });
   await page.getByRole('button', { name: 'Настройки ТВ', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Tizen');

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
-**Выполнение:** завершено 2026-10-14; результаты и ограничения — [отчёт](../../design/reviews/2026-10-14-visual-checks-probe/README.md).
+**Выполнение:** завершено 2026-10-14; исторические результаты и снимки архивированы локально.
 
 **Goal:** Получить измеряемые результаты OCR и сравнения изображений до интеграции в редактор и раннер.
 
@@ -76,7 +76,7 @@
 
 ### Task 4: Отчёт и решение
 
-**Files:** `tools/visual-checks-probe/src/cli.ts`, `src/cli.test.ts`, `README.md`; `docs/design/reviews/2026-10-14-visual-checks-probe/README.md`.
+**Files:** `tools/visual-checks-probe/src/cli.ts`, `src/cli.test.ts`, `README.md`.
 
 **Interfaces:** CLI `--manifest <path> --output <dir>`; пути берутся только из аргументов/манифеста. Выход: JSON и HTML с ожидаемым значением, наблюдением, длительностью, причиной и изображением с разметкой. Отчёт содержит версии библиотек/моделей и параметры запуска.
 

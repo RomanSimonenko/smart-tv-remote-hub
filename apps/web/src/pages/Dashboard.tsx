@@ -34,7 +34,6 @@ export function Dashboard({ devices, loading, error, onOpenTv, onAddTv, onRetry,
           <IconDeviceDesktop className="device-illustration" stroke={1.2} aria-hidden="true" />
           <span className="device-identity"><h2>{status.tv?.identity.model ?? 'ТВ'}</h2><span className="platform-badge"><TvBrand platform={platform} /><span>{tvPlatformLabel(platform, status.tv?.identity)}</span></span></span>
           <span className="device-connection" data-connection={status.connection}><IconCircleFilled aria-hidden="true" />{connectionLabels[status.connection]}</span>
-          <span className="device-open">Открыть ТВ</span>
         </button>
       </article>)}</div> : devices ? <div className="dashboard-empty">
         <div className="empty-illustration"><IconDeviceDesktopPlus stroke={1.2} aria-hidden="true" /></div>

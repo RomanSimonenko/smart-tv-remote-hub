@@ -6,5 +6,6 @@ export function tvPlatformLabel(platform: TvPlatform, identity: TvIdentity | und
 }
 
 export function TvBrand({ platform, className }: { platform: TvPlatform; className?: string }) {
-  return platform === 'whale' ? <span className={className}>Philips</span> : platform === 'tizen' ? <span className={className}>Samsung</span> : <img className={className} src="/lg-logo.svg" alt="LG" />;
+  const brand = platform === 'whale' ? 'Philips' : platform === 'tizen' ? 'Samsung' : 'LG';
+  return <img className={className} data-platform={platform} src={`/${brand.toLowerCase()}-logo.svg`} alt={brand} />;
 }

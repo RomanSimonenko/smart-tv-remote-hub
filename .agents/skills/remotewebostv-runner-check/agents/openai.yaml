@@ -1,0 +1,3 @@
+interface:
+  display_name: "Раннер и OCR"
+  short_description: "Проверка команд, свежих кадров, OCR и сохранённых итогов"

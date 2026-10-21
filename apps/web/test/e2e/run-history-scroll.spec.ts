@@ -6,7 +6,11 @@ test('only run rows scroll while title, filters and column headers stay visible'
  await tv.setupAndLogin(page);
  const tvId=randomUUID(),caseId=randomUUID();
  const runs=Array.from({length:60},(_,index)=>({id:randomUUID(),caseId,caseTitle:`Синтетический запуск ${index+1}`,caseVersion:1,tvId,platform:'webos',tvName:'Синтетический ТВ',startedAt:1_790_000_000_000-index*1000,endedAt:1_790_000_000_500-index*1000,status:'failed',savedCount:1,itemCount:1,revision:0}));
- await page.route(/\/api\/test-runs(?:\?.*)?$/,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({runs,next:'next-page'})}));
+ const cursors:(string|null)[]=[];
+ await page.route(/\/api\/test-runs(?:\?.*)?$/,route=>{
+  const cursor=new URL(route.request().url()).searchParams.get('before');cursors.push(cursor);
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(cursor?{runs:[{...runs[0],id:randomUUID(),caseTitle:'Догруженный запуск'}],next:null}:{runs,next:'next-page'})});
+ });
  await page.getByRole('button',{name:'Запуски',exact:true}).click();
  await expect(page.getByRole('button',{name:'Синтетический запуск 1 · v1',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Свернуть меню',exact:true}).click();
@@ -29,7 +33,12 @@ test('only run rows scroll while title, filters and column headers stay visible'
   const after=await positions();
   expect(after.title).toBeCloseTo(before.title,0);expect(after.filters).toBeCloseTo(before.filters,0);expect(after.header).toBeCloseTo(before.header,0);expect(after.row).toBeLessThan(before.row-100);
   expect(after.documentScroll).toBeLessThanOrEqual(after.windowHeight);
-  await expect(page.getByRole('button',{name:'Загрузить ещё',exact:true})).toBeInViewport();
+  await expect(page.getByRole('button',{name:'Загрузить ещё',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Обновить',exact:true})).toHaveCount(0);
   if(viewport.height===1248)await page.screenshot({path:'.local/playwright/run-history-scroll.png'});
  }
+ await page.locator('.test-runs tbody').evaluate(element=>{element.scrollTop=element.scrollHeight;});
+ await expect(page.getByRole('button',{name:'Догруженный запуск · v1',exact:true})).toBeVisible();
+ expect(cursors).toEqual([null,'next-page']);
+ await expect(page.locator('.test-runs tbody tr:not(.runs-load-sentinel)')).toHaveCount(61);
 });
