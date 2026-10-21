@@ -1,0 +1,3 @@
+interface:
+  display_name: "Приёмка интерфейса"
+  short_description: "Проверка рабочего UI по ТЗ, макетам и живому приложению"

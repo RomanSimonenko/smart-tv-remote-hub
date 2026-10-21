@@ -118,7 +118,7 @@ test('tizenBadgeDoesNotUseLgLogoOrApiVersion', async () => {
   await mount([{ tvId: second, platform: 'tizen', status: { ...saved, tv: { ...saved.tv, identity: { model: 'Synthetic Samsung', firmwareVersion: '2.0.25' } } } }]);
   const card = screen.getByRole('button', { name: 'Открыть телевизор Synthetic Samsung' });
   expect(within(card).getByText('Tizen')).toBeTruthy();
-  expect(within(card).getByText('Samsung')).toBeTruthy();
+  expect(within(card).getByRole('img', { name: 'Samsung' })).toBeTruthy();
   expect(within(card).queryByRole('img', { name: 'LG' })).toBeNull();
   expect(card.textContent).not.toContain('2.0.25');
 });
@@ -129,7 +129,7 @@ test('selected Tizen uses Samsung identity and OS label in shared settings', asy
   render(home()); await act(async () => {});
   fireEvent.click(screen.getByRole('button', { name: 'Открыть телевизор Synthetic Samsung' })); await act(async () => {});
   expect(screen.queryByRole('img', { name: 'LG' })).toBeNull();
-  expect(screen.getByText('Samsung')).toBeTruthy();
+  expect(screen.getByRole('img', { name: 'Samsung' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Настройки ТВ' }));
   const dialog = screen.getByRole('dialog', { name: 'Настройки телевизора' });
   expect(within(dialog).getByText('Tizen')).toBeTruthy();

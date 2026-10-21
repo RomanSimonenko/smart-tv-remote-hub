@@ -72,9 +72,9 @@ test('address replacement aborts metadata and ignores the previous connection la
   } finally { await h.service.close(); }
 });
 
-test('reconnect retains known optional version and MAC when registration omits version', async () => {
+test.each(['webos', 'whale'] as const)('%s reconnect retains known optional version and MAC when registration omits version', async (platform) => {
   const base = harness(true);
-  base.repository.replace({ ...base.repository.load()!, identity: { model: 'Synthetic Model', platformVersion: '6.5.3' }, macAddress: '02:00:00:00:00:03' });
+  base.repository.replace({ ...base.repository.load()!, platform, identity: { model: 'Synthetic Model', platformVersion: '6.5.3' }, macAddress: '02:00:00:00:00:03' });
   const h = harness(true, { repository: base.repository });
   try {
     h.service.start({ action: 'reconnect' }); await drain(); await succeed(h.adapters[0]!);
@@ -170,7 +170,7 @@ test('metadata read rejection is safe and a broken diagnostic sink stays observa
   } finally { await h.service.close(); await failed.service.close(); safeLog.mockRestore(); }
 });
 
-test('Tizen cached version is hidden until current session capability confirms it, preserving MAC', async () => {
+test('Tizen keeps last known version offline and verifies it again on reconnect, preserving MAC', async () => {
   const base = harness(true);
   base.repository.replace({ ...base.repository.load()!, platform: 'tizen', identity: { model: 'Synthetic Model', platformVersion: '8.0' }, macAddress: '02:00:00:00:00:03' });
   const result = barrier<PlatformVersionResult>(); let adapter!: ControlledAdapter;
@@ -179,7 +179,8 @@ test('Tizen cached version is hidden until current session capability confirms i
     createAdapter(_host, staging) { adapter = Object.assign(new ControlledAdapter(staging), { readPlatformVersion: () => result.promise }); return adapter; },
   });
   try {
-    expect((await h.service.status()).tv?.identity.platformVersion).toBeUndefined();
+    expect((await h.service.status()).connection).toBe('unavailable');
+    expect((await h.service.status()).tv?.identity.platformVersion).toBe('8.0');
     h.service.start({ action: 'reconnect' }); await drain(); await succeed(adapter);
     expect((await h.service.status()).tv?.identity.platformVersion).toBeUndefined();
     expect(base.repository.load()?.macAddress).toBe('02:00:00:00:00:03');

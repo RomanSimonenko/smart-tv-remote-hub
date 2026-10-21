@@ -1,0 +1,3 @@
+interface:
+  display_name: "Проверка телевизоров"
+  short_description: "Проверка LG, Samsung и Philips на реальном устройстве"
