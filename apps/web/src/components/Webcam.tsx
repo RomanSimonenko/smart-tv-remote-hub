@@ -1,8 +1,9 @@
 import {readCameraPreferences,saveCameraPreferences} from '../camera-preferences.js';
-import { IconChevronDown, IconVideo, IconVideoOff } from '@tabler/icons-react';
+import { IconChevronDown, IconVideo, IconVideoOff, IconPlayerRecord, IconPlayerStop } from '@tabler/icons-react';
 import { useEffect, useRef, useState,useImperativeHandle,type Ref,type ReactNode } from 'react';
 import {captureCameraFrame,CameraCaptureError,type CameraSnapshot} from '../camera-snapshot.js';
 import {rectifyCameraSnapshot} from '../rectify-camera-snapshot.js';
+import {useCameraRecording} from '../use-camera-recording.js';
 import {useScreenPreview} from '../use-screen-preview.js';
 export interface WebcamHandle {capture(signal:AbortSignal):Promise<CameraSnapshot>}
 
@@ -14,7 +15,11 @@ function cameraError(cause: unknown): string {
   return `Не удалось включить камеру${name ? ` (${name})` : ''}. Попробуйте снова.`;
 }
 
-export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false,showResolution=false,footer}:{footer?:ReactNode;showResolution?:boolean;alignSnapshots?:boolean;ref?:Ref<WebcamHandle>;onReadyChange?:(ready:boolean)=>void;locked?:boolean}={}) {
+export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false,showResolution=false,recordingEnabled=false,recordingModel,onRecordingChange,footer}:{onRecordingChange?:(active:boolean)=>void;recordingEnabled?:boolean;recordingModel?:string;footer?:ReactNode;showResolution?:boolean;alignSnapshots?:boolean;ref?:Ref<WebcamHandle>;onReadyChange?:(ready:boolean)=>void;locked?:boolean}={}) {
+  const recording=useCameraRecording();
+  useEffect(()=>{onRecordingChange?.(recording.phase!=='idle');},[recording.phase,onRecordingChange]);
+  useEffect(()=>()=>onRecordingChange?.(false),[onRecordingChange]);
+  const recordingActive=useRef(recording.isActive);recordingActive.current=recording.isActive;
   const readyCallback=useRef(onReadyChange);readyCallback.current=onReadyChange;
   const captureController=useRef(new AbortController());
   useImperativeHandle(ref,()=>({async capture(signal){
@@ -50,6 +55,7 @@ export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false,show
   }
 
   function release() {
+    recording.stop();
     setPlaying(false);
     readyCallback.current?.(false);captureController.current.abort(new CameraCaptureError('CAMERA_NOT_READY'));captureController.current=new AbortController();
     clearWaiting();
@@ -71,7 +77,7 @@ export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false,show
       wasHidden = false;
       // Embedded browsers can keep playing black frames after background capture
       // is suspended. Reacquire through the same lifecycle as an explicit start.
-      if (enabled && stream.current) void start(deviceId);
+      if (enabled && stream.current && !recordingActive.current()) void start(deviceId);
     };
     document.addEventListener('visibilitychange', resume);
     return () => document.removeEventListener('visibilitychange', resume);
@@ -123,9 +129,16 @@ export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false,show
     {showResolution&&<label>Разрешение<span className="webcam-select"><select aria-label="Разрешение" value={height} disabled={locked} onChange={event=>{const selected=Number(event.target.value) as 720|1080;setHeight(selected);persist(deviceId,selected);if(enabled)void start(deviceId,selected);}}><option value="1080">Full HD · 1920 × 1080</option><option value="720">HD · 1280 × 720</option></select><IconChevronDown aria-hidden="true"/></span></label>}
     <button type="button" className="webcam-align-toggle" role="switch" aria-checked={mode==='screen'} onClick={()=>setMode(mode==='screen'?'source':'screen')}><span>Выровнять экран</span><span className="webcam-switch-track" aria-hidden="true"/></button></div>
     {preferencesError&&<p role="alert">{preferencesError}</p>}
-    <div className="webcam-actions"><button type="button" disabled={!supported||locked} onClick={() => enabled ? stop() : void start()}>{enabled ? playing?'Выключить камеру':'Отмена' : error?'Повторить':'Включить камеру'}</button><div className="webcam-feedback">
+    <div className="webcam-actions" data-recording-enabled={recordingEnabled}><button type="button" disabled={!supported||locked} onClick={() => enabled ? stop() : void start()}>{enabled ? playing?'Выключить камеру':'Отмена' : error?'Повторить':'Включить камеру'}</button>{recordingEnabled&&<button type="button" className="webcam-recording-toggle" data-recording={recording.phase!=='idle'} disabled={recording.phase==='stopping'||(recording.phase==='idle'&&(!recording.supported||!playing||locked))} title="Запись исходного видео камеры без звука" onClick={()=>{if(recording.phase==='recording')recording.stop();else if(stream.current&&playing)recording.start(stream.current,recordingModel);}}>{recording.phase!=='idle'?<IconPlayerStop aria-hidden="true"/>:<IconPlayerRecord aria-hidden="true"/>}{recording.phase==='stopping'?'Завершение записи…':recording.phase==='recording'?'Остановить запись':'Записать видео'}</button>}{recordingEnabled&&recording.phase!=='idle'&&<button type="button" onClick={recording.cancel}>Отменить запись</button>}<div className="webcam-feedback">
     {playing&&error&&<p role="alert" className="error">{error}</p>}
     </div></div>
+    {recordingEnabled&&<div className="camera-recording-feedback">
+     {recording.notice&&<p role="status">{recording.notice}</p>}
+     {!recording.supported&&<p>Запись видео недоступна в этом браузере.</p>}
+     {recording.phase!=='idle'&&<p className="camera-recording-status"><IconPlayerRecord aria-hidden="true"/><span>{recording.phase==='stopping'?'Подготовка видео…':'Запись камеры без звука'}</span><span role="timer" aria-label="Длительность записи">{String(Math.floor(recording.elapsed/60)).padStart(2,'0')}:{String(recording.elapsed%60).padStart(2,'0')}</span></p>}
+     {recording.error&&<p role="alert" className="field-error">{recording.error}</p>}
+     {recording.download&&<p role="status">{recording.download.partial?'Доступная часть записи готова.':'Запись готова.'} <a href={recording.download.url} download={recording.download.name}>Скачать запись</a></p>}
+    </div>}
     {footer}
   </section>;
 }

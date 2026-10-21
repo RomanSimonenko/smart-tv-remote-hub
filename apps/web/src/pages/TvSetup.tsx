@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { startTvOperationSchema, type StartTvOperation, type TvOperation, type SavedTvView, type TvPowerState, type TvId, type TvPlatform } from '@remote-webos-tv/contracts';
 import { api, ApiFailure, friendlyError } from '../api.js';
 import { useTvStatus } from '../useTvStatus.js';
+import {recordingLimitLabel} from '../use-camera-recording.js';
 import { DiagnosticWebcam } from '../components/DiagnosticWebcam.js';
 import { Remote } from './Remote.js';
 import { PowerControls } from './PowerControls.js';
@@ -11,7 +12,7 @@ import { SettingsDialog } from '../components/SettingsDialog.js';
 import { connectionLabels } from '../tv-connection.js';
 import { TvBrand, tvPlatformLabel } from '../tv-presentation.js';
 
-interface Props { initialHost?: string; tvId?: TvId; platform?: TvPlatform; onReady?(): void; username?: string; csrfToken: string; identityTarget?: HTMLElement | null; onSessionExpired(): void; settingsOpen: boolean; onCloseSettings(): void; onConfirmationChange?(confirming: boolean): void; statusState?: ReturnType<typeof useTvStatus> }
+interface Props { onRecordingChange?:(active:boolean)=>void; initialHost?: string; tvId?: TvId; platform?: TvPlatform; onReady?(): void; username?: string; csrfToken: string; identityTarget?: HTMLElement | null; onSessionExpired(): void; settingsOpen: boolean; onCloseSettings(): void; onConfirmationChange?(confirming: boolean): void; statusState?: ReturnType<typeof useTvStatus> }
 
 export function TvSetup(props: Props) {
   return props.statusState ? <TvSetupContent {...props} statusState={props.statusState} /> : <StandaloneTvSetup {...props} />;
@@ -20,7 +21,7 @@ function StandaloneTvSetup(props: Props) {
   const statusState = useTvStatus(props.onSessionExpired, props.tvId);
   return <TvSetupContent {...props} statusState={statusState} />;
 }
-function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, username, csrfToken, identityTarget, onSessionExpired, settingsOpen, onCloseSettings, onConfirmationChange, statusState }: Props & { statusState: ReturnType<typeof useTvStatus> }) {
+function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, username, csrfToken, identityTarget, onSessionExpired, settingsOpen, onCloseSettings, onConfirmationChange, onRecordingChange, statusState }: Props & { statusState: ReturnType<typeof useTvStatus> }) {
   const { status, statusReadVersion, getReadVersion, loading, refreshing, error, refresh } = statusState;
   const [host, setHost] = useState(initialHost);
   const [message, setMessage] = useState('');
@@ -169,7 +170,7 @@ function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, u
       <PowerControls {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active quietOffline={quietOffline || running} settingsOpen={settingsOpen} settingsTarget={settingsTarget} activityTarget={powerActivityTarget} {...(onConfirmationChange ? { onConfirmationChange } : {})} onSessionExpired={onSessionExpired} onStateChange={observePowerState} onBusyChange={setPowerBusy} />
       <Remote {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active quietOffline={quietRemoteUnavailable || samsungNotOn} interactionBlocked={settingsOpen || samsungNotOn} activityTarget={remoteActivityTarget} onSessionExpired={onSessionExpired} onBusyChange={setRemoteBusy} />
     </div>}
-    {tv && <DiagnosticWebcam csrfToken={csrfToken} onSessionExpired={onSessionExpired}/>}
+    {tv && <DiagnosticWebcam recordingModel={tv.identity.model} {...(onRecordingChange?{onRecordingChange}:{})} csrfToken={csrfToken} onSessionExpired={onSessionExpired}/>}
     <div className="tv-activity">
       {!tv && (status || error) && <div className={status?.connection === 'unconfigured' ? 'visually-hidden' : undefined}>{connectionIndicator}</div>}
       <div className={settingsOpen ? 'reserved-activity' : undefined} aria-hidden={settingsOpen || undefined} inert={settingsOpen}>{activity(true)}</div>
@@ -183,6 +184,7 @@ function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, u
       </section><section className="settings-section"><h3>Подключение</h3>
         {settingsOpen && activity(false)}<p>Соединение: {connectionText}</p><p>Сохранённый IP: {tv.host}</p>{addressForm}
       </section></> : <>{settingsOpen && activity(false)}<p>Добавьте телевизор на основном экране.</p></>}
+      {tv&&<section className="settings-section"><h3>Запись видео</h3><p>Исходное видео камеры без звука. До {recordingLimitLabel}; затем запись автоматически завершается и скачивается на компьютер.</p></section>}
       <div ref={setSettingsTarget} />
     </SettingsDialog>
   </section></>;

@@ -3,6 +3,39 @@ import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,expect,test,vi} from 'vitest';
 import {TestCaseEditor} from './TestCaseEditor.js';
 afterEach(cleanup);
+test('retains the step-level error for too many conditions',()=>{
+ const source={id:crypto.randomUUID(),kind:'then' as const,text:'Результат',textConditions:Array.from({length:21},()=> 'Надпись')};
+ render(<TestCaseEditor initialDraft={{title:'Лимит условий',description:'',group:'',steps:[source]}} initialCase={null} onSave={vi.fn()} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="" onReloadConflict={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));
+ fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Изменённый результат'}});
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));
+ expect(screen.getByRole('alert').textContent).toBe('Не более 20 условий.');
+});
+test.each(['','   ','А'.repeat(201)])('reports an invalid condition once at its field (%j)',value=>{
+ const source={id:crypto.randomUUID(),kind:'then' as const,text:'Результат'};
+ render(<TestCaseEditor initialDraft={{title:'Условия',description:'',group:'',steps:[source]}} initialCase={null} onSave={vi.fn()} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="" onReloadConflict={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));
+ fireEvent.click(screen.getByRole('button',{name:'Добавить условие'}));
+ fireEvent.change(screen.getByLabelText('Надпись 1'),{target:{value}});
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));
+ expect(screen.getAllByText(/Надпись: от 1 до 200 символов/)).toHaveLength(1);
+ expect(screen.getByRole('alert').id).toBe(screen.getByLabelText('Надпись 1').getAttribute('aria-describedby'));
+});
+test('duplicates pending OCR conditions and keeps edits independent from the original',async()=>{
+ const source={id:crypto.randomUUID(),kind:'then' as const,text:'Проверить каталог',textConditions:['Каталог']};
+ const save=vi.fn().mockResolvedValue(true);
+ render(<TestCaseEditor initialDraft={{title:'Условия копии',description:'',group:'',steps:[source]}} initialCase={null} onSave={save} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="" onReloadConflict={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));
+ fireEvent.change(screen.getByLabelText('Надпись 1'),{target:{value:'Фильмы'}});
+ fireEvent.click(screen.getByRole('button',{name:'Дублировать шаг 1 Тогда'}));
+ expect((screen.getByLabelText('Надпись 1') as HTMLInputElement).value).toBe('Фильмы');
+ fireEvent.change(screen.getByLabelText('Надпись 1'),{target:{value:'Сериалы'}});
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));
+ expect((screen.getByLabelText('Надпись 1') as HTMLInputElement).value).toBe('Фильмы');
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));
+ await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({steps:[expect.objectContaining({textConditions:['Фильмы']}),expect.objectContaining({textConditions:['Сериалы']})]})));
+});
 test('duplicates a step immediately after its source with independent actions and focuses its text',async()=>{
  const source={id:crypto.randomUUID(),kind:'when' as const,text:'Открыть каталог',actions:[{id:crypto.randomUUID(),action:'RIGHT' as const,pauseAfterMs:0},{id:crypto.randomUUID(),action:'ENTER' as const,pauseAfterMs:1000}]};
  const last={id:crypto.randomUUID(),kind:'then' as const,text:'Каталог открыт'};
@@ -58,6 +91,7 @@ test('duplicates an empty step without actions and disables duplication at the l
  expect(screen.getAllByRole('button',{name:/Выбрать шаг/})).toHaveLength(200);
  expect(screen.getAllByRole('button',{name:/Дублировать шаг/}).every(button=>button.matches(':disabled'))).toBe(true);
 });
+
 test('creates a draft with editable ordered steps and keeps values after a failed save',async()=>{
  const save=vi.fn().mockResolvedValue(false);
  render(<TestCaseEditor initialCase={null} onSave={save} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="Ошибка сохранения" onReloadConflict={vi.fn()}/>);

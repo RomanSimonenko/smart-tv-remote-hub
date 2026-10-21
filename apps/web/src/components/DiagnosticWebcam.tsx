@@ -2,10 +2,10 @@ import {useEffect,useRef,useState,type RefObject} from 'react';
 import {Webcam,type WebcamHandle} from './Webcam.js';
 import {api,ApiFailure} from '../api.js';
 import type {OcrDiagnostics} from '@remote-webos-tv/contracts';
-export function DiagnosticWebcam({csrfToken,onSessionExpired}:{csrfToken:string;onSessionExpired():void}){
+export function DiagnosticWebcam({csrfToken,onSessionExpired,onRecordingChange,recordingModel}:{csrfToken:string;recordingModel?:string;onSessionExpired():void;onRecordingChange?:(active:boolean)=>void}){
  const camera=useRef<WebcamHandle>(null);
  const [ready,setReady]=useState(false),[open,setOpen]=useState(false),[busy,setBusy]=useState(false);
- return <Webcam ref={camera} showResolution alignSnapshots={open} locked={busy} onReadyChange={setReady} footer={<details className="camera-diagnostics" open={open} onToggle={event=>setOpen(event.currentTarget.open)}><summary>Проверить распознавание</summary>{open&&<CameraDiagnostics camera={camera} ready={ready} csrfToken={csrfToken} onSessionExpired={onSessionExpired} onBusyChange={setBusy}/>}</details>}/>;
+ return <Webcam {...(recordingModel?{recordingModel}:{})} {...(onRecordingChange?{onRecordingChange}:{})} recordingEnabled ref={camera} showResolution alignSnapshots={open} locked={busy} onReadyChange={setReady} footer={<details className="camera-diagnostics" open={open} onToggle={event=>setOpen(event.currentTarget.open)}><summary>Проверить распознавание</summary>{open&&<CameraDiagnostics camera={camera} ready={ready} csrfToken={csrfToken} onSessionExpired={onSessionExpired} onBusyChange={setBusy}/>}</details>}/>;
 }
 function CameraDiagnostics({camera,ready,csrfToken,onSessionExpired,onBusyChange}:{camera:RefObject<WebcamHandle|null>;ready:boolean;csrfToken:string;onSessionExpired():void;onBusyChange(busy:boolean):void}){
  const controller=useRef<AbortController|null>(null);
