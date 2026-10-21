@@ -63,7 +63,7 @@ Files: apps/web/src/App.tsx, api.ts, pages/Home.tsx, pages/Profile.tsx; новы
 - [x] Прогнать web unit tests и build/typecheck.
 
 ## Task 5: Полная проверка и локальный запуск
-Files: apps/web/test/e2e/password-change.spec.ts; docs/design/reviews/2026-10-12-password-change.md.
+Files: apps/web/test/e2e/password-change.spec.ts
 - [x] E2E на отдельной синтетической установке: два клиента, смена на шестисимвольный пароль, текущий клиент остаётся, другой теряет доступ, новый вход работает, старый не работает.
 - [x] Проверить следующий profile PATCH с новым CSRF, отказ неправильного текущего пароля, клавиатуру, узкий экран и 200% увеличение.
 - [x] Сравнить скриншот блока безопасности и диалога с дизайн-ТЗ/макетом. Не принимать функциональные тесты за визуальное соответствие.

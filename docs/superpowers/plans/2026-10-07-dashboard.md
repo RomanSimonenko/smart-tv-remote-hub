@@ -53,7 +53,7 @@
 
 ### Task 3: Сквозная проверка и локальная доставка
 
-**Files:** Create `apps/web/test/e2e/dashboard.spec.ts`; update существующие `apps/web/test/e2e/*.spec.ts`, которым нужен явный переход к пульту, и при необходимости общую подготовку в `apps/web/test/support/tv-fixture.ts`; update `README.md` и `docs/README.md`; create `design-qa.md`.
+**Files:** Create `apps/web/test/e2e/dashboard.spec.ts`; update существующие `apps/web/test/e2e/*.spec.ts`, которым нужен явный переход к пульту, и при необходимости общую подготовку в `apps/web/test/support/tv-fixture.ts`; update `README.md` и `docs/README.md`; создать локальный отчёт приёмки.
 
 **Interfaces:** Существующие E2E-подготовки после входа открывают карточку перед проверками пульта; auth-сценарии проверяют сам дашборд. Общий helper `openRemote(page: Page): Promise<void>` добавлять только при реально повторяющейся подготовке.
 
