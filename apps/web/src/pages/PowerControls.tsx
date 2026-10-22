@@ -256,10 +256,12 @@ export function PowerControls({
         : "Питание сейчас недоступно. Обновите статус.";
   // Only the retained background diagnostic owns autofocus; modal teardown
   // must not clear its ref while the background paragraph remains mounted.
+  const suppressReadStatus = serverUnavailable && !message &&
+    (!operation || (!running && operation.status !== "succeeded"));
   const activity = (withFocusRef: boolean) => (
     <>
       <p role="status" aria-label="Питание телевизора" aria-live="polite">
-        {serverUnavailable && !message ? "" : error || (unknownSamsungPower && !activityBusy)
+        {suppressReadStatus ? "" : error || (unknownSamsungPower && !activityBusy)
           ? "Статус питания неизвестен"
           : operation && (running || operation.status === "succeeded")
             ? progress(operation, platform)
