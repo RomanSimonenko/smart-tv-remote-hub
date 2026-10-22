@@ -22,7 +22,7 @@ function StandaloneTvSetup(props: Props) {
   return <TvSetupContent {...props} statusState={statusState} />;
 }
 function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, username, csrfToken, identityTarget, onSessionExpired, settingsOpen, onCloseSettings, onConfirmationChange, onRecordingChange, statusState }: Props & { statusState: ReturnType<typeof useTvStatus> }) {
-  const { status, statusReadVersion, getReadVersion, loading, refreshing, error, refresh } = statusState;
+  const { status, statusReadVersion, getReadVersion, loading, refreshing, error, serverUnavailable, refresh } = statusState;
   const [host, setHost] = useState(initialHost);
   const [message, setMessage] = useState('');
   const [manualOperationId, setManualOperationId] = useState<string | null>(null);
@@ -167,8 +167,8 @@ function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, u
     {!tv && !status && !error && showActivity && <p role="status">Загрузка телевизора…</p>}
     {tv && <div className="tv-card">
       <div className="remote-top">{connectionIndicator}</div>
-      <PowerControls {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active quietOffline={quietOffline || running} settingsOpen={settingsOpen} settingsTarget={settingsTarget} activityTarget={powerActivityTarget} {...(onConfirmationChange ? { onConfirmationChange } : {})} onSessionExpired={onSessionExpired} onStateChange={observePowerState} onBusyChange={setPowerBusy} />
-      <Remote {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active quietOffline={quietRemoteUnavailable || samsungNotOn} interactionBlocked={settingsOpen || samsungNotOn} activityTarget={remoteActivityTarget} onSessionExpired={onSessionExpired} onBusyChange={setRemoteBusy} />
+      <PowerControls {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active serverUnavailable={serverUnavailable} quietOffline={quietOffline || running} settingsOpen={settingsOpen} settingsTarget={settingsTarget} activityTarget={powerActivityTarget} {...(onConfirmationChange ? { onConfirmationChange } : {})} onSessionExpired={onSessionExpired} onStateChange={observePowerState} onBusyChange={setPowerBusy} />
+      <Remote {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active serverUnavailable={serverUnavailable} quietOffline={quietRemoteUnavailable || samsungNotOn} interactionBlocked={settingsOpen || samsungNotOn || serverUnavailable} activityTarget={remoteActivityTarget} onSessionExpired={onSessionExpired} onBusyChange={setRemoteBusy} />
     </div>}
     {tv && <DiagnosticWebcam recordingModel={tv.identity.model} {...(onRecordingChange?{onRecordingChange}:{})} csrfToken={csrfToken} onSessionExpired={onSessionExpired}/>}
     <div className="tv-activity">

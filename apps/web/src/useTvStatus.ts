@@ -11,6 +11,7 @@ export function useTvStatus(onSessionExpired: () => void, tvId?: TvId, enabled =
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [serverUnavailable, setServerUnavailable] = useState(false);
   const expired = useRef(onSessionExpired);
   expired.current = onSessionExpired;
   const requestRefresh = useRef<() => void>(() => {});
@@ -19,7 +20,7 @@ export function useTvStatus(onSessionExpired: () => void, tvId?: TvId, enabled =
   const getReadVersion = useCallback(() => startedReads.current, []);
 
   useEffect(() => {
-    setSnapshot({ status: null, readVersion: 0 }); setError(''); setLoading(enabled); setRefreshing(false);
+    setSnapshot({ status: null, readVersion: 0 }); setError(''); setServerUnavailable(false); setLoading(enabled); setRefreshing(false);
     if (!enabled) return;
     let active = true;
     let inFlight = false;
@@ -39,6 +40,7 @@ export function useTvStatus(onSessionExpired: () => void, tvId?: TvId, enabled =
         if (!active) return;
         setSnapshot({ status: next, readVersion });
         setError('');
+        setServerUnavailable(false);
       } catch (cause) {
         if (!active) return;
         if (cause instanceof ApiFailure && cause.status === 401) {
@@ -47,6 +49,7 @@ export function useTvStatus(onSessionExpired: () => void, tvId?: TvId, enabled =
         } else {
           setSnapshot({ status: null, readVersion });
           setError(friendlyError(cause));
+          setServerUnavailable(cause instanceof ApiFailure && cause.code === 'NETWORK_ERROR');
         }
       } finally {
         inFlight = false;
@@ -62,5 +65,5 @@ export function useTvStatus(onSessionExpired: () => void, tvId?: TvId, enabled =
       controller?.abort();
     };
   }, [tvId, enabled]);
-  return { status: snapshot.status, statusReadVersion: snapshot.readVersion, getReadVersion, loading, refreshing, error, refresh };
+  return { status: snapshot.status, statusReadVersion: snapshot.readVersion, getReadVersion, loading, refreshing, error, serverUnavailable, refresh };
 }

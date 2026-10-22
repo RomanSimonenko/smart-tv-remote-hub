@@ -22,6 +22,7 @@ interface Props {
   settingsOpen?: boolean;
   onConfirmationChange?(confirming: boolean): void;
   quietOffline?: boolean;
+  serverUnavailable?: boolean;
 }
 
 function progress(
@@ -101,6 +102,7 @@ export function PowerControls({
   settingsOpen = false,
   onConfirmationChange,
   quietOffline = false,
+  serverUnavailable = false,
 }: Props) {
   const networkHelpId = useId();
   const {
@@ -188,6 +190,7 @@ export function PowerControls({
         : null;
   const disabled = busy || loading || !!error || !state || running;
   const powerDisabled =
+    serverUnavailable ||
     settingsOpen ||
     busy ||
     loading ||
@@ -197,7 +200,7 @@ export function PowerControls({
     (running && !(powerAction === "wake" && operation?.action === "recover"));
   const diagnostic =
     message ||
-    error ||
+    (serverUnavailable ? "" : error) ||
     (conflicting
       ? "Сервер вернул противоречивые разрешения питания. Обновите статус."
       : terminalError(operation, platform));
@@ -256,7 +259,7 @@ export function PowerControls({
   const activity = (withFocusRef: boolean) => (
     <>
       <p role="status" aria-label="Питание телевизора" aria-live="polite">
-        {error || (unknownSamsungPower && !activityBusy)
+        {serverUnavailable && !message ? "" : error || (unknownSamsungPower && !activityBusy)
           ? "Статус питания неизвестен"
           : operation && (running || operation.status === "succeeded")
             ? progress(operation, platform)
