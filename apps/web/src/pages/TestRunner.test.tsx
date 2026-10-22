@@ -1,6 +1,29 @@
 import {cleanup,render,screen,waitFor} from '@testing-library/react';import {afterEach,expect,test,vi} from 'vitest';
 import {TestRunner} from './TestRunner.js';import {api} from '../api.js';
+import type {TestRun} from '@remote-webos-tv/contracts';
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
+test('updates completed step checks during execution and waits for every action and OCR',async()=>{
+ const execution=await import('../useTestRun.js');
+ const id=crypto.randomUUID(),first=crypto.randomUUID(),second=crypto.randomUUID(),third=crypto.randomUUID();
+ const actions=[{id:crypto.randomUUID(),action:'RIGHT' as const,pauseAfterMs:0},{id:crypto.randomUUID(),action:'ENTER' as const,pauseAfterMs:0}];
+ let run:TestRun={id,testCase:{id,title:'Synthetic live progress',description:'',group:'',status:'ready',version:1,createdAt:1,updatedAt:1,steps:[{id:first,kind:'when',text:'Два действия',actions},{id:second,kind:'then',text:'Проверка текста',textConditions:['Каталог']},{id:third,kind:'then',text:'Следующий шаг'}]},tvId:id,platform:'webos',tvName:'Synthetic',status:'running',startedAt:1,revision:1,items:[{id:crypto.randomUUID(),stepId:first,ordinal:1,action:actions[0]!,phase:'saved'},{id:crypto.randomUUID(),stepId:first,ordinal:2,action:actions[1]!,phase:'awaiting_snapshot'},{id:crypto.randomUUID(),stepId:second,ordinal:3,phase:'pending'},{id:crypto.randomUUID(),stepId:third,ordinal:4,phase:'pending'}]};
+ vi.spyOn(execution,'useTestRun').mockImplementation(()=>({run,busy:true,error:'',start:vi.fn(),stop:vi.fn(),reset:vi.fn()}));
+ vi.spyOn(api,'getTestCase').mockResolvedValue(run.testCase);vi.spyOn(api,'tvDevices').mockResolvedValue({devices:[]});
+ const props={caseId:id,csrfToken:'synthetic',onSessionExpired:()=>{},onBack:()=>{},onOpenRuns:()=>{},onRunningChange:()=>{}};
+ const view=render(<TestRunner {...props}/>);
+ expect(view.container.querySelectorAll('.runner-steps [data-status=completed]')).toHaveLength(0);
+ expect(screen.getByLabelText('Выполняется').classList.contains('run-spinner')).toBe(true);
+ run={...run,revision:2,items:run.items.map((item,index)=>index===1?{...item,phase:'saved'}:index===2?{...item,phase:'saved',verificationState:'running'}:item)};
+ view.rerender(<TestRunner {...props}/>);
+ expect(screen.getByLabelText('Шаг выполнен')).toBeTruthy();
+ expect(view.container.querySelectorAll('.runner-steps [data-status=passed]')).toHaveLength(0);
+ expect(screen.getByLabelText('Выполняется')).toBeTruthy();
+ run={...run,revision:3,items:run.items.map((item,index)=>{if(index!==2)return item;const {verificationState:_,...saved}=item;return {...saved,verification:{status:'passed',conditions:[{expected:'Каталог',found:true}],recognizedBlocks:[],engine:'synthetic',model:'1',checkedAt:2,snapshotSha256:'0'.repeat(64)}};})};
+ view.rerender(<TestRunner {...props}/>);
+ expect(screen.getByLabelText('Условия выполнены')).toBeTruthy();
+ expect(screen.getByRole('heading',{name:'Выполнение теста'})).toBeTruthy();
+ await waitFor(()=>expect(screen.getByText(/Synthetic live progress/)).toBeTruthy());
+});
 test('preparation loads saved case and cannot start before live camera and TV readiness',async()=>{
  const id='00000000-0000-4000-8000-000000000001';
  vi.spyOn(api,'getTestCase').mockResolvedValue({id,title:'Synthetic',description:'',group:'',status:'draft',version:1,createdAt:1,updatedAt:1,steps:[{id,kind:'given',text:'Начальное состояние'}]});

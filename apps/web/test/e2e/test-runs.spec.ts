@@ -33,7 +33,19 @@ test('camera runner saves five fresh frames, shows report and restores it on rel
  page.on('response',response=>{if(response.url().endsWith('/advance')&&response.ok())tv.clock.advance(500);});
  await page.getByRole('button',{name:'Начать тест'}).click();
  try{await expect(page.getByRole('heading',{name:'Выполнение теста'})).toBeVisible();await expect(page.getByLabel('Снимки сохранены')).toHaveCount(0);}finally{startGate.release();}
- try{await expect.poll(()=>uploads).toBe(2);const heartbeat=await heartbeatResponse;expect(heartbeat.status()).toBe(200);expect(heartbeat.request().postDataJSON()).toEqual({});await expect(page.getByRole('heading',{name:'Выполнение теста'})).toBeVisible();await page.screenshot({path:'.local/playwright/runner-execution.png'});}finally{uploadGate.release();}
+ try{
+  await expect.poll(()=>uploads).toBe(2);const heartbeat=await heartbeatResponse;expect(heartbeat.status()).toBe(200);expect(heartbeat.request().postDataJSON()).toEqual({});
+  await expect(page.getByRole('heading',{name:'Выполнение теста'})).toBeVisible();
+  const completed=page.locator('.runner-steps li[data-status=completed]');
+  await expect(completed).toHaveCount(1);
+  await expect(completed.getByLabel('Шаг выполнен')).toHaveCSS('color','rgb(121, 228, 147)');
+  const spinner=page.locator('.runner-steps .run-spinner');
+  await expect(spinner).toHaveCSS('animation-name','activity-spin');
+  await expect(spinner).toHaveCSS('animation-play-state','running');
+  const before=await spinner.evaluate(element=>getComputedStyle(element).transform);
+  await expect.poll(()=>spinner.evaluate(element=>getComputedStyle(element).transform)).not.toBe(before);
+  await page.screenshot({path:'.local/playwright/runner-execution.png'});
+ }finally{uploadGate.release();}
  await expect(page.getByRole('heading',{name:'Результат запуска'})).toBeVisible({timeout:30_000});await expect(page.getByText('Требуется проверка',{exact:true})).toBeVisible();
  await expect(page.locator('.report-step-list > li')).toHaveCount(5);
  for(const step of await page.locator('.report-step').all())if(await step.getAttribute('open')===null)await step.locator('summary').click();

@@ -3,6 +3,15 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { PowerControls } from './PowerControls.js';
 
 const csrfToken = 'c'.repeat(43);
+test.each([
+  ['running', 'unknown', 'Результат отправки неизвестен'],
+  ['succeeded', 'sent', 'фактическое выключение не подтверждено'],
+])('server outage preserves %s power operation warning', async (status, delivery, warning) => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ ...wake, operation: { ...operation, action: 'power_off', status, delivery, ...(status === 'succeeded' ? { phase: 'finished' } : {}) } })));
+  render(<PowerControls csrfToken={csrfToken} active serverUnavailable onSessionExpired={vi.fn()} />);
+  await act(async () => {});
+  expect(screen.getByRole('status', { name: 'Питание телевизора' }).textContent).toContain(warning);
+});
 test('Samsung power transport failure explains the failed control connection', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ ...off, observedPower: 'on', operation: { ...operation, action: 'power_off', status: 'failed', delivery: 'not_sent', error: { code: 'NETWORK_UNREACHABLE', message: 'Телевизор недоступен по сети.' } } })));
   render(<PowerControls platform="tizen" csrfToken={csrfToken} active onSessionExpired={vi.fn()} />);

@@ -7,7 +7,7 @@ import { api, ApiFailure } from '../api.js';
 import { requestId } from '../requestId.js';
 import { useTvHold } from '../useTvHold.js';
 
-interface Props { tvId?: TvId; platform?: TvPlatform; csrfToken: string; active: boolean; onSessionExpired(): void; onBusyChange?(busy: boolean): void; interactionBlocked?: boolean; activityTarget?: HTMLElement | null; quietOffline?: boolean }
+interface Props { tvId?: TvId; platform?: TvPlatform; csrfToken: string; active: boolean; onSessionExpired(): void; onBusyChange?(busy: boolean): void; interactionBlocked?: boolean; activityTarget?: HTMLElement | null; quietOffline?: boolean; serverUnavailable?: boolean }
 interface Runtime { active: boolean; pending: boolean; command: AbortController | null; refresh(): void }
 const unknownMessage = 'Результат команды неизвестен. Автоматический повтор не выполняется';
 const reasons = {
@@ -27,7 +27,7 @@ const rejectionMessages = {
 const keys: Readonly<Record<string, BasicTvButton>> = Object.fromEntries(tvActionCatalog
   .filter(action => action.kind === 'button').flatMap(action => action.keyboardKeys.map(key => [key, action.id as BasicTvButton])));
 
-export function Remote({ tvId, platform = 'webos', csrfToken, active, onSessionExpired, onBusyChange, interactionBlocked = false, activityTarget, quietOffline = false }: Props) {
+export function Remote({ tvId, platform = 'webos', csrfToken, active, onSessionExpired, onBusyChange, interactionBlocked = false, activityTarget, quietOffline = false, serverUnavailable = false }: Props) {
   const repeatable = new Set(tvActionCatalog.filter(action => action.kind === 'button' && action.holdByPlatform[platform] === 'repeat').map(action => action.id as BasicTvButton));
   const [state, setState] = useState<TvRemoteState | null>(null);
   const [readError, setReadError] = useState('');
@@ -205,7 +205,7 @@ export function Remote({ tvId, platform = 'webos', csrfToken, active, onSessionE
   const disabled = interactionBlocked || busy || !state?.enabled;
   const explanation = readError || (state ? state.enabled || (quietOffline && state.reason === 'UNAVAILABLE') ? '' : reasons[state.reason] : 'Проверяем доступность пульта…');
   const activity = <div className="remote-activity">
-    {explanation && !(state?.reason === 'BUSY' && !readError) && <p>{explanation}</p>}
+    {!serverUnavailable && explanation && !(state?.reason === 'BUSY' && !readError) && <p>{explanation}</p>}
     <p role="status" aria-label="Команды телевизора" aria-live="polite">{!busy && feedback && !feedback.alert ? feedback.text : ''}</p>
     {feedback?.alert && <p role="alert" className="error">{feedback.text}</p>}
   </div>;

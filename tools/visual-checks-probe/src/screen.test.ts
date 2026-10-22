@@ -6,6 +6,23 @@ async function frame(content: string, background = '#202020') {
   return sharp(Buffer.from(`<svg width="640" height="480"><rect width="640" height="480" fill="${background}"/>${content}</svg>`)).png().toBuffer();
 }
 
+test('live finds a fully visible screen filling nearly the entire camera frame',async()=>{
+ const source=await sharp(Buffer.from('<svg width="640" height="360"><rect width="640" height="360" fill="#202020"/><rect x="16" y="10" width="608" height="340" fill="white"/></svg>')).png().toBuffer();
+ const result=await detectLiveScreen(source);
+ expect(result.status).toBe('found');
+ if(result.status!=='found')throw new Error(result.reason);
+ for(const [i,expected] of [[16,10],[624,10],[624,350],[16,350]].entries()){
+  expect(Math.hypot(result.corners[i]!.x-expected[0]!,result.corners[i]!.y-expected[1]!)).toBeLessThan(4);
+ }
+ // Static experiments retain their original acceptance envelope.
+ expect((await detectScreen(source)).status).toBe('not-found');
+});
+
+test.each([-10,1])('live refuses a large screen clipped or touching the camera border at x=%i',async x=>{
+ const source=await sharp(Buffer.from(`<svg width="640" height="360"><rect width="640" height="360" fill="#202020"/><rect x="${x}" y="10" width="623" height="340" fill="white"/></svg>`)).png().toBuffer();
+ expect((await detectLiveScreen(source)).status).toBe('not-found');
+});
+
 test('live multi-scale search keeps competing displays ambiguous',async()=>{
  const r=await detectLiveScreen(await frame('<rect x="20" y="100" width="280" height="160" fill="white"/><rect x="340" y="220" width="280" height="160" fill="white"/>'));
  expect(r.status).toBe('not-found');if(r.status==='not-found')expect(r.reason).toBe('ambiguous-candidates');

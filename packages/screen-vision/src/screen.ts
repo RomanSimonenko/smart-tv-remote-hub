@@ -24,6 +24,8 @@ export const screenParameters = Object.freeze({
   maxInputPixels:16_000_000, maxDetectionSide:960,
   cannyLow:60, cannyHigh:140, polygonEpsilon:0.02,
   minAreaFraction:0.08, maxAreaFraction:0.85,
+  // Close camera framing is valid when every boundary remains inside the image.
+  liveMaxAreaFraction:0.95,
   minAspect:1.3, maxAspect:2.3, minOppositeEdgeRatio:0.5,
   borderMargin:3, duplicateCornerDistancePx:3,
   outputWidth:640, outputHeight:360,
@@ -74,7 +76,7 @@ export async function detectScreen(image:Buffer,options:{output?:'preview'|'sour
             diagnostics.largeRejected.push({reason,vertices:poly.rows,areaFraction:area,bounds:{x:bounds.x/gray.cols,y:bounds.y/gray.rows,width:bounds.width/gray.cols,height:bounds.height/gray.rows}});
         };
         if(poly.rows!==4 || !cv.isContourConvex(poly)){reject('shape');continue;}
-        if(area<p.minAreaFraction || area>p.maxAreaFraction){reject('area');continue;}
+        if(area<p.minAreaFraction || area>(options.live?p.liveMaxAreaFraction:p.maxAreaFraction)){reject('area');continue;}
         const corners=orderCorners(Array.from({length:4},(_,j)=>({x:poly.data32S[j*2]!,y:poly.data32S[j*2+1]!})));
         if(options.live&&!followBoundary(corners,{data:edges.data,width:gray.cols,height:gray.rows})){reject('shape');continue;}
         if(corners.some(c=>c.x<p.borderMargin || c.y<p.borderMargin || c.x>=gray.cols-p.borderMargin || c.y>=gray.rows-p.borderMargin)){reject('border');continue;}

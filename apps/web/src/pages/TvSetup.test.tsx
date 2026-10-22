@@ -14,6 +14,28 @@ beforeEach(() => {
 });
 
 const csrfToken = 'c'.repeat(43);
+test('server outage shows one shared diagnostic and clears it after recovery', async () => {
+  vi.useFakeTimers();
+  let offline = false;
+  vi.stubGlobal('fetch', vi.fn(async (path: string) => {
+    if (offline) throw new TypeError('Synthetic network outage');
+    return response(path === '/api/tv' ? saved : path === '/api/tv/power'
+      ? { mac: null, canPowerOff: true, canWake: false, operation: null }
+      : { enabled: true, reason: null });
+  }));
+  render(<TvSetup csrfToken={csrfToken} settingsOpen={false} onCloseSettings={vi.fn()} onSessionExpired={vi.fn()} />);
+  await act(async () => {});
+  offline = true;
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(screen.getAllByText('Нет связи с сервером. Попробуйте снова.')).toHaveLength(1);
+  expect(screen.queryByText('Статус питания неизвестен')).toBeNull();
+  expect(screen.queryByText('Не удалось проверить доступность пульта. Ожидаем обновления статуса.')).toBeNull();
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Вверх' }).disabled).toBe(true);
+  offline = false;
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(screen.queryByText('Нет связи с сервером. Попробуйте снова.')).toBeNull();
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Вверх' }).disabled).toBe(false);
+});
 test('Samsung standby blocks remote but allows wake while preserving available connection', async () => {
   vi.stubGlobal('fetch', vi.fn(async (path: string) => response(path === '/api/tv' ? { ...saved, connection: 'available' }
     : path === '/api/tv/power' ? { mac: null, canPowerOff: false, canWake: true, observedPower: 'standby', operation: null }
