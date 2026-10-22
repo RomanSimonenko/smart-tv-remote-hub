@@ -2,6 +2,7 @@ import {useState} from 'react';
 import {getTvAction,type TestRun,type TestRunItem} from '@remote-webos-tv/contracts';
 import {IconCheck,IconCircle,IconCircleCheck,IconCircleX,IconAlertTriangle,IconLoader2,IconChevronDown} from '@tabler/icons-react';
 import {SavedSnapshot,snapshotUrl,stepLabels} from './run-presentation.js';
+import {stepState} from './run-step-state.js';
 
 type Step=TestRun['testCase']['steps'][number];
 const states={
@@ -14,18 +15,6 @@ const states={
  not_run:{label:'Не выполнялся',Icon:IconCircle},
 };
 
-function stepState(step:Step,items:TestRunItem[],status:TestRun['status']):keyof typeof states{
- const last=items.at(-1);
- const complete=items.length===(step.actions?.length||1)&&items.every(item=>item.phase==='saved');
- if(last?.verification?.status==='failed')return 'failed';
- if(complete){
-  if(last?.verification?.status==='passed')return 'passed';
-  if(!step.textConditions?.length)return 'completed';
-  return status==='running'?'running':'needs_review';
- }
- return items.some(item=>item.phase!=='pending')?(status==='running'?'running':'interrupted'):'not_run';
-}
-
 export function RunStepEvidence({runId,step,index,items,status,selectedId,onSelect}:{runId:string;step:Step;index:number;items:TestRunItem[];status:TestRun['status'];selectedId:string|undefined;onSelect(id:string):void}){
  const [open,setOpen]=useState<boolean>();
  const [visibleCount,setVisibleCount]=useState(100);
@@ -34,7 +23,7 @@ export function RunStepEvidence({runId,step,index,items,status,selectedId,onSele
  const saved=items.filter(item=>item.phase==='saved').length;
  return <li><details open={expanded} className="report-step">
   <summary data-status={state} onClick={event=>{event.preventDefault();setOpen(!expanded);}}>
-   <Icon className="report-step-status" aria-hidden="true"/>
+   <Icon className={`report-step-status${state==='running'?' run-spinner':''}`} aria-hidden="true"/>
    <span><strong>{index+1}. {stepLabels[step.kind]} · {step.text}</strong><small className="report-step-result">{label}</small><small>Снимков: {saved} из {step.actions?.length||1}</small></span>
    <IconChevronDown className="report-step-chevron" aria-hidden="true"/>
   </summary>

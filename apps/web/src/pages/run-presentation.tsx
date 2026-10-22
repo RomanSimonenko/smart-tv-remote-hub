@@ -1,7 +1,7 @@
 import {IconCamera,IconPlayerStop,IconAlertTriangle,IconLoader2,IconCircleCheck,IconCircleX} from '@tabler/icons-react';
 import type {TestRun} from '@remote-webos-tv/contracts';
 export const runLabels:Record<TestRun['status'],string>={running:'Выполняется',needs_review:'Требуется проверка',stopped:'Остановлен',error:'Ошибка',passed:'Тест пройден',failed:'Тест провален'};
-export function RunStatus({status}:{status:TestRun['status']}){const Icon={running:IconLoader2,needs_review:IconAlertTriangle,stopped:IconPlayerStop,error:IconAlertTriangle,passed:IconCircleCheck,failed:IconCircleX}[status];return <span className="run-status" data-status={status}><Icon aria-hidden="true"/>{runLabels[status]}</span>;}
+export function RunStatus({status}:{status:TestRun['status']}){const Icon={running:IconLoader2,needs_review:IconAlertTriangle,stopped:IconPlayerStop,error:IconAlertTriangle,passed:IconCircleCheck,failed:IconCircleX}[status];return <span className="run-status" data-status={status}><Icon className={status==='running'?'run-spinner':undefined} aria-hidden="true"/>{runLabels[status]}</span>;}
 export const runDate=(time:number)=>new Intl.DateTimeFormat('ru-RU',{dateStyle:'short',timeStyle:'medium'}).format(time);
 export const stepLabels={given:'Дано',when:'Когда',then:'Тогда'};
 export const snapshotUrl=(runId:string,itemId:string)=>`/api/test-runs/${encodeURIComponent(runId)}/items/${encodeURIComponent(itemId)}/snapshot`;

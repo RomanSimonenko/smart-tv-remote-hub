@@ -777,6 +777,9 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .runner-steps li > span:nth-child(2) { flex: 1; }
 .runner-steps strong { display: block; margin-bottom: 4px; }
 .runner-steps li > svg { width: 20px; height: 20px; flex: 0 0 auto; }
+.runner-steps li:is([data-status=passed],[data-status=completed]) > svg { color: var(--ui-accent); }
+.run-spinner { animation: activity-spin .8s linear infinite; transform-origin: center; transform-box: fill-box; }
+@media (prefers-reduced-motion: reduce) { .run-spinner { animation: none; } }
 .runner-steps li[data-current=true] { background: color-mix(in srgb,var(--ui-running) 12%,var(--ui-panel)); outline: 1px solid var(--ui-running); outline-offset: -1px; border-radius: 8px; }
 .runner-note, .run-metadata { color: var(--ui-muted); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
 .runner-note { padding: 12px; border: 1px solid var(--ui-border); border-radius: 8px; }
