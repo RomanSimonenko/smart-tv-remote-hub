@@ -34,7 +34,10 @@ test('camera runner saves five fresh frames, shows report and restores it on rel
  await page.getByRole('button',{name:'Начать тест'}).click();
  try{await expect(page.getByRole('heading',{name:'Выполнение теста'})).toBeVisible();await expect(page.getByLabel('Снимки сохранены')).toHaveCount(0);}finally{startGate.release();}
  try{await expect.poll(()=>uploads).toBe(2);const heartbeat=await heartbeatResponse;expect(heartbeat.status()).toBe(200);expect(heartbeat.request().postDataJSON()).toEqual({});await expect(page.getByRole('heading',{name:'Выполнение теста'})).toBeVisible();await page.screenshot({path:'.local/playwright/runner-execution.png'});}finally{uploadGate.release();}
- await expect(page.getByRole('heading',{name:'Результат запуска'})).toBeVisible({timeout:30_000});await expect(page.getByText('Требуется проверка',{exact:true})).toBeVisible();await expect(page.getByText('Снимок сохранён',{exact:true})).toHaveCount(5);
+ await expect(page.getByRole('heading',{name:'Результат запуска'})).toBeVisible({timeout:30_000});await expect(page.getByText('Требуется проверка',{exact:true})).toBeVisible();
+ await expect(page.locator('.report-step-list > li')).toHaveCount(5);
+ for(const step of await page.locator('.report-step').all())if(await step.getAttribute('open')===null)await step.locator('summary').click();
+ await expect(page.getByText('Снимок сохранён',{exact:true})).toHaveCount(5);
  await page.screenshot({path:'.local/playwright/runner-report.png'});
  const stored=await (await page.context().request.get(`${tv.origin}/api/test-runs`)).json();expect(stored.runs[0].savedCount).toBe(5);const run=await (await page.context().request.get(`${tv.origin}/api/test-runs/${stored.runs[0].id}`)).json();expect(run.items).toHaveLength(5);expect(new Set(run.items.map((item:{sha256:string})=>item.sha256)).size).toBe(5);
  const jpeg=await page.context().request.get(`${tv.origin}/api/test-runs/${run.id}/items/${run.items[0].id}/snapshot`);expect(jpeg.headers()['content-type']).toContain('image/jpeg');

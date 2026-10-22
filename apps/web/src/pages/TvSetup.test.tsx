@@ -727,3 +727,20 @@ test('failed Whale addition retries the entered IP without requiring it again',a
  await act(async()=>{});await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Получить новый код'}));});
  expect(sent).toEqual([{action:'pair',host:'10.2.3.4'}]);
 });
+
+test('TV back navigation keeps a running video on its page until explicitly stopped',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async(path:RequestInfo|URL)=>response(path==='/api/tvs'?deviceList(saved):String(path).endsWith('/power')?{mac:null,canPowerOff:false,canWake:false,operation:null}:String(path).endsWith('/remote')?{enabled:true,reason:null}:saved)));
+ class Recorder extends EventTarget{static isTypeSupported=()=>true;state='inactive';start(){this.state='recording';}stop(){this.state='inactive';} }
+ vi.stubGlobal('MediaRecorder',Recorder);
+ const stream={getTracks:()=>[{stop:vi.fn()}],getVideoTracks:()=>[]};
+ Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:vi.fn().mockResolvedValue(stream),enumerateDevices:vi.fn().mockResolvedValue([])}});
+ const view=render(<Home username="synthetic-owner" csrfToken={csrfToken} tvActive busy={false} error={null} onLogout={vi.fn()} onSessionExpired={vi.fn()}/>);await act(async()=>{});
+ fireEvent.click(screen.getByRole('button',{name:/^Открыть телевизор /}));await act(async()=>{});
+ await act(async()=>fireEvent.click(screen.getByRole('button',{name:'Включить камеру'})));
+ fireEvent.playing(view.container.querySelector('video')!);fireEvent.click(screen.getByRole('button',{name:'Записать видео'}));
+ fireEvent.click(screen.getByRole('button',{name:'К списку телевизоров'}));
+ expect(screen.getByRole('dialog',{name:'Идёт запись видео'})).toBeTruthy();
+ expect(screen.getByRole('button',{name:'Остановить запись'})).toBeTruthy();
+ fireEvent.click(screen.getByRole('button',{name:'Вернуться к записи'}));
+ expect(screen.queryByRole('dialog',{name:'Идёт запись видео'})).toBeNull();
+});

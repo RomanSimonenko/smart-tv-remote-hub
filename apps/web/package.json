@@ -11,6 +11,8 @@
     "dev": "vite"
   },
   "dependencies": {
+    "@fix-webm-duration/fix": "1.0.1",
+    "@fix-webm-duration/parser": "1.0.1",
     "@remote-webos-tv/contracts": "workspace:*",
     "@tabler/icons-react": "3.48.0",
     "acorn": "^8.19.0",
