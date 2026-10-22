@@ -2,10 +2,11 @@ import {useEffect,useRef,useState,type RefObject} from 'react';
 import {Webcam,type WebcamHandle} from './Webcam.js';
 import {api,ApiFailure} from '../api.js';
 import type {OcrDiagnostics} from '@remote-webos-tv/contracts';
+import {IconLoader2} from '@tabler/icons-react';
 export function DiagnosticWebcam({csrfToken,onSessionExpired,onRecordingChange,recordingModel}:{csrfToken:string;recordingModel?:string;onSessionExpired():void;onRecordingChange?:(active:boolean)=>void}){
  const camera=useRef<WebcamHandle>(null);
  const [ready,setReady]=useState(false),[open,setOpen]=useState(false),[busy,setBusy]=useState(false);
- return <Webcam {...(recordingModel?{recordingModel}:{})} {...(onRecordingChange?{onRecordingChange}:{})} recordingEnabled ref={camera} showResolution alignSnapshots={open} locked={busy} onReadyChange={setReady} footer={<details className="camera-diagnostics" open={open} onToggle={event=>setOpen(event.currentTarget.open)}><summary>Проверить распознавание</summary>{open&&<CameraDiagnostics camera={camera} ready={ready} csrfToken={csrfToken} onSessionExpired={onSessionExpired} onBusyChange={setBusy}/>}</details>}/>;
+ return <Webcam {...(recordingModel?{recordingModel}:{})} {...(onRecordingChange?{onRecordingChange}:{})} recordingEnabled ref={camera} showResolution alignSnapshots={open||busy} locked={busy} onReadyChange={setReady} footer={<details className="camera-diagnostics" open={open} onToggle={event=>setOpen(event.currentTarget.open)}><summary>Проверить распознавание{busy&&<span role="status" aria-label="Распознавание выполняется"><IconLoader2 className="run-spinner" aria-hidden="true"/></span>}</summary><CameraDiagnostics camera={camera} ready={ready} csrfToken={csrfToken} onSessionExpired={onSessionExpired} onBusyChange={setBusy}/></details>}/>;
 }
 function CameraDiagnostics({camera,ready,csrfToken,onSessionExpired,onBusyChange}:{camera:RefObject<WebcamHandle|null>;ready:boolean;csrfToken:string;onSessionExpired():void;onBusyChange(busy:boolean):void}){
  const controller=useRef<AbortController|null>(null);
@@ -35,7 +36,7 @@ function CameraDiagnostics({camera,ready,csrfToken,onSessionExpired,onBusyChange
   finally{if(!abort.signal.aborted)setBusy(null);}
  }
  return <section className="camera-check"><p>Сделайте снимок и распознайте текст одним нажатием. Проверка не создаёт запуск и не сохраняется в истории.</p>
-    <div className="camera-check-actions"><button type="button" disabled={!ready||!!busy} onClick={()=>void recognize()}>{busy==='capture'?'Получение снимка…':busy==='ocr'?'Распознавание…':'Распознать текст'}</button></div>
+    <div className="camera-check-actions"><button type="button" aria-busy={!!busy} disabled={!ready||!!busy} onClick={()=>void recognize()}>{busy&&<IconLoader2 className="run-spinner" aria-hidden="true"/>}{busy==='capture'?'Получение снимка…':busy==='ocr'?'Распознавание…':'Распознать текст'}</button></div>
     {error&&<p role="alert" className="error">{error}</p>}
     <div className="camera-check-results">
      <div><div className="camera-check-preview">{snapshot?<img className="camera-check-image" src={snapshot.url} alt="Проверочный снимок" onLoad={event=>setSize(`${event.currentTarget.naturalWidth} × ${event.currentTarget.naturalHeight}`)}/>:<div className="camera-check-empty">Здесь появится проверочный снимок</div>}</div><p className="camera-check-size case-step-hint">{size&&`Разрешение снимка: ${size}`}</p></div>
