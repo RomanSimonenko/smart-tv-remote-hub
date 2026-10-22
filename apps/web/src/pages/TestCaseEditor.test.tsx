@@ -86,10 +86,15 @@ test('duplicates an empty step without actions and disables duplication at the l
  expect(screen.getByRole('button',{name:'Дублировать шаг 1 Дано'}).matches(':disabled')).toBe(true);
  view.unmount();
  const steps=Array.from({length:199},()=>({id:crypto.randomUUID(),kind:'given' as const,text:'Шаг'}));
- render(<TestCaseEditor {...props} initialDraft={{...draft,steps}} saving={false}/>);
- fireEvent.click(screen.getByRole('button',{name:'Дублировать шаг 199 Дано'}));
- expect(screen.getAllByRole('button',{name:/Выбрать шаг/})).toHaveLength(200);
- expect(screen.getAllByRole('button',{name:/Дублировать шаг/}).every(button=>button.matches(':disabled'))).toBe(true);
+ const limited=render(<TestCaseEditor {...props} initialDraft={{...draft,steps}} saving={false}/>);
+ // At the limit the list contains 1,600 controls. Read their explicit labels
+ // directly rather than computing every button's accessible name and visibility.
+ const duplicate=limited.container.querySelector<HTMLButtonElement>('button[aria-label="Дублировать шаг 199 Дано"]');
+ expect(duplicate).not.toBeNull();fireEvent.click(duplicate!);
+ expect(limited.container.querySelectorAll('.case-sequence > li')).toHaveLength(200);
+ const duplicates=Array.from(limited.container.querySelectorAll('button[aria-label^="Дублировать шаг "]'));
+ expect(duplicates).toHaveLength(200);
+ expect(duplicates.every(button=>button.matches(':disabled'))).toBe(true);
 });
 
 test('creates a draft with editable ordered steps and keeps values after a failed save',async()=>{
