@@ -925,6 +925,7 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .ocr-evidence ul { list-style: none; margin: 12px 0 0; padding: 0; }
 .ocr-evidence h2 { margin: 0; }
 .webcam-actions[data-recording-enabled=true] { height: auto; min-height: 44px; flex-wrap: wrap; gap: 12px; }
+.webcam-actions[data-recording-enabled=true] > button { min-height: 44px; padding-block: 10px; }
 .webcam-recording-toggle { display: inline-flex; align-items: center; gap: 8px; }
 .webcam-recording-toggle > svg, .camera-recording-status > svg { width: 20px; height: 20px; flex-shrink: 0; }
 .webcam-recording-toggle[data-recording=true], .camera-recording-status > svg { color: var(--ui-error); }
