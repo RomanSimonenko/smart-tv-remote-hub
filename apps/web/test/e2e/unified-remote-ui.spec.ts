@@ -459,6 +459,7 @@ for (const width of [1280]) {
       }
       if (mode === 'power-running') await expect(activity.getByText(/Осталось:/)).toHaveCount(0);
       expect((await activity.boundingBox())!.y).toBeGreaterThanOrEqual((await card.boundingBox())!.y + (await card.boundingBox())!.height);
+      expect((await activity.boundingBox())!.y - ((await card.boundingBox())!.y + (await card.boundingBox())!.height)).toBeLessThanOrEqual(12);
       await noOverflow(page);
       // Initial diagnostic autofocus can scroll the document. Measure the modal
       // transition from the same viewport, with its opener already on screen.

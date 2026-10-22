@@ -221,9 +221,10 @@ body:has(.settings-dialog[open]) { overflow: hidden; }
 .remote .wink-button { display: flex; align-items: center; justify-content: center; gap: .5rem; width: 156px; min-height: 40px; height: 40px; padding: 0; border-radius: 11px; margin: 10px auto 0; background: #24201e; border-color: #ff5f00; color: #fff; font-weight: 700; }
 .remote .wink-button:disabled { opacity: .45; }
 
-.tv-layout-with-camera { max-width: 880px; display: grid; grid-template-columns: 194px minmax(0, 1fr); gap: 20px; align-items: start; }
+.tv-layout-with-camera { max-width: 880px; display: grid; grid-template-columns: 194px minmax(0, 1fr); grid-template-rows: min-content 1fr; gap: 8px 20px; align-items: start; }
 .tv-layout-with-camera .tv-card { grid-column: 1; grid-row: 1; }
-.tv-layout-with-camera .tv-activity { grid-column: 1; grid-row: 2; }
+.tv-layout-with-camera .tv-activity { grid-column: 1; grid-row: 2; margin-top: 0; }
+.tv-layout-with-camera .tv-activity p { margin: 0 0 8px; }
 .webcam-card { grid-column: 2; grid-row: 1 / span 2; min-width: 0; padding: 20px; border: 1px solid var(--ui-border); border-radius: 24px; background: var(--ui-panel); }
 .webcam-card video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #080d11; border-radius: 12px; margin-bottom: 16px; }
 .webcam-preview { position: relative; margin-bottom: 16px; }
@@ -312,6 +313,8 @@ body:has(.settings-dialog[open]) { overflow: hidden; }
   .app-content .tv-layout-with-camera { display: flex; flex-direction: column; align-items: center; }
   .app-content .tv-layout-with-camera .tv-card { width: 194px; }
   .app-content .webcam-card { width: 100%; }
+  .app-content .tv-layout-with-camera .tv-activity { order: 1; width: 194px; }
+  .app-content .tv-layout-with-camera .webcam-card { order: 2; }
 }
 /* Anchor keyboard help to its opener, away from the remote beneath the header. */
 .keyboard-help { position: relative; }
@@ -812,8 +815,6 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .runner-page .runner-panel .danger { color: var(--ui-error); border-color: var(--ui-error); background: transparent; }
 .runner-page .runner-panel .danger:hover:not(:disabled) { background: color-mix(in srgb,var(--ui-error) 10%,var(--ui-panel)); }
 .run-evidence-list button:hover:not(:disabled):not([aria-pressed=true]) { border-color: var(--ui-border); background: var(--ui-field); }
-.run-evidence-list button[data-verification=failed] { border-color: var(--ui-error); }
-.run-evidence-list button[data-verification=failed]:hover:not(:disabled) { border-color: var(--ui-error); }
 .run-evidence-list button[data-verification=failed] .evidence-verification { color: var(--ui-error); }
 .evidence-verification { display: flex; align-items: center; gap: 6px; }
 .evidence-verification svg { width: 16px; height: 16px; flex-shrink: 0; }
@@ -908,7 +909,6 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .report-step summary { display: flex; align-items: flex-start; gap: 12px; padding: 16px 8px; cursor: pointer; list-style: none; border-radius: 8px; }
 .report-step summary::-webkit-details-marker { display: none; }
 .report-step summary:hover { background: var(--ui-field); }
-.report-step summary[data-status=failed] { outline: 1px solid var(--ui-error); outline-offset: -1px; }
 .report-step summary:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
 .report-step summary > span { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
 .report-step summary strong { font-size: 14px; line-height: 20px; }
