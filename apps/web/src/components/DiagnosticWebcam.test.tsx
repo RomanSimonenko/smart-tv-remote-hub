@@ -1,4 +1,4 @@
-import {cleanup,fireEvent,render,screen} from '@testing-library/react';
+import {act,cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {afterEach,expect,test,vi} from 'vitest';
 import {useImperativeHandle,useEffect} from 'react';
 import {api} from '../api.js';
@@ -20,15 +20,30 @@ test('one action captures a fresh snapshot on each recognition and displays text
  const before=capture.mock.calls.length;fireEvent.click(screen.getByRole('button',{name:'Распознать текст'}));await screen.findByText('Мои подписки');expect(capture.mock.calls.length).toBe(before+1);expect(recognize).toHaveBeenCalledTimes(2);
 });
 
-test('closing diagnostics aborts recognition and discards the probe',async()=>{
+test('collapsing diagnostics keeps recognition alive and reopening retains its result',async()=>{
+ vi.stubGlobal('URL',Object.assign(URL,{createObjectURL:vi.fn(()=> 'blob:synthetic'),revokeObjectURL:vi.fn()}));
+ let signal:AbortSignal|undefined;
+ let finish!:(value:Awaited<ReturnType<typeof api.diagnoseOcr>>)=>void;
+ const recognize=vi.spyOn(api,'diagnoseOcr').mockImplementation((_blob,_csrf,abort)=>{signal=abort;return new Promise(resolve=>{finish=resolve;});});
+ render(<DiagnosticWebcam csrfToken="synthetic" onSessionExpired={()=>{}}/>);
+ const panel=screen.getByText('Проверить распознавание').closest('details')!;panel.open=true;fireEvent(panel,new Event('toggle'));
+ fireEvent.click(screen.getByRole('button',{name:'Распознать текст'}));await screen.findByAltText('Проверочный снимок');expect(signal).toBeDefined();
+ panel.open=false;fireEvent(panel,new Event('toggle'));expect(signal!.aborted).toBe(false);
+ expect(screen.getByRole('status',{name:'Распознавание выполняется'}).querySelector('.run-spinner')).toBeTruthy();
+ await act(async()=>{finish({blocks:[{text:'Сохранённый результат'}],engine:'synthetic',model:'mobile',elapsedMs:1234});});
+ panel.open=true;fireEvent(panel,new Event('toggle'));
+ expect(screen.getByText('Сохранённый результат')).toBeTruthy();expect(screen.getByAltText('Проверочный снимок')).toBeTruthy();
+ expect(screen.queryByRole('status',{name:'Распознавание выполняется'})).toBeNull();expect(recognize).toHaveBeenCalledTimes(1);
+});
+
+test('leaving diagnostics still aborts recognition and releases the preview',async()=>{
  vi.stubGlobal('URL',Object.assign(URL,{createObjectURL:vi.fn(()=> 'blob:synthetic'),revokeObjectURL:vi.fn()}));
  let signal:AbortSignal|undefined;
  vi.spyOn(api,'diagnoseOcr').mockImplementation((_blob,_csrf,abort)=>{signal=abort;return new Promise(()=>{});});
- render(<DiagnosticWebcam csrfToken="synthetic" onSessionExpired={()=>{}}/>);
+ const view=render(<DiagnosticWebcam csrfToken="synthetic" onSessionExpired={()=>{}}/>);
  const panel=screen.getByText('Проверить распознавание').closest('details')!;panel.open=true;fireEvent(panel,new Event('toggle'));
- fireEvent.click(screen.getByRole('button',{name:'Распознать текст'}));await screen.findByAltText('Проверочный снимок');expect(signal).toBeDefined();expect(screen.queryByRole('status')).toBeNull();expect(screen.queryByText('Распознаём текст…')).toBeNull();expect(screen.getByRole('button',{name:'Распознавание…'})).toBeTruthy();
- panel.open=false;fireEvent(panel,new Event('toggle'));expect(signal!.aborted).toBe(true);
- expect(screen.queryByAltText('Проверочный снимок')).toBeNull();
+ fireEvent.click(screen.getByRole('button',{name:'Распознать текст'}));await screen.findByAltText('Проверочный снимок');
+ view.unmount();expect(signal!.aborted).toBe(true);expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:synthetic');
 });
 
 test('capture failure does not send an old image to OCR',async()=>{
