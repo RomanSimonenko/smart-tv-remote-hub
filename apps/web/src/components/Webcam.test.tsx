@@ -158,3 +158,85 @@ test('settings resolution is saved and used when the camera is reopened',async()
  fireEvent.click(screen.getByRole('button',{name:'Включить камеру'}));
  await waitFor(()=>expect(capture).toHaveBeenCalledWith({audio:false,video:{width:{ideal:1280},height:{ideal:720}}}));
 });
+
+test('TV switch stops the old stream, restores its own camera and does not auto start',async()=>{
+ const first=stream();const get=media(vi.fn().mockResolvedValue(first.value));
+ const view=render(<Webcam tvId="tv-one"/>);
+ await waitFor(()=>expect(screen.getByRole('option',{name:'Camera Two'})).toBeTruthy());
+ fireEvent.change(screen.getByLabelText('Камера'),{target:{value:'two'}});
+ expect(get).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Включить камеру'}));
+ await waitFor(()=>expect(view.container.querySelector('video')?.srcObject).toBe(first.value));
+ expect(get).toHaveBeenLastCalledWith({audio:false,video:{width:{ideal:1920},height:{ideal:1080},deviceId:{exact:'two'}}});
+ view.rerender(<Webcam tvId="tv-two"/>);
+ expect(first.stop).toHaveBeenCalledOnce();
+ expect((screen.getByLabelText('Камера') as HTMLSelectElement).value).toBe('');
+ expect(get).toHaveBeenCalledTimes(1);
+ view.rerender(<Webcam tvId="tv-one"/>);
+ expect((screen.getByLabelText('Камера') as HTMLSelectElement).value).toBe('two');
+ expect(get).toHaveBeenCalledTimes(1);
+});
+
+test('missing TV camera keeps its saved selection and never retries another camera',async()=>{
+ localStorage.setItem('camera-preferences:tv-one',JSON.stringify({deviceId:'missing',height:720}));
+ const get=media(vi.fn().mockRejectedValue(new DOMException('missing','OverconstrainedError')));
+ render(<Webcam tvId="tv-one"/>);
+ expect((screen.getByLabelText('Камера') as HTMLSelectElement).value).toBe('missing');
+ fireEvent.click(screen.getByRole('button',{name:'Включить камеру'}));
+ expect(await screen.findByText('Камера для этого ТВ не найдена. Подключите её или выберите другую.')).toBeTruthy();
+ expect(get).toHaveBeenCalledTimes(1);
+ expect(get).toHaveBeenCalledWith({audio:false,video:{width:{ideal:1280},height:{ideal:720},deviceId:{exact:'missing'}}});
+ expect((screen.getByLabelText('Камера') as HTMLSelectElement).value).toBe('missing');
+});
+
+test('first explicit camera start binds the actual device for this TV',async()=>{
+ const stop=vi.fn();const track={stop,getSettings:()=>({deviceId:'one'})};
+ const get=media(vi.fn().mockResolvedValue({getTracks:()=>[track],getVideoTracks:()=>[track]}));
+ const view=render(<Webcam tvId="tv-one"/>);
+ fireEvent.click(screen.getByRole('button',{name:'Включить камеру'}));
+ await waitFor(()=>expect((screen.getByLabelText('Камера') as HTMLSelectElement).value).toBe('one'));
+ expect(JSON.parse(localStorage.getItem('camera-preferences:tv-one')!).deviceId).toBe('one');
+ view.unmount();render(<Webcam tvId="tv-one"/>);
+ expect(get).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole('button',{name:'Включить камеру'}));
+ await waitFor(()=>expect(get).toHaveBeenCalledTimes(2));
+ expect(get).toHaveBeenLastCalledWith({audio:false,video:{width:{ideal:1920},height:{ideal:1080},deviceId:{exact:'one'}}});
+});
+
+test('switching TV during permission request discards the late stream and leaves new TV unbound',async()=>{
+ let resolve!:(value:MediaStream)=>void;
+ const get=media(vi.fn().mockReturnValue(new Promise<MediaStream>(done=>{resolve=done;})));
+ const view=render(<Webcam tvId="tv-one"/>);
+ fireEvent.click(screen.getByRole('button',{name:'Включить камеру'}));
+ view.rerender(<Webcam tvId="tv-two"/>);
+ const late=stream();await act(async()=>resolve(late.value));
+ expect(late.stop).toHaveBeenCalledOnce();
+ expect(view.container.querySelector('video')?.srcObject).toBeFalsy();
+ expect(localStorage.getItem('camera-preferences:tv-two')).toBeNull();
+ expect(get).toHaveBeenCalledTimes(1);
+});
+
+test('device changes refresh available cameras without starting a stream',async()=>{
+ const events=new EventTarget();const enumerate=vi.fn().mockResolvedValue([{kind:'videoinput',deviceId:'one',label:'Camera One'}]);
+ const get=vi.fn();
+ Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:get,enumerateDevices:enumerate,addEventListener:events.addEventListener.bind(events),removeEventListener:events.removeEventListener.bind(events)}});
+ const view=render(<Webcam tvId="tv-one"/>);
+ await screen.findByRole('option',{name:'Camera One'});
+ enumerate.mockResolvedValue([{kind:'videoinput',deviceId:'two',label:'Camera Two'}]);
+ act(()=>events.dispatchEvent(new Event('devicechange')));
+ await screen.findByRole('option',{name:'Camera Two'});
+ expect(screen.queryByRole('option',{name:'Camera One'})).toBeNull();
+ expect(get).not.toHaveBeenCalled();
+ view.unmount();const count=enumerate.mock.calls.length;
+ act(()=>events.dispatchEvent(new Event('devicechange')));
+ expect(enumerate).toHaveBeenCalledTimes(count);
+});
+
+test('storage failure makes the unsaved TV camera choice visible',async()=>{
+ media();render(<Webcam tvId="tv-one"/>);
+ await screen.findByRole('option',{name:'Camera Two'});
+ vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new DOMException('Blocked','SecurityError');});
+ fireEvent.change(screen.getByLabelText('Камера'),{target:{value:'two'}});
+ expect(screen.getByRole('alert').textContent).toBe('Не удалось сохранить параметры камеры в браузере.');
+ expect(localStorage.getItem('camera-preferences:tv-one')).toBeNull();
+});

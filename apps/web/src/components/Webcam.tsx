@@ -7,15 +7,19 @@ import {useCameraRecording} from '../use-camera-recording.js';
 import {useScreenPreview} from '../use-screen-preview.js';
 export interface WebcamHandle {capture(signal:AbortSignal):Promise<CameraSnapshot>}
 
-function cameraError(cause: unknown): string {
-  const name = cause instanceof Error ? cause.name : '';
+function cameraError(cause: unknown,assignedTv=false): string {
+  const name = cause instanceof Error || cause instanceof DOMException ? cause.name : '';
   if (name === 'NotAllowedError' || name === 'SecurityError') return 'Доступ к камере запрещён. Разрешите его в настройках браузера и попробуйте снова.';
-  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'Выбранная камера не найдена. Подключите камеру или выберите другую.';
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return assignedTv?'Камера для этого ТВ не найдена. Подключите её или выберите другую.':'Выбранная камера не найдена. Подключите камеру или выберите другую.';
   if (name === 'NotReadableError') return 'Камера недоступна. Возможно, её использует другое приложение.';
   return `Не удалось включить камеру${name ? ` (${name})` : ''}. Попробуйте снова.`;
 }
 
-export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false,showResolution=false,recordingEnabled=false,recordingModel,onRecordingChange,footer}:{onRecordingChange?:(active:boolean)=>void;recordingEnabled?:boolean;recordingModel?:string;footer?:ReactNode;showResolution?:boolean;alignSnapshots?:boolean;ref?:Ref<WebcamHandle>;onReadyChange?:(ready:boolean)=>void;locked?:boolean}={}) {
+interface WebcamProps {tvId?:string;onRecordingChange?:(active:boolean)=>void;recordingEnabled?:boolean;recordingModel?:string;footer?:ReactNode;showResolution?:boolean;alignSnapshots?:boolean;ref?:Ref<WebcamHandle>;onReadyChange?:(ready:boolean)=>void;locked?:boolean}
+export function Webcam(props:WebcamProps={}) {
+  return <WebcamSession key={props.tvId??''} {...props}/>;
+}
+function WebcamSession({tvId,ref,onReadyChange,locked=false,alignSnapshots=false,showResolution=false,recordingEnabled=false,recordingModel,onRecordingChange,footer}:WebcamProps) {
   const recording=useCameraRecording();
   useEffect(()=>{onRecordingChange?.(recording.phase!=='idle');},[recording.phase,onRecordingChange]);
   useEffect(()=>()=>onRecordingChange?.(false),[onRecordingChange]);
@@ -32,11 +36,23 @@ export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false,show
   }}));
   const supported = !!navigator.mediaDevices?.getUserMedia;
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [initialPreferences]=useState(readCameraPreferences);
+  const [initialPreferences]=useState(()=>readCameraPreferences(tvId));
   const [deviceId, setDeviceId] = useState(initialPreferences.deviceId);
   const [height,setHeight]=useState<720|1080>(initialPreferences.height);
   const [preferencesError,setPreferencesError]=useState('');
-  function persist(selected:string,resolution:720|1080){try{saveCameraPreferences({deviceId:selected,height:resolution});setPreferencesError('');}catch{setPreferencesError('Не удалось сохранить параметры камеры в браузере.');}}
+  function persist(selected:string,resolution:720|1080){try{saveCameraPreferences({deviceId:selected,height:resolution},tvId);setPreferencesError('');}catch{setPreferencesError('Не удалось сохранить параметры камеры в браузере.');}}
+  const [devicesError,setDevicesError]=useState('');
+  useEffect(()=>{
+    if(!supported)return;
+    let disposed=false;
+    async function refreshDevices(){
+      try{const available=await navigator.mediaDevices.enumerateDevices();if(!disposed){setDevices(available.filter(device=>device.kind==='videoinput'&&device.deviceId));setDevicesError('');}}
+      catch{if(!disposed)setDevicesError('Не удалось получить список камер. Проверьте разрешения браузера и включите камеру повторно.');}
+    }
+    void refreshDevices();
+    navigator.mediaDevices.addEventListener?.('devicechange',refreshDevices);
+    return()=>{disposed=true;navigator.mediaDevices.removeEventListener?.('devicechange',refreshDevices);};
+  },[supported]);
   const [enabled, setEnabled] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState('');
@@ -95,18 +111,23 @@ export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false,show
       if (request !== generation.current) { next.getTracks().forEach((track) => track.stop()); return; }
       clearWaiting();
       stream.current = next;
+      if(tvId&&!selected){
+        const actual=next.getVideoTracks?.()[0]?.getSettings?.().deviceId;
+        if(typeof actual==='string'&&actual&&actual.length<=1000){setDeviceId(actual);persist(actual,resolution);}
+        else setPreferencesError('Камера включена, но привязка не сохранена. Выберите источник в списке камер.');
+      }
       next.getVideoTracks?.().forEach(track=>track.addEventListener?.('ended',()=>{if(stream.current===next){stop();setError('Поток камеры завершён. Включите камеру снова.');}},{once:true}));
       if (video.current) video.current.srcObject = next;
       setStatus('');
       try {
         const available = await navigator.mediaDevices.enumerateDevices();
-        if (request === generation.current) setDevices(available.filter((device) => device.kind === 'videoinput'));
+        if (request === generation.current) {setDevices(available.filter((device) => device.kind === 'videoinput'&&device.deviceId));setDevicesError('');}
       } catch (cause) {
         if (request === generation.current) setError(`Видео включено, но список камер недоступен${cause instanceof Error ? ` (${cause.name})` : ''}.`);
       }
     } catch (cause) {
       if (request !== generation.current) return;
-      release(); setEnabled(false); setStatus(''); setError(cameraError(cause));
+      release(); setEnabled(false); setStatus(''); setError(cameraError(cause,!!tvId&&!!selected));
     }
   }
 
@@ -122,12 +143,14 @@ export function Webcam({ref,onReadyChange,locked=false,alignSnapshots=false,show
     </div>}
     {playing&&mode==='screen'&&(screen.image?<img className="webcam-aligned" src={screen.image} alt="Экран ТВ без рамки"/>:<div className="webcam-placeholder" role="status"><IconVideoOff aria-hidden="true"/><strong>{screen.message||'Экран не найден'}</strong></div>)}
     </div>
-    <div className="webcam-controls"><label>Камера<span className="webcam-select"><select value={deviceId} disabled={!supported||locked} onChange={(event) => { const selected = event.target.value; setDeviceId(selected); persist(selected,height); if (enabled) void start(selected); }}>
-      <option value="">По умолчанию</option>
+    <div className="webcam-controls"><label>Камера<span className="webcam-select"><select value={deviceId} disabled={!supported||locked} onChange={(event) => { const selected = event.target.value; setDeviceId(selected);setError('');persist(selected,height); if (enabled) void start(selected); }}>
+      <option value="" disabled={!!tvId&&!!deviceId}>{tvId?'Выберите камеру':'По умолчанию'}</option>
+      {deviceId&&!devices.some(device=>device.deviceId===deviceId)&&<option value={deviceId}>Сохранённая камера</option>}
       {devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Камера ${index + 1}`}</option>)}
     </select><IconChevronDown aria-hidden="true" /></span></label>
     {showResolution&&<label>Разрешение<span className="webcam-select"><select aria-label="Разрешение" value={height} disabled={locked} onChange={event=>{const selected=Number(event.target.value) as 720|1080;setHeight(selected);persist(deviceId,selected);if(enabled)void start(deviceId,selected);}}><option value="1080">Full HD · 1920 × 1080</option><option value="720">HD · 1280 × 720</option></select><IconChevronDown aria-hidden="true"/></span></label>}
     <button type="button" className="webcam-align-toggle" role="switch" aria-checked={mode==='screen'} onClick={()=>setMode(mode==='screen'?'source':'screen')}><span>Выровнять экран</span><span className="webcam-switch-track" aria-hidden="true"/></button></div>
+    {devicesError&&<p role="alert">{devicesError}</p>}
     {preferencesError&&<p role="alert">{preferencesError}</p>}
     <div className="webcam-actions" data-recording-enabled={recordingEnabled}><button type="button" disabled={!supported||locked} onClick={() => enabled ? stop() : void start()}>{enabled ? playing?'Выключить камеру':'Отмена' : error?'Повторить':'Включить камеру'}</button>{recordingEnabled&&<button type="button" className="webcam-recording-toggle" data-recording={recording.phase!=='idle'} disabled={recording.phase==='stopping'||(recording.phase==='idle'&&(!recording.supported||!playing||locked))} title="Запись исходного видео камеры без звука" onClick={()=>{if(recording.phase==='recording')recording.stop();else if(stream.current&&playing)recording.start(stream.current,recordingModel);}}>{recording.phase!=='idle'?<IconPlayerStop aria-hidden="true"/>:<IconPlayerRecord aria-hidden="true"/>}{recording.phase==='stopping'?'Завершение записи…':recording.phase==='recording'?'Остановить запись':'Записать видео'}</button>}{recordingEnabled&&recording.phase!=='idle'&&<button type="button" onClick={recording.cancel}>Отменить запись</button>}<div className="webcam-feedback">
     {playing&&error&&<p role="alert" className="error">{error}</p>}

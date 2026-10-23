@@ -170,7 +170,7 @@ function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, u
       <PowerControls {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active serverUnavailable={serverUnavailable} quietOffline={quietOffline || running} settingsOpen={settingsOpen} settingsTarget={settingsTarget} activityTarget={powerActivityTarget} {...(onConfirmationChange ? { onConfirmationChange } : {})} onSessionExpired={onSessionExpired} onStateChange={observePowerState} onBusyChange={setPowerBusy} />
       <Remote {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active serverUnavailable={serverUnavailable} quietOffline={quietRemoteUnavailable || samsungNotOn} interactionBlocked={settingsOpen || samsungNotOn || serverUnavailable} activityTarget={remoteActivityTarget} onSessionExpired={onSessionExpired} onBusyChange={setRemoteBusy} />
     </div>}
-    {tv && <DiagnosticWebcam recordingModel={tv.identity.model} {...(onRecordingChange?{onRecordingChange}:{})} csrfToken={csrfToken} onSessionExpired={onSessionExpired}/>}
+    {tv && <DiagnosticWebcam {...(tvId?{tvId}:{})} recordingModel={tv.identity.model} {...(onRecordingChange?{onRecordingChange}:{})} csrfToken={csrfToken} onSessionExpired={onSessionExpired}/>}
     <div className="tv-activity">
       {!tv && (status || error) && <div className={status?.connection === 'unconfigured' ? 'visually-hidden' : undefined}>{connectionIndicator}</div>}
       <div className={settingsOpen ? 'reserved-activity' : undefined} aria-hidden={settingsOpen || undefined} inert={settingsOpen}>{activity(true)}</div>

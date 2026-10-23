@@ -7,6 +7,12 @@ test('Add TV keeps the platform arrow inset and opens profile security', async (
   await tv.setupAndLogin(page);
   await page.getByRole('button', { name: 'Добавить ТВ' }).click();
   const select = page.getByRole('combobox', { name: 'Платформа телевизора' });
+  for (const field of [select, page.getByLabel('IP-адрес телевизора'), page.getByLabel('MAC-адрес телевизора')]) {
+    await expect(field).toHaveCSS('height', '40px');
+    await expect(field).toHaveCSS('border-radius', '8px');
+    await expect(field).toHaveCSS('background-color', 'rgb(34, 45, 57)');
+  }
+  await expect(page.getByRole('button', { name: 'Подключить', exact: true })).toHaveCSS('background-color', 'rgb(121, 228, 147)');
   await expect(select).toHaveCSS('appearance', 'none');
   const bounds = (await select.boundingBox())!;
   const arrow = (await select.locator('..').locator('svg').boundingBox())!;
