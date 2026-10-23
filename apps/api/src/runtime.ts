@@ -3,6 +3,8 @@ import {createOcrRecognizer,type OcrRecognizer} from './ocr/recognizer.js';
 import { createTestCaseRepository } from './test-cases/repository.js';
 import {createTestRunRepository} from './test-runs/repository.js';
 import {createArtifactStore} from './test-runs/artifacts.js';
+import {createStorageSettingsService,type StorageSettingsService} from './settings/service.js';
+import {createDiagnostics} from './settings/diagnostics.js';
 import {createTestRunService,type TestRunService} from './test-runs/service.js';
 import { createProfileRepository } from './profile/repository.js';
 import { buildApp } from './app.js';
@@ -44,6 +46,8 @@ export async function createApiRuntime(config: AppConfig, options: {
   const database = await (options.openDatabase ?? openDatabase)({ dataDir: config.dataDir });
   let tv: TvService | undefined;
   let testRunService:TestRunService|undefined;
+  let storageSettings:StorageSettingsService|undefined;
+  let cleanupTimer:ReturnType<typeof setInterval>|undefined;
   const ocr=options.ocrRecognizer??createOcrRecognizer();
   let tvs: TvDeviceRegistry | undefined;
   let unsubscribeRegistry: (() => void) | undefined;
@@ -56,6 +60,8 @@ export async function createApiRuntime(config: AppConfig, options: {
   const closeResources = async () => {
     const failures: unknown[] = [];
     unsubscribeRegistry?.();
+    if(cleanupTimer)clearInterval(cleanupTimer);
+    try{await storageSettings?.close();}catch(cause){failures.push(cause);}
     try {await testRunService?.close();}catch(cause){failures.push(cause);}
     try {await ocr.close();}catch(cause){failures.push(cause);}
     try { await tvs?.close(); } catch (cause) { failures.push(cause); }
@@ -92,7 +98,9 @@ export async function createApiRuntime(config: AppConfig, options: {
     const artifacts=await createArtifactStore({dataDir:config.dataDir,...(config.runArtifactMaxBytes===undefined?{}:{maxBytes:config.runArtifactMaxBytes})});
     testRunService=createTestRunService({recognize:(image,signal,expected)=>ocr.recognize(image,signal,expected),repository:createTestRunRepository(database.sqlite),artifacts,readCase:testCases.read,resolveTv:id=>tvs!.get(id),now,scheduler:options.scheduler??runtimeScheduler,onPersistenceFailure:code=>{if(logger)logger.error({code},'Run lifecycle state could not be persisted; execution was aborted');else console.error(code);}});
     await testRunService.recover();
+    storageSettings=createStorageSettingsService({sqlite:database.sqlite,artifacts,dataDir:config.dataDir,now});
     const app = buildApp({
+      settings:{storage:storageSettings,diagnostics:createDiagnostics({sqlite:database.sqlite,dataDir:config.dataDir,ocr,storage:storageSettings,now})},
       ocr,
       config,
       tv,
@@ -109,6 +117,8 @@ export async function createApiRuntime(config: AppConfig, options: {
       },
     });
     logger = app.log;
+    const sweep=()=>storageSettings!.sweep().catch(()=>app.log.error({code:'STORAGE_CLEANUP_FAILED'},'Storage cleanup failed; pending files will be retried'));
+    await sweep();cleanupTimer=setInterval(()=>{void sweep();},60*60_000);cleanupTimer.unref();
     if(options.warmOcr){
       const started=performance.now();
       logger.info({code:'OCR_WARMUP_STARTED'},'OCR startup warmup started');

@@ -1,9 +1,9 @@
 import {spawn as spawnProcess,type ChildProcessWithoutNullStreams} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {ocrBlockSchema,matchTextConditions,type OcrBlock} from '@remote-webos-tv/contracts';
+import {ocrBlockSchema,matchTextConditions,type OcrBlock,type OcrState} from '@remote-webos-tv/contracts';
 
 export interface OcrRecognition {blocks:OcrBlock[];engine:string;model:string}
-export interface OcrRecognizer {warmup?():Promise<void>;recognize(image:Buffer,signal:AbortSignal,expected?:string[]):Promise<OcrRecognition>;close():Promise<void>}
+export interface OcrRecognizer {status?():OcrState;warmup?():Promise<void>;recognize(image:Buffer,signal:AbortSignal,expected?:string[]):Promise<OcrRecognition>;close():Promise<void>}
 export class OcrError extends Error{constructor(readonly code:string,message:string){super(message);}}
 const MAX_RESPONSE_BYTES=1024*1024;
 
@@ -25,11 +25,12 @@ export function createOcrRecognizer(options:{spawn?:()=>ChildProcessWithoutNullS
  interface Worker {child:ChildProcessWithoutNullStreams;done:Promise<void>;stopping:boolean;failure?:Error}
  interface Job {worker:Worker;failure?:Error;consume(chunk:Buffer):void;cancel(error:Error):void;finish(error?:Error,value?:OcrRecognition):void}
  let closed=false,sequence=0,worker:Worker|undefined,active:Job|undefined;
+ let failed=false,metadata:{engine:string;model:string}|undefined;
  function terminate(current:Worker){if(!current.stopping){current.stopping=true;current.child.kill('SIGKILL');}}
  function acquire():Worker{
   if(worker)return worker;
   let child:ChildProcessWithoutNullStreams;
-  try{child=start();}catch{throw new Error('OCR process could not start');}
+  try{child=start();}catch{failed=true;throw new Error('OCR process could not start');}
   let exited!:()=>void;const current:Worker={child,done:new Promise<void>(resolve=>{exited=resolve;}),stopping:false};worker=current;
   child.stderr.resume(); // Never relay engine diagnostics, file paths or screen contents.
   child.stdout.on('data',(chunk:Buffer)=>{
@@ -39,6 +40,7 @@ export function createOcrRecognizer(options:{spawn?:()=>ChildProcessWithoutNullS
   child.on('error',()=>{current.failure=new Error('OCR process could not start');terminate(current);});
   child.stdin.on('error',()=>{if(active?.worker===current)active.cancel(new Error('OCR image delivery failed'));else terminate(current);});
   child.once('close',(code:number|null)=>{
+   if(!closed&&!current.stopping&&!active)failed=true;
    if(worker===current)worker=undefined;
    if(active?.worker===current)active.finish(active.failure??current.failure??new Error(`OCR process failed (exit ${code??'signal'})`));
    exited();
@@ -60,7 +62,7 @@ export function createOcrRecognizer(options:{spawn?:()=>ChildProcessWithoutNullS
      finish(error,value){
       if(finished)return;finished=true;clearTimeout(timeout);signal.removeEventListener('abort',abort);
       if(active===job)active=undefined;
-      if(error)reject(error);else resolve(value!);
+      if(error){failed=true;reject(error);}else{failed=false;metadata={engine:value!.engine,model:value!.model};resolve(value!);}
      },
      consume(chunk){
       if(job.failure)return;size+=chunk.length;if(size>MAX_RESPONSE_BYTES){job.cancel(new Error('OCR response exceeds limit'));return;}
@@ -94,6 +96,7 @@ export function createOcrRecognizer(options:{spawn?:()=>ChildProcessWithoutNullS
    });
   }
  return{
+  status:()=>({state:closed?'stopped':active||worker?.stopping?'busy':failed?'failed':worker?'ready':'stopped',engine:metadata?.engine??null,model:metadata?.model??null}),
   warmup:async()=>{await run(null,new AbortController().signal,[],120_000);},
   recognize:(image,signal,expected)=>run(image,signal,expected),
   async close(){closed=true;const current=worker;if(current){if(active?.worker===current)active.cancel(new Error('OCR closed'));else terminate(current);await current.done;}}

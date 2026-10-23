@@ -105,6 +105,7 @@ function migrationVersion(sqlite: Database.Database, latestVersion: number): num
   }
   if(version>=8) {try {sqlite.prepare('SELECT status FROM test_cases LIMIT 0');}catch(cause){throw new StorageStartupError('STORAGE_SCHEMA_INVALID',cause);}}
   if(version>=9&&sqlite.prepare('SELECT sql FROM sqlite_schema WHERE type=? AND name=?').pluck().get('table','test_runs')!==testRunsTableSql)throw new StorageStartupError('STORAGE_SCHEMA_INVALID');
+  if(version>=11){try{sqlite.prepare('SELECT id,document FROM storage_settings LIMIT 0');sqlite.prepare('SELECT id,pending_files FROM deleted_test_runs LIMIT 0');}catch(cause){throw new StorageStartupError('STORAGE_SCHEMA_INVALID',cause);}}
   return version;
 }
 

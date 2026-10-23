@@ -16,6 +16,48 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--ui-bg);
 .interface-settings h2 { margin: 0 0 24px; font-size: 20px; }
 .interface-settings .language-select { max-width: 320px; }
 .interface-settings > p { color: var(--ui-muted); font-size: 14px; }
+.app-settings { margin-top: var(--screen-header-gap); }
+.app-settings > h1 { margin-bottom: 32px; font-size: 28px; }
+.app-settings-layout { display: grid; grid-template-columns: 208px minmax(0, 1fr); align-items: start; gap: 16px; }
+.app-settings-nav { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--ui-border); border-radius: 12px; background: var(--ui-panel); }
+.app-settings-nav button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border-color: transparent; background: transparent; text-align: left; font-size: 14px; }
+.app-settings-nav button[aria-current="page"] { background: var(--ui-field); color: var(--ui-accent); border-color: var(--ui-border); }
+.app-settings-nav svg { width: 20px; height: 20px; flex-shrink: 0; }
+.app-settings-panel { min-width: 0; padding: 24px; border: 1px solid var(--ui-border); border-radius: 12px; background: var(--ui-panel); }
+.app-settings-panel h2 { margin: 0 0 8px; font-size: 22px; line-height: 28px; }
+.app-settings-panel .language-select { max-width: 320px; margin-top: 24px; }
+.settings-muted, .settings-data-list small, .settings-checkbox small, .cleanup-candidates small { color: var(--ui-muted); font-size: 14px; line-height: 20px; }
+.settings-title-row { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.settings-title-row > div { min-width: 0; }
+.settings-title-row p { margin: 0; }
+.settings-title-row > button { flex-shrink: 0; }
+.settings-block { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--ui-border); }
+.settings-block h3, .app-settings-panel legend { margin: 0; font-size: 16px; font-weight: 600; line-height: 24px; }
+.settings-data-list { margin: 16px 0 0; font-size: 14px; }
+.settings-data-list > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--ui-border); }
+.settings-data-list > div:last-child { border-bottom: 0; }
+.settings-data-list dt { min-width: 0; }
+.settings-data-list dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.settings-data-list small, .settings-checkbox small, .cleanup-candidates small { display: block; margin-top: 4px; font-weight: 400; }
+.settings-quota { display: grid; gap: 8px; margin: 16px 0; font-size: 14px; }
+.settings-quota progress { width: 100%; height: 10px; accent-color: var(--ui-accent); border: 0; border-radius: 4px; overflow: hidden; background: var(--ui-field); }
+.settings-quota progress::-webkit-progress-bar { background: var(--ui-field); }
+.settings-quota progress::-webkit-progress-value { background: var(--ui-accent); }
+.app-settings-panel form { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--ui-border); }
+.app-settings-panel fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.settings-days { display: grid; gap: 8px; max-width: 240px; margin: 16px 0 24px; font-size: 14px; font-weight: 600; }
+.settings-days input { width: 100%; }
+.settings-checkbox { display: flex; align-items: start; gap: 12px; margin-top: 20px; font-size: 14px; line-height: 20px; }
+.settings-checkbox input { flex: 0 0 auto; width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--ui-accent); }
+.settings-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.app-settings button.primary { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
+.app-settings-panel [role="alert"] { color: var(--ui-error); }
+.diagnostic-checks dd[data-state="ok"], .diagnostic-checks dd[data-state="ready"] { color: var(--ui-accent); }
+.diagnostic-checks dd[data-state="error"], .diagnostic-checks dd[data-state="failed"] { color: var(--ui-error); }
+.cleanup-candidates { margin: 16px 0; padding: 0; list-style: none; }
+.cleanup-candidates li { padding: 12px 0; border-bottom: 1px solid var(--ui-border); overflow-wrap: anywhere; }
+@media (max-width: 960px) { .app-settings-layout { grid-template-columns: minmax(0, 1fr); } .app-settings-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .app-settings-panel { padding: 16px; } .app-settings-nav { display: flex; flex-wrap: wrap; } .app-settings-nav button { width: auto; padding: 8px; } .settings-title-row { flex-wrap: wrap; } }
 .auth-screen .form-card { margin-top: 20px; }
 .login-card .field-error { margin: 6px 0 0; font-size: .85rem; }
 .login-card [role="status"]:empty { display: none; }

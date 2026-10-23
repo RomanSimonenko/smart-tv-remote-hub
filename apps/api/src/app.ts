@@ -1,4 +1,5 @@
 import {registerOcrDiagnostics} from './ocr/routes.js';
+import {registerSettingsRoutes} from './settings/routes.js';
 import type {OcrRecognizer} from './ocr/recognizer.js';
 import { registerTestCaseRoutes } from './test-cases/routes.js';
 import {registerCameraRoutes} from './camera/routes.js';
@@ -30,6 +31,7 @@ import { addressedTvService, registerTvDeviceRoutes } from './tv/device-routes.j
 import { projectTvError, TvServiceError } from './tv/service.js';
 
 export interface AppDependencies {
+  readonly settings?:Omit<Parameters<typeof registerSettingsRoutes>[1],'sessionForRequest'>;
   readonly ocr?:OcrRecognizer;
   readonly testRuns?:{service:TestRunService;artifacts:ArtifactStore};
   readonly config: AppConfig;
@@ -61,7 +63,7 @@ function routingError(error: Error & { code?: string }, request: FastifyRequest,
     });
 }
 
-export function buildApp({ ocr, config, getSetupState, webRoot, auth, profile, testCases, testRuns, tv, tvs, reportError, logStream }: AppDependencies) {
+export function buildApp({ settings, ocr, config, getSetupState, webRoot, auth, profile, testCases, testRuns, tv, tvs, reportError, logStream }: AppDependencies) {
   const app = Fastify({
     logger: safeLoggerOptions(logStream),
     bodyLimit: 16 * 1024,
@@ -135,6 +137,12 @@ export function buildApp({ ocr, config, getSetupState, webRoot, auth, profile, t
   if (testCases) {
     if (!auth) throw new Error('Test case routes require owner authentication');
     registerTestCaseRoutes(app, testCases);
+  }
+  if(settings){
+    if(!auth)throw new Error('Settings require owner authentication');
+    registerSettingsRoutes(app,{...settings,sessionForRequest:request=>{const token=sessionForRequest!(request);return token&&auth.sessions.authenticate(token)?token:undefined;}});
+    const unsubscribe=auth.sessions.onRevoke(token=>settings.storage.forget(token));
+    app.addHook('onClose',async()=>{unsubscribe();});
   }
   if(testRuns){
     if(!auth||!tvs)throw new Error('Test runs require owner authentication and TV registry');

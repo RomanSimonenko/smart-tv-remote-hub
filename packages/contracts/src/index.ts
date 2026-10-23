@@ -12,3 +12,4 @@ export * from './test-runs.js';
 export * from './camera.js';
 export * from './camera-gate.js';
 export * from './text-conditions.js';
+export * from './settings.js';
