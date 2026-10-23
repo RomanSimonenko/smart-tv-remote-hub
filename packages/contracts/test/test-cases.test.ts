@@ -1,7 +1,15 @@
 import { expect, test } from 'vitest';
-import { testCaseDraftSchema, createTestCaseSchema, updateTestCaseSchema } from '../src/test-cases.js';
+import { testCaseDraftSchema, createTestCaseSchema, updateTestCaseSchema, testCaseKeyActionSchema } from '../src/test-cases.js';
 const id = '00000000-0000-4000-8000-000000000001';
 const draft = { title: ' Кейс ', description: '', group: '', steps: [] };
+test('hold duration is optional, bounded and restricted to navigation, volume and channels',()=>{
+ const action={id,action:'RIGHT',pauseAfterMs:500};
+ expect(testCaseKeyActionSchema.parse(action)).toEqual(action);
+ for(const button of ['UP','DOWN','LEFT','RIGHT','VOLUME_UP','VOLUME_DOWN','CHANNEL_UP','CHANNEL_DOWN'])
+  for(const holdForMs of [100,1000,4000]) expect(testCaseKeyActionSchema.safeParse({...action,action:button,holdForMs}).success).toBe(true);
+ for(const holdForMs of [0,-1,99,4001,100.5,'1000',null]) expect(testCaseKeyActionSchema.safeParse({...action,holdForMs}).success).toBe(false);
+ for(const button of ['ENTER','BACK','HOME','MUTE','1','power','wink','unknown']) expect(testCaseKeyActionSchema.safeParse({...action,action:button,holdForMs:1000}).success).toBe(false);
+});
 test('normalizes title and permits an empty draft', () => {
   expect(testCaseDraftSchema.parse(draft)).toEqual({ ...draft, title: 'Кейс' });
 });

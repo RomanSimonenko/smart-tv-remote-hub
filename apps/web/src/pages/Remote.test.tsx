@@ -129,7 +129,7 @@ test('switchTvStopsHeldCommand', async () => {
   await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
   expect(commands).toEqual(['/api/tvs/00000000-0000-4000-8000-000000000001/commands']);
 });
-test.each(['Вверх', 'Вниз', 'Влево', 'Вправо', 'Громкость −', 'Громкость +'])('pointer hold repeats %s and release click does not add another command', async (label) => {
+test.each(['Вверх', 'Вниз', 'Влево', 'Вправо', 'Громкость −', 'Громкость +', 'Канал −', 'Канал +'])('pointer hold repeats %s and release click does not add another command', async (label) => {
   vi.useFakeTimers(); const view = await mount(); const button = screen.getByRole('button', { name: label });
   pointer(button, 'pointerdown'); await act(async () => {});
   expect(view.commands()).toHaveLength(1);
@@ -147,7 +147,7 @@ test.each(['blur', 'leave', 'cancel', 'hidden', 'unmount'])('hold stops on %s', 
   if (ending === 'unmount') view.unmount();
   await act(async () => { await vi.advanceTimersByTimeAsync(1000); }); expect(view.commands()).toHaveLength(1);
 });
-test.each(['Канал −', 'Канал +', 'OK', 'Без звука', '1', 'Красная'])('%s never starts pointer repetition', async (label) => {
+test.each(['OK', 'Без звука', '1', 'Красная'])('%s never starts pointer repetition', async (label) => {
   vi.useFakeTimers(); const view = await mount(); const button = screen.getByRole('button', { name: label });
   pointer(button, 'pointerdown'); await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
   expect(view.commands()).toHaveLength(0);

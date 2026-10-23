@@ -186,9 +186,10 @@ test('buttonFrameMatchesProtocolAndNeverUsesPointer', async () => {
 test.each([
   ['UP', 'KEY_UP'], ['DOWN', 'KEY_DOWN'], ['LEFT', 'KEY_LEFT'], ['RIGHT', 'KEY_RIGHT'],
   ['VOLUME_UP', 'KEY_VOLUP'], ['VOLUME_DOWN', 'KEY_VOLDOWN'],
+  ['CHANNEL_UP', 'KEY_CHUP'], ['CHANNEL_DOWN', 'KEY_CHDOWN'],
 ] as const)('native %s hold sends Press and Release without Click', async (button, key) => {
   const h = harness(); const socket = await h.connect();
-  expect([...h.adapter.nativeHoldButtons!].sort()).toEqual(['DOWN', 'LEFT', 'RIGHT', 'UP', 'VOLUME_DOWN', 'VOLUME_UP']);
+  expect([...h.adapter.nativeHoldButtons!].sort()).toEqual(['CHANNEL_DOWN', 'CHANNEL_UP', 'DOWN', 'LEFT', 'RIGHT', 'UP', 'VOLUME_DOWN', 'VOLUME_UP']);
   await h.adapter.pressButton!(button, h.signal);
   await h.adapter.releaseButton!(button, h.signal);
   expect(socket.frames.map(frame => JSON.parse(frame).params)).toEqual([
@@ -199,7 +200,7 @@ test.each([
   expect(socket.frames).toHaveLength(2);
 });
 
-test.each(['HOME', 'BACK', 'ENTER', 'CHANNEL_UP', 'CHANNEL_DOWN', 'MUTE', '1', 'RED'] as const)('native hold rejects %s without transport writes', async button => {
+test.each(['HOME', 'BACK', 'ENTER', 'MUTE', '1', 'RED'] as const)('native hold rejects %s without transport writes', async button => {
   const h = harness(); const socket = await h.connect();
   await expect(h.adapter.pressButton!(button, h.signal)).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY', delivery: 'not_sent' });
   await expect(h.adapter.releaseButton!(button, h.signal)).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY', delivery: 'not_sent' });

@@ -1,5 +1,6 @@
 import type { TvPlatform } from './tv.js';
 import type { BasicTvButton } from './tv-command.js';
+import type { TvRemoteState } from './tv-command.js';
 
 export type TvActionId = BasicTvButton | 'wink' | 'power';
 export type TvHoldMode = 'none' | 'repeat' | 'native';
@@ -31,7 +32,7 @@ export const tvActionCatalog: readonly TvActionDefinition[] = [
   button('VOLUME_DOWN', 'Громкость −', 'volume', ['-'], true, true),
   button('MUTE', 'Без звука', 'volume', ['m', 'M']),
   button('VOLUME_UP', 'Громкость +', 'volume', ['+'], true, true),
-  button('CHANNEL_DOWN', 'Канал −', 'channel'), button('CHANNEL_UP', 'Канал +', 'channel'),
+  button('CHANNEL_DOWN', 'Канал −', 'channel', [], true, true), button('CHANNEL_UP', 'Канал +', 'channel', [], true, true),
   button('RED', 'Красная', 'color'), button('GREEN', 'Зелёная', 'color'),
   button('YELLOW', 'Жёлтая', 'color'), button('BLUE', 'Синяя', 'color'),
   { id: 'wink', label: 'Запустить Wink', group: 'app', kind: 'app', keyboardKeys: [], holdByPlatform: { webos: 'none', tizen: 'none', whale: 'none' } },
@@ -43,3 +44,16 @@ export function getTvAction(id: TvActionId): TvActionDefinition {
   if (!action) throw new Error('Unknown TV action');
   return action;
 }
+
+export function canHoldTvAction(id: TvActionId): boolean {
+  return Object.values(getTvAction(id).holdByPlatform).some(mode => mode !== 'none');
+}
+
+export function supportsTvActionHold(id: TvActionId, platform: TvPlatform, remote: TvRemoteState): boolean {
+  if (!remote.enabled) return false;
+  const mode = getTvAction(id).holdByPlatform[platform];
+  return mode === 'repeat' || mode === 'native' && remote.nativeHoldButtons?.some(button => button === id) === true;
+}
+
+export const TV_HOLD_REPEAT_DELAY_MS = 400;
+export const TV_HOLD_REPEAT_INTERVAL_MS = 200;

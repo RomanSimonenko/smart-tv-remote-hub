@@ -3,6 +3,15 @@ import {setLanguage} from '../i18n.js';
 import {TestRunner} from './TestRunner.js';import {api} from '../api.js';
 import type {TestRun} from '@remote-webos-tv/contracts';
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
+test.each([['webos',true],['tizen',false],['whale',false]] as const)('preparation checks held actions against %s capabilities',async(platform,ready)=>{
+ const id=crypto.randomUUID();
+ vi.spyOn(api,'getTestCase').mockResolvedValue({id,title:'Synthetic hold',description:'',group:'',status:'ready',version:1,createdAt:1,updatedAt:1,steps:[{id,kind:'when',text:'Hold',actions:[{id,action:'RIGHT',pauseAfterMs:0,holdForMs:1000}]}]});
+ vi.spyOn(api,'tvDevices').mockResolvedValue({devices:[{tvId:id,platform,status:{tv:{host:'192.0.2.10',identity:{model:'Synthetic TV'}},connection:'available',operation:null}}]});
+ vi.spyOn(api,'remoteState').mockResolvedValue({enabled:true,reason:null});
+ vi.spyOn(api,'powerState').mockResolvedValue({mac:null,operation:null,canPowerOff:true,canWake:false});
+ render(<TestRunner caseId={id} csrfToken="synthetic" onSessionExpired={()=>{}} onBack={()=>{}} onOpenRuns={()=>{}} onRunningChange={()=>{}}/>);
+ await waitFor(()=>expect(screen.getByText(ready?'ТВ готов':/Вправо/)).toBeTruthy());
+});
 test('an existing unsupported-action diagnostic changes language without repeating capability requests',async()=>{
  const id='00000000-0000-4000-8000-000000000001';
  vi.spyOn(api,'getTestCase').mockResolvedValue({id,title:'Синтетический кейс',description:'',group:'',status:'ready',version:1,createdAt:1,updatedAt:1,steps:[{id,kind:'given',text:'Действие пользователя',actions:[{id,action:'wink',pauseAfterMs:0}]}]});

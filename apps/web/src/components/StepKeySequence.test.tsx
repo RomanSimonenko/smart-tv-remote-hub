@@ -3,6 +3,17 @@ import {afterEach,expect,test,vi} from 'vitest';
 import {StepKeySequence} from './StepKeySequence.js';
 afterEach(cleanup);
 const actions=[{id:'00000000-0000-4000-8000-000000000011',action:'RIGHT' as const,pauseAfterMs:500},{id:'00000000-0000-4000-8000-000000000012',action:'ENTER' as const,pauseAfterMs:1000}];
+test('enables hold only for eligible buttons and preserves pause when editing or disabling hold',()=>{
+ const change=vi.fn();const view=render(<StepKeySequence actions={actions} onChange={change} disabled={false}/>);
+ fireEvent.click(screen.getByLabelText('Удерживать кнопку 1'));
+ expect(change).toHaveBeenLastCalledWith([{...actions[0],holdForMs:1000},actions[1]]);
+ expect(screen.queryByLabelText('Удерживать кнопку 2')).toBeNull();
+ view.rerender(<StepKeySequence actions={[{...actions[0]!,holdForMs:1000},actions[1]!]} onChange={change} disabled={false}/>);
+ fireEvent.change(screen.getByLabelText('Длительность удержания 1, мс'),{target:{value:'2000'}});
+ expect(change.mock.lastCall?.[0][0]).toEqual({...actions[0],holdForMs:2000});
+ fireEvent.click(screen.getByLabelText('Удерживать кнопку 1'));
+ expect(change).toHaveBeenLastCalledWith(actions);
+});
 test('reorders and removes actions by identity and edits pause without coercing invalid values',()=>{
  const change=vi.fn();render(<StepKeySequence actions={actions} onChange={change} disabled={false}/>);
  fireEvent.keyDown(screen.getByRole('button',{name:'Перетащить нажатие 2'}),{key:'ArrowUp',altKey:true});expect(change).toHaveBeenLastCalledWith([actions[1],actions[0]]);

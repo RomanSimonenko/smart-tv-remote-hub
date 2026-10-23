@@ -73,7 +73,7 @@ test('key sequences survive retries, updates and reopen without changing legacy 
  const legacy={...input,steps:[{id:'00000000-0000-4000-8000-000000000010',kind:'when' as const,text:'Действие'}]};
  const first=repo.create(legacy);expect(repo.create(legacy)).toEqual(first);
  expect(repo.read(input.id)).toEqual(first);expect(repo.read(input.id)?.steps[0]).not.toHaveProperty('actions');
- const actions=[{id:'00000000-0000-4000-8000-000000000020',action:'RIGHT' as const,pauseAfterMs:500},{id:'00000000-0000-4000-8000-000000000021',action:'RIGHT' as const,pauseAfterMs:1000}];
+ const actions=[{id:'00000000-0000-4000-8000-000000000020',action:'RIGHT' as const,pauseAfterMs:500},{id:'00000000-0000-4000-8000-000000000021',action:'RIGHT' as const,pauseAfterMs:1000,holdForMs:2000}];
  const {id:_id,...legacyDraft}=legacy;
  repo.update(input.id,{...legacyDraft,version:1,steps:[{...legacy.steps[0]!,actions}]});
  db.close();db=await openDatabase({dataDir});repo=createTestCaseRepository(db.sqlite,{now:()=>200});

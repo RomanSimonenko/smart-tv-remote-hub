@@ -11,11 +11,11 @@ test('catalog covers every current remote button, application and power exactly 
   expect(getTvAction('power')).toMatchObject({ kind: 'power' });
 });
 
-test('LG repeat and Samsung native hold cover only navigation arrows and volume', () => {
+test('LG repeat and Samsung native hold cover navigation arrows, volume and channels', () => {
   expect(tvActionCatalog.filter(action => action.holdByPlatform.webos === 'repeat').map(action => action.id).sort())
-    .toEqual(['DOWN', 'LEFT', 'RIGHT', 'UP', 'VOLUME_DOWN', 'VOLUME_UP']);
+    .toEqual(['CHANNEL_DOWN', 'CHANNEL_UP', 'DOWN', 'LEFT', 'RIGHT', 'UP', 'VOLUME_DOWN', 'VOLUME_UP']);
   expect(tvActionCatalog.filter(action => action.holdByPlatform.tizen === 'native').map(action => action.id).sort())
-    .toEqual(['DOWN', 'LEFT', 'RIGHT', 'UP', 'VOLUME_DOWN', 'VOLUME_UP']);
+    .toEqual(['CHANNEL_DOWN', 'CHANNEL_UP', 'DOWN', 'LEFT', 'RIGHT', 'UP', 'VOLUME_DOWN', 'VOLUME_UP']);
   expect(getTvAction('power').holdByPlatform).toEqual({ webos: 'none', tizen: 'none', whale: 'none' });
   expect(getTvAction('wink').holdByPlatform).toEqual({ webos: 'none', tizen: 'none', whale: 'none' });
 });

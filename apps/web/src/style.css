@@ -706,6 +706,11 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .step-key-table ol, .key-actions-queue ol { list-style: none; margin: 0; padding: 0; }
 .step-key-table li + li { border-top: 1px solid var(--ui-border); }
 .step-key-row { display: flex; gap: 8px; align-items: center; padding: 8px; }
+.step-key-hold { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 8px 8px 60px; }
+.case-step-parameters .step-key-hold label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; font-weight: 400; }
+.case-step-parameters .step-key-hold input[type=checkbox] { width: 16px; height: 16px; min-height: 16px; margin: 0; accent-color: var(--ui-accent); }
+.case-step-parameters .step-key-hold input[type=number] { width: 84px; height: 32px; min-height: 32px; padding: 4px 6px; border-radius: 8px; }
+.step-key-hold label > span { color: var(--ui-muted); }
 .key-action-number { flex: 0 0 16px; color: var(--ui-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .step-key-label { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
 .case-step-parameters .step-key-pause { display: flex; flex: 0 0 100px; gap: 6px; align-items: center; margin: 0; font-size: 12px; font-weight: 400; }

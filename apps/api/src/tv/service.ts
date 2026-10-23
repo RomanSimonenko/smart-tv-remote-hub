@@ -8,7 +8,7 @@ import { createStagingKeyStore } from './staging-key-store.js';
 import { abortable, cleanupFailure, failedConnection, hasCleanupFailure, projectTvError, TvServiceError, type PublicTvError } from './operation.js';
 import { executeTvCommand, rejectTvCommand, TvCommandAdmissionError, unknownTvCommand } from './commands.js';
 import { isTransientTvFailure, recoveryAttemptBudget, recoveryCooldown, waitForTv } from './recovery.js';
-import { basicTvButtonSchema, tvHoldRequestSchema, type BasicTvButton, type TvHoldRequest } from '@remote-webos-tv/contracts';
+import { basicTvButtonSchema, tvHoldRequestSchema, keyHoldDurationSchema, getTvAction, supportsTvActionHold, TV_HOLD_REPEAT_DELAY_MS, TV_HOLD_REPEAT_INTERVAL_MS, type BasicTvButton, type TvHoldRequest } from '@remote-webos-tv/contracts';
 import { createTvHold } from './hold.js';
 
 export { TvServiceError, projectTvError } from './operation.js';
@@ -44,6 +44,7 @@ export interface TvService {
   releaseRunLease(token:symbol):void;
   assertNoRunLease():void;
   sendRunPower(id:string,owner:string,signal:AbortSignal,lease:symbol):Promise<TvCommandResult>;
+  sendRunHold(id:string,button:BasicTvButton,durationMs:number,owner:string,signal:AbortSignal,lease:symbol):Promise<TvCommandResult>;
   powerState(): TvPowerState;
   setMac(mac: string | null): TvPowerState;
   assertCanStartPower(input: TvPowerRequest,lease?:symbol): TvPowerRequest;
@@ -821,25 +822,68 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
       ...(activeAdapter.pressButton && activeAdapter.releaseButton && activeAdapter.nativeHoldButtons ? { nativeHoldButtons: activeAdapter.nativeHoldButtons.filter((button): button is BasicTvButton => basicTvButtonSchema.safeParse(button).success) } : {}) };
   }
 
-  function assertCanHold(input: TvHoldRequest, owner: string): TvHoldRequest {
+  function assertCanHold(input: TvHoldRequest, owner: string, lease?: symbol): TvHoldRequest {
     const parsed = tvHoldRequestSchema.safeParse(input);
     if (!parsed.success) throw new TvServiceError('INVALID_REQUEST', 400);
     if (parsed.data.phase === 'release' || holding.has(parsed.data, owner)) return parsed.data;
-    assertNewHold(parsed.data);
+    assertNewHold(parsed.data,lease);
     return parsed.data;
   }
 
-  function assertNewHold(input: TvHoldRequest): void {
-    assertCanSendCommand({ id: input.id, button: input.button });
+  function assertNewHold(input: TvHoldRequest, lease?: symbol): void {
+    assertCanSendCommand({ id: input.id, button: input.button },lease);
     if (probe) throw new TvCommandAdmissionError('TV_BUSY');
   }
 
-  async function hold(input: TvHoldRequest, owner: string, signal: AbortSignal): Promise<TvCommandResult> {
+  async function hold(input: TvHoldRequest, owner: string, signal: AbortSignal, lease?: symbol): Promise<TvCommandResult> {
     try {
-      input = assertCanHold(input, owner);
-      return input.phase === 'release' ? holding.release(input, owner) : holding.press(input, owner, activeAdapter!, signal, () => assertNewHold(input));
+      input = assertCanHold(input, owner,lease);
+      return input.phase === 'release' ? holding.release(input, owner) : holding.press(input, owner, activeAdapter!, signal, () => assertNewHold(input,lease));
     }
     catch (cause) { if (cause instanceof TvCommandAdmissionError) return rejectTvCommand(input.id, cause.code); throw cause; }
+  }
+
+  async function sendRunHold(id:string,button:BasicTvButton,durationMs:number,owner:string,signal:AbortSignal,lease:symbol):Promise<TvCommandResult> {
+    assertLease(lease);
+    if (runLease !== lease) throw new TvServiceError('OPERATION_CONFLICT',409);
+    keyHoldDurationSchema.parse(durationMs);
+    if (!supportsTvActionHold(button,platform,remoteState(lease))) return rejectTvCommand(id,'UNSUPPORTED_CAPABILITY');
+    if (getTvAction(button).holdByPlatform[platform] === 'native') {
+      const input={id,button,phase:'press' as const};
+      const pressed=await hold(input,owner,signal,lease);
+      if (pressed.outcome==='rejected') return pressed;
+      let released:TvCommandResult;
+      let heldForDuration=false;
+      try {
+        if (pressed.outcome==='sent' && !signal.aborted) {
+          await waitForTv(scheduler,durationMs,signal);
+          heldForDuration=holding.isPressed(id,owner);
+        }
+      } catch (cause) {
+        if (!signal.aborted) throw cause;
+      } finally {
+        // Release has its own cancellation budget; retain the run lease until it settles.
+        released=await hold({...input,phase:'release'},owner,signal,lease);
+      }
+      if (released.outcome!=='sent' || !heldForDuration) return unknownTvCommand(id);
+      return signal.aborted ? unknownTvCommand(id) : {id,outcome:'sent'};
+    }
+    const startedAt=scheduler.now(),deadline=startedAt+durationMs;
+    let sent=false;
+    try {
+      let nextTick=startedAt+TV_HOLD_REPEAT_DELAY_MS;
+      while (!signal.aborted && scheduler.now()<deadline) {
+        const result=await sendCommand({id,button},signal,lease);
+        if (result.outcome!=='sent') return sent ? unknownTvCommand(id) : result;
+        sent=true;
+        const current=scheduler.now();
+        // Fixed cadence, no backlog: discard ticks missed while transport was pending.
+        if(nextTick<current)nextTick+=Math.ceil((current-nextTick)/TV_HOLD_REPEAT_INTERVAL_MS)*TV_HOLD_REPEAT_INTERVAL_MS;
+        if(current<deadline)await waitForTv(scheduler,Math.min(nextTick,deadline)-current,signal);
+        nextTick+=TV_HOLD_REPEAT_INTERVAL_MS;
+      }
+    } catch (cause) { if (!signal.aborted) throw cause; }
+    return signal.aborted ? sent ? unknownTvCommand(id) : rejectTvCommand(id,'COMMAND_NOT_SENT') : {id,outcome:'sent'};
   }
 
   function assertCanSendCommand(input: TvCommandRequest,lease?:symbol): TvCommandRequest {
@@ -954,7 +998,7 @@ export function createTvService(dependencies: TvServiceDependencies): TvService 
       attempt.pin.submit(pin);
       return copyOperation(attempt.operation);
     },
-    assertCanStart, start, status, cancel, initialize, close, remoteState, assertCanSendCommand, sendCommand, powerState, setMac, assertCanStartPower, startPower, cancelPower, cancelOwnedPower, assertCanHold, hold, cancelOwnedHold: (owner) => holding.stop(owner), isHolding: holding.isHolding,
+    assertCanStart, start, status, cancel, initialize, close, remoteState, assertCanSendCommand, sendCommand, sendRunHold, powerState, setMac, assertCanStartPower, startPower, cancelPower, cancelOwnedPower, assertCanHold, hold, cancelOwnedHold: (owner) => holding.stop(owner), isHolding: holding.isHolding,
     onPowerFinished(listener) { powerFinishedListeners.add(listener); return () => { powerFinishedListeners.delete(listener); }; },
   };
 }

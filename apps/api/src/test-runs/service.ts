@@ -1,6 +1,6 @@
 import type {OcrRecognition} from '../ocr/recognizer.js';
 import {createHash,randomUUID} from 'node:crypto';
-import {RUN_LEASE_MS,startTestRunSchema,matchTextConditions,type StartTestRun,type TestRun,type TestCase,type RunFailure,type TvPlatform,type TvCommandResult} from '@remote-webos-tv/contracts';
+import {RUN_LEASE_MS,startTestRunSchema,matchTextConditions,supportsTvActionHold,basicTvButtonSchema,type StartTestRun,type TestRun,type TestCase,type RunFailure,type TvPlatform,type TvCommandResult} from '@remote-webos-tv/contracts';
 import type {TestRunRepository} from './repository.js';
 import type {ArtifactStore} from './artifacts.js';
 import type {TvService,TvScheduler} from '../tv/service.js';
@@ -34,6 +34,7 @@ export function createTestRunService(deps:{repository:TestRunRepository;artifact
   const tv=deps.resolveTv(input.tvId);if(!tv)throw new RunError('TV_NOT_FOUND',404);
   const remote=tv.remoteState(),power=tv.powerState();
   for(const step of scenario.steps)for(const action of step.actions??[]){
+   if(action.holdForMs!==undefined&&!supportsTvActionHold(action.action,platform,remote))throw new RunError('UNSUPPORTED_CAPABILITY',422);
    if(action.action==='power'){if(!power.canPowerOff&&!power.canWake)throw new RunError('UNSUPPORTED_CAPABILITY',422);}
    else if(!remote.enabled||action.action==='wink'&&!remote.apps)throw new RunError(remote.enabled?'UNSUPPORTED_CAPABILITY':'TV_UNAVAILABLE',422);
   }
@@ -59,7 +60,7 @@ export function createTestRunService(deps:{repository:TestRunRepository;artifact
   // Publish durable sending before touching transport: ambiguous delivery is never replayed.
   const pending=Promise.resolve().then(async()=>{
    let delivery:TvCommandResult|undefined;
-   if(current.action){const action=current.action.action;delivery=action==='power'?await powerCommand(entry,itemId):await entry.tv.sendCommand(action==='wink'?{id:itemId,app:'wink'}:{id:itemId,button:action},entry.controller.signal,entry.lease);}
+   if(current.action){const action=current.action.action;delivery=current.action.holdForMs!==undefined?await entry.tv.sendRunHold(itemId,basicTvButtonSchema.parse(action),current.action.holdForMs,entry.owner,entry.controller.signal,entry.lease):action==='power'?await powerCommand(entry,itemId):await entry.tv.sendCommand(action==='wink'?{id:itemId,app:'wink'}:{id:itemId,button:action},entry.controller.signal,entry.lease);}
    const latest=read(id);const captureNotBefore=now()+(current.action?.pauseAfterMs??0);
    const updated=repository.replace({...latest,items:latest.items.map(item=>item.id===itemId?{...item,phase:'awaiting_snapshot',captureNotBefore,...(delivery?{delivery}:{})}:item)},latest.revision);
    if(updated.status==='running'&&delivery&&delivery.outcome!=='sent')return terminal(id,'error',{stage:'command',code:delivery.error.code});

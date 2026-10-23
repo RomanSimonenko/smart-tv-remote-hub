@@ -1,14 +1,20 @@
 import { z } from 'zod';
 import {textConditionsSchema} from './text-conditions.js';
-import { tvActionCatalog, type TvActionId } from './tv-actions.js';
+import { tvActionCatalog, canHoldTvAction, type TvActionId } from './tv-actions.js';
 export const MAX_STEP_KEY_ACTIONS = 200;
 export const DEFAULT_KEY_PAUSE_MS = 500;
 export const MAX_KEY_PAUSE_MS = 60000;
+export const MIN_KEY_HOLD_MS = 100;
+// Leave room for Release before the existing 5-second native-hold watchdog.
+export const MAX_KEY_HOLD_MS = 4000;
+export const DEFAULT_KEY_HOLD_MS = 1000;
+export const keyHoldDurationSchema = z.number().int().min(MIN_KEY_HOLD_MS).max(MAX_KEY_HOLD_MS);
 export const testCaseKeyActionSchema = z.strictObject({
  id: z.uuid(),
  action: z.custom<TvActionId>((value) => typeof value === 'string' && tvActionCatalog.some(action => action.id === value), 'Unknown TV action'),
  pauseAfterMs: z.number().int().min(0).max(MAX_KEY_PAUSE_MS),
-});
+ holdForMs: keyHoldDurationSchema.optional(),
+}).refine(value => value.holdForMs === undefined || canHoldTvAction(value.action), {path:['holdForMs'],message:'Hold is not supported for this action'});
 export const testCaseKeyActionsSchema = z.array(testCaseKeyActionSchema).max(MAX_STEP_KEY_ACTIONS).refine(actions => new Set(actions.map(action => action.id)).size === actions.length, 'Duplicate action identity');
 export type TestCaseKeyAction = z.infer<typeof testCaseKeyActionSchema>;
 export const testCaseIdSchema = z.uuid();
