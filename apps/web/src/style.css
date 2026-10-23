@@ -606,7 +606,7 @@ button.primary:disabled { background: var(--ui-field); border-color: var(--ui-bo
 .case-step-kind { font-weight: 600; }
 .case-step-text { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 14px; line-height: 20px; }
 .case-sequence .case-step-select:hover:not(:disabled) { background: transparent; }
-.case-sequence .case-step-actions > button, .case-sequence .case-step-actions > .case-insert-anchor > button { width: 32px; min-height: 32px; padding: 6px; background: transparent; border-color: transparent; }
+.case-sequence .case-step-actions > button, .case-sequence .case-step-actions > .case-insert-anchor > button { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; min-height: 32px; padding: 0; background: transparent; border-color: transparent; }
 .case-sequence .case-step-actions > button:hover:not(:disabled), .case-sequence .case-step-actions > .case-insert-anchor > button:hover:not(:disabled) { background: var(--ui-panel); border-color: var(--ui-border); }
 .case-sequence .case-step-actions svg { width: 20px; height: 20px; }
 @container (max-width: 600px) {
@@ -695,14 +695,6 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 /* Import actions remain outside the dialog's scrolling content. */
 .settings-footer { flex-shrink: 0; padding: 16px 24px 0; margin-top: 16px; border-top: 1px solid var(--ui-border); }
 .bdd-close-confirmation { padding: 20px 0; }
-/* Keep the desktop editor usable when the window is reduced or zoomed. */
-@media (min-width: 901px) and (max-width: 1100px) {
- .case-editor-layout { grid-template-columns: minmax(0, 1fr) 280px; }
- .case-sequence .case-step-row { flex-wrap: wrap; }
- .case-sequence .case-step-select { flex-basis: 100%; grid-template-columns: 20px 32px 48px minmax(0,1fr); gap: 8px; }
- .case-sequence .case-step-select > svg { width: 32px; height: 32px; padding: 5px; }
- .case-step-actions { margin-left: auto; }
-}
 @media (max-width: 900px) {
  .case-steps { display: flex; flex-direction: column; min-height: 0; flex: none; }
  .case-sequence { max-height: 40dvh; min-height: 0; overflow-y: auto; grid-auto-rows: max-content; align-content: start; padding: 2px; }
@@ -725,7 +717,6 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .case-sequence .case-step-row[data-drop-before=true]::before, .case-sequence .case-step-row[data-drop-after=true]::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; background: var(--ui-accent); border-radius: 1px; pointer-events: none; z-index: 3; }
 .case-sequence .case-step-row[data-drop-before=true]::before { top: -5px; }
 .case-sequence .case-step-row[data-drop-after=true]::after { bottom: -5px; }
-@media (max-width: 1100px) { .case-sequence .case-step-select { flex-basis: calc(100% - 32px); } }
 
 .case-sequence .case-step-row:first-child[data-drop-before=true]::before { top: 0; }
 .case-sequence .case-step-row:last-child[data-drop-after=true]::after { bottom: 0; }
@@ -751,13 +742,12 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .step-key-hold { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 8px 8px 60px; }
 .case-step-parameters .step-key-hold label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; font-weight: 400; }
 .case-step-parameters .step-key-hold input[type=checkbox] { width: 16px; height: 16px; min-height: 16px; margin: 0; accent-color: var(--ui-accent); }
-.case-step-parameters .step-key-hold input[type=number] { width: 84px; height: 32px; min-height: 32px; padding: 4px 6px; border-radius: 8px; }
 .step-key-hold label > span { color: var(--ui-muted); }
 .key-action-number { flex: 0 0 16px; color: var(--ui-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .step-key-label { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
-.case-step-parameters .step-key-pause { display: flex; flex: 0 0 100px; gap: 6px; align-items: center; margin: 0; font-size: 12px; font-weight: 400; }
-.case-step-parameters .step-key-pause input { width: 76px; height: 32px; min-height: 32px; padding: 4px 6px; border-radius: 8px; }
-.step-key-pause > span { color: var(--ui-muted); }
+.case-step-parameters .step-key-pause, .case-step-parameters .step-key-hold-duration { display: flex; flex: 0 0 100px; gap: 6px; align-items: center; margin: 0; font-size: 12px; font-weight: 400; }
+.case-step-parameters .step-key-number input { width: 76px; height: 32px; min-height: 32px; padding: 4px 6px; border-radius: 8px; }
+.step-key-pause > span, .step-key-hold-duration > span { color: var(--ui-muted); }
 .step-key-actions { display: flex; flex: 0 0 32px; }
 .case-editor .step-key-drag { display: grid; place-items: center; width: 20px; min-width: 20px; height: 32px; min-height: 32px; padding: 0; border: 0; background: transparent; cursor: grab; color: var(--ui-muted); }
 .step-key-drag svg { width: 16px; height: 16px; }
@@ -806,13 +796,53 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 }
 
 .step-key-number { position: relative; display: inline-flex; width: 76px; flex: 0 0 76px; }
-.case-step-parameters .step-key-pause input { appearance: textfield; -moz-appearance: textfield; padding-right: 22px; }
-.step-key-pause input::-webkit-inner-spin-button, .step-key-pause input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.case-step-parameters .step-key-number input { appearance: textfield; -moz-appearance: textfield; padding-right: 22px; }
+.step-key-number input::-webkit-inner-spin-button, .step-key-number input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .step-key-spinner { display: flex; flex-direction: column; position: absolute; right: 2px; top: 1px; bottom: 1px; width: 20px; }
 .case-editor .step-key-spinner button { display: flex; align-items: center; justify-content: center; min-height: 0; height: 50%; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--ui-muted); }
 .case-editor .step-key-spinner button > svg { width: 14px; height: 14px; }
 .case-editor .step-key-spinner button:hover:not(:disabled) { color: var(--ui-text); background: var(--ui-border); }
 .case-editor .step-key-spinner button:focus-visible { outline-offset: -2px; }
+.case-editor .case-editor-layout { grid-template-columns: minmax(0, 1fr); }
+.step-editor-dialog { width: 1000px; max-width: calc(100vw - 48px); max-height: calc(100dvh - 48px); padding: 0; }
+.step-editor-dialog .settings-content { margin: 0; padding: 24px; overflow-y: auto; }
+.step-editor-dialog .settings-content > form { margin: 0; }
+.step-editor-dialog .case-step-parameters textarea { font: inherit; color: var(--ui-text); background: var(--ui-field); padding: 10px 12px; }
+.step-editor-dialog .case-step-parameters .text-condition input { height: 40px; min-height: 40px; padding: 8px 12px; border-radius: 8px; background: var(--ui-field); }
+.step-editor-dialog .settings-footer { padding: 16px 24px; }
+.step-editor-dialog .case-step-parameters { display: block; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; max-height: none; overflow: visible; }
+.step-editor-dialog .case-step-parameters > label { margin: 0 0 20px; }
+.step-editor-dialog .case-step-parameters > label + label { margin-top: 0; }
+.step-editor-dialog .case-step-parameters > label:last-of-type { margin-bottom: 24px; }
+.step-editor-dialog .case-step-parameters textarea { resize: vertical; max-height: 140px; }
+.step-editor-dialog .step-key-workspace { display: grid; grid-template-columns: 194px minmax(0, 1fr); gap: 24px; align-items: start; }
+.step-editor-dialog .step-key-workspace[data-remote-open=false] { grid-template-columns: minmax(0, 1fr); }
+.step-inline-remote > h3 { margin: 0 0 16px; font-size: 16px; line-height: 24px; }
+.step-key-detail { min-width: 0; }
+.step-editor-dialog .step-key-detail .case-step-hint { margin: 8px 0 16px; font-size: 13px; line-height: 20px; color: var(--ui-muted); }
+.step-editor-dialog .step-key-heading { flex-wrap: nowrap; margin-bottom: 8px; }
+.step-editor-dialog .step-key-heading h3 { margin: 0; }
+.step-editor-dialog .step-key-table { margin-top: 16px; }
+.step-editor-dialog .step-key-table > ol { max-height: 360px; }
+.step-editor-dialog .step-key-row { display: grid; grid-template-columns: 20px 20px minmax(100px,1fr) 100px 232px 32px; gap: 8px; min-height: 48px; }
+.step-editor-dialog .step-key-columns { display: grid; grid-template-columns: minmax(100px,1fr) 100px 232px 32px; gap: 8px; padding: 8px 8px 8px 64px; }
+.step-editor-dialog .step-key-hold { flex-wrap: nowrap; gap: 8px; padding: 0; grid-column: 5; grid-row: 1; }
+.step-editor-dialog .step-key-hold label { white-space: nowrap; }
+.step-editor-dialog .step-key-actions { grid-column: 6; grid-row: 1; }
+.step-editor-dialog .step-key-row > .field-error { grid-column: 1 / -1; grid-row: 2; }
+.step-editor-dialog .step-key-label { white-space: nowrap; }
+.step-editor-dialog .step-text-conditions { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--ui-border); }
+.step-editor-dialog .step-text-conditions label + label { margin-top: 0; }
+.step-editor-dialog .step-key-drag { display: grid; place-items: center; width: 20px; min-width: 20px; height: 32px; min-height: 32px; padding: 0; border: 0; background: transparent; cursor: grab; color: var(--ui-muted); }
+.step-editor-dialog .step-key-spinner button { display: flex; align-items: center; justify-content: center; min-height: 0; height: 50%; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--ui-muted); }
+.step-editor-dialog .step-key-spinner button > svg { width: 14px; height: 14px; }
+.step-editor-dialog .step-key-spinner button:hover:not(:disabled) { color: var(--ui-text); background: var(--ui-border); }
+.step-editor-dialog .step-key-spinner button:focus-visible { outline-offset: -2px; }
+.step-editor-dialog .step-editor-footer .settings-actions { display: flex; justify-content: flex-end; gap: 12px; margin: 0; }
+.step-editor-footer button.primary { display: inline-flex; align-items: center; gap: 8px; background: var(--ui-accent); color: var(--ui-on-accent); border-color: var(--ui-accent); }
+.step-editor-footer button.primary svg { width: 18px; height: 18px; }
+.step-editor-footer > [role=alert] { margin: 0 0 16px; color: var(--ui-warning); }
+@media (max-width: 1100px) { .step-editor-dialog .step-key-workspace { gap: 16px; } .step-editor-dialog .step-key-detail { overflow-x: auto; } .step-editor-dialog .step-key-table { min-width: 640px; } }
 .case-readiness { display: inline-flex; align-items: center; gap: 8px; color: var(--ui-muted); white-space: nowrap; }
 .case-readiness[data-status=ready] { color: var(--ui-accent); }
 .case-readiness svg, .run-status svg, .snapshot-saved svg { width: 20px; height: 20px; flex: 0 0 auto; fill: none; }
@@ -928,7 +958,7 @@ textarea::-webkit-scrollbar-thumb { border-color: var(--ui-field); }
 .text-condition-row{display:flex;gap:8px;align-items:flex-end}
 .text-condition-row label{flex:1;min-width:0}
 .text-condition-row input{width:100%;min-width:0}
-.text-condition-row button{flex:none}
+.text-condition-row button{display:grid;place-items:center;flex:none;width:40px;height:40px;min-height:40px;padding:0}
 
 .step-text-conditions h3{font-size:16px;line-height:24px}
 .step-text-conditions .step-key-heading{margin-bottom:0}

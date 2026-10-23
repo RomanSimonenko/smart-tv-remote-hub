@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
-import {afterEach,expect,test,vi} from 'vitest';
+import {afterEach,beforeEach,expect,test,vi} from 'vitest';
 import {TestCaseEditor} from './TestCaseEditor.js';
+beforeEach(()=>Object.defineProperties(HTMLDialogElement.prototype,{showModal:{configurable:true,value:function(this:HTMLDialogElement){this.open=true;}},close:{configurable:true,value:function(this:HTMLDialogElement){this.open=false;}}}));
 afterEach(cleanup);
 test('retains the step-level error for too many conditions',()=>{
  const source={id:crypto.randomUUID(),kind:'then' as const,text:'Результат',textConditions:Array.from({length:21},()=> 'Надпись')};
@@ -182,13 +183,16 @@ test('protects unapplied edits when deleting and selects the next step',()=>{
  fireEvent.click(screen.getByRole('button',{name:'Удалить шаг 1 Когда'}));expect(screen.queryByLabelText('Описание шага')).toBeNull();confirm.mockRestore();
 });
 
-test('closing parameters retains unapplied edits and returns focus to the step',()=>{
+test('closing parameters protects unapplied edits and applying returns to the step',async()=>{
  render(<TestCaseEditor initialCase={null} onSave={vi.fn()} onBack={vi.fn()} onDirtyChange={vi.fn()} saving={false} error="" onReloadConflict={vi.fn()}/>);
  fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Дано'}));
  fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Неприменённый текст'}});
  fireEvent.click(screen.getByRole('button',{name:'Закрыть параметры шага'}));
- expect(screen.queryByLabelText('Описание шага')).toBeNull();const row=screen.getByRole('button',{name:/Выбрать шаг 1/});expect(document.activeElement).toBe(row);
- fireEvent.click(row);expect((screen.getByLabelText('Описание шага') as HTMLTextAreaElement).value).toBe('Неприменённый текст');
+ expect(screen.getByText('Изменения шага не применены. Закрыть без сохранения?')).toBeTruthy();
+ fireEvent.click(screen.getByRole('button',{name:'Продолжить редактирование'}));
+ expect((screen.getByLabelText('Описание шага') as HTMLTextAreaElement).value).toBe('Неприменённый текст');
+ fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));const row=screen.getByRole('button',{name:/Выбрать шаг 1/});
+ await waitFor(()=>expect(document.activeElement).toBe(row));
 });
 
 test('saved case wins over a retained imported draft after conflict reload',()=>{
@@ -212,8 +216,8 @@ test('stages key-only edits by step identity and persists sequence only after sa
  const steps=[{id:'00000000-0000-4000-8000-000000000011',kind:'when' as const,text:'Каталог'},{id:'00000000-0000-4000-8000-000000000012',kind:'then' as const,text:'Результат'}];
  const initialCase={id:'00000000-0000-4000-8000-000000000010',title:'Пульт',description:'',group:'',steps,status:'draft' as const,version:1,createdAt:1,updatedAt:1};
  render(<TestCaseEditor initialCase={initialCase} onSave={save} onBack={vi.fn()} onDirtyChange={dirty} saving={false} error="" onReloadConflict={vi.fn()}/>);
- fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));fireEvent.click(screen.getByRole('button',{name:'Добавить нажатия'}));
- for(const key of ['Вправо','Вправо','OK'])fireEvent.click(screen.getByRole('button',{name:key}));fireEvent.click(screen.getByRole('button',{name:/Готово/}));
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));
+ for(const key of ['Вправо','Вправо','OK'])fireEvent.click(screen.getByRole('button',{name:key}));
  expect(dirty).toHaveBeenLastCalledWith(true);
  fireEvent.change(screen.getByLabelText('Пауза после нажатия 3, мс'),{target:{value:'1000'}});
  fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 2/}));fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));
