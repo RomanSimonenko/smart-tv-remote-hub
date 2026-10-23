@@ -1,3 +1,4 @@
+import { i18n, useUiMessage } from './i18n.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { tvMacAddressSchema, type TvPowerState, type TvId } from '@remote-webos-tv/contracts';
 import { api, ApiFailure, friendlyError } from './api.js';
@@ -19,8 +20,8 @@ export function useTvPower(active: boolean, csrfToken: string, onSessionExpired:
   const [state, setState] = useState<TvPowerState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useUiMessage();
+  const [message, setMessage] = useUiMessage();
   const runtime = useRef<Runtime | null>(null);
   const expired = useRef(onSessionExpired);
   expired.current = onSessionExpired;
@@ -55,7 +56,7 @@ export function useTvPower(active: boolean, csrfToken: string, onSessionExpired:
       } catch (cause) {
         if (!current.active) return;
         if (cause instanceof ApiFailure && cause.status === 401) expire(current);
-        else if (version > current.invalidatedReads) { current.state = null; setState(null); setError(friendlyError(cause)); }
+        else if (version > current.invalidatedReads) { current.state = null; setState(null); setError(() => (friendlyError(cause))); }
       } finally {
         inFlight = false;
         if (current.active) { setLoading(false); schedule(); }
@@ -85,7 +86,7 @@ export function useTvPower(active: boolean, csrfToken: string, onSessionExpired:
       if (cause instanceof ApiFailure && cause.status === 401) expire(current);
       else {
         current.invalidatedReads = current.startedReads;
-        current.state = null; setState(null); setMessage(failureMessage(cause));
+        current.state = null; setState(null); setMessage(() => (failureMessage(cause)));
       }
     } finally {
       current.pending = false;
@@ -98,17 +99,17 @@ export function useTvPower(active: boolean, csrfToken: string, onSessionExpired:
     if (!active || !current?.active || current.pending || !current.state || (action === 'wake' ? !current.state.canWake : !current.state.canPowerOff) || (current.state.operation?.status === 'running' && !(action === 'wake' && current.state.operation.action === 'recover'))) return;
     let id: string;
     try { id = requestId(); }
-    catch { setMessage('Операция не отправлена. Не удалось подготовить идентификатор операции.'); return; }
+    catch { setMessage(() => (i18n.t('operationIdFailed', { ns: 'devices' }))); return; }
     const previous = current.state;
     void mutate(current, async (signal) => ({ ...previous, canWake: false, canPowerOff: false, operation: await api.startPower(action === 'wake' ? { id, action } : { id, action, confirm: true }, csrfToken, signal, tvId) }),
-      (cause) => cause instanceof ApiFailure && cause.powerRejectedBeforeDispatch ? friendlyError(cause) : 'Результат операции неизвестен. Обновляем статус. Автоматический повтор не выполняется.');
+      (cause) => cause instanceof ApiFailure && cause.powerRejectedBeforeDispatch ? friendlyError(cause) : i18n.t('unknownOperation', { ns: 'devices' }));
   }
 
   function saveMac(mac: string | null) {
     const current = runtime.current;
     if (!active || !current?.active || current.pending || !current.state || current.state.operation?.status === 'running') return;
     const parsed = tvMacAddressSchema.nullable().safeParse(mac);
-    if (!parsed.success) { setMessage('Введите корректный ненулевой unicast MAC-адрес телевизора.'); return; }
+    if (!parsed.success) { setMessage(() => (i18n.t('invalidMac', { ns: 'devices' }))); return; }
     void mutate(current, (signal) => api.setTvMac(parsed.data, csrfToken, signal, tvId), friendlyError);
   }
 

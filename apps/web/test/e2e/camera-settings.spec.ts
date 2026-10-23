@@ -1,6 +1,6 @@
 import {expect} from '@playwright/test';
 import {test,tvHost} from '../support/tv-fixture.js';
-test('TV camera captures and recognizes in one action with side-by-side results',async({page,tv})=>{
+test('TV camera captures and recognizes in one action with side-by-side results',async({page,tv},testInfo)=>{
  test.setTimeout(60_000);await page.setViewportSize({width:1440,height:1024});
  await page.addInitScript(()=>{
   Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
@@ -10,7 +10,7 @@ test('TV camera captures and recognizes in one action with side-by-side results'
   }});
  });
  await tv.setupAndLogin(page);
- await expect(page.getByRole('button',{name:'Настройки — появится позже',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Настройки',exact:true})).toBeEnabled();
  await page.getByRole('button',{name:'Добавить ТВ',exact:true}).click();
  await page.getByLabel('IP-адрес телевизора').fill(tvHost);
  await page.getByLabel(/MAC-адрес телевизора/).fill('02:00:00:00:00:03');
@@ -21,6 +21,11 @@ test('TV camera captures and recognizes in one action with side-by-side results'
  await page.getByLabel('Разрешение',{exact:true}).selectOption('720');
  await page.reload();await expect(page.getByLabel('Разрешение',{exact:true})).toHaveValue('720');
  await page.locator('.camera-diagnostics > summary').click();
+ await expect(page.getByText('Камера для этого телевизора. Выбор сохраняется в этом браузере.',{exact:true})).toHaveCount(0);
+ const empty=await page.locator('.camera-check-results').boundingBox();
+ const previewColumn=await page.locator('.camera-check-results > div').boundingBox();
+ expect(empty!.height).toBeCloseTo(previewColumn!.height,0);
+ await page.screenshot({path:testInfo.outputPath('camera-empty-compact.png'),fullPage:true});
  await expect(page.getByRole('button',{name:'Распознать текст',exact:true})).toBeDisabled();
  await page.getByRole('button',{name:'Включить камеру',exact:true}).click();
  await expect(page.getByRole('button',{name:'Распознать текст',exact:true})).toBeEnabled();
@@ -36,12 +41,16 @@ test('TV camera captures and recognizes in one action with side-by-side results'
  expect(text!.x).toBeGreaterThan(image!.x+image!.width);expect(text!.y).toBeCloseTo(image!.y,0);
  await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
  const beforeRetry=await page.evaluate(()=>({scrollY:window.scrollY,height:document.documentElement.scrollHeight}));
+ const summary=page.locator('.camera-diagnostics > summary');
+ const summaryBefore=await summary.boundingBox();
  await page.getByRole('button',{name:'Распознать текст',exact:true}).click();
  await expect.poll(()=>requests).toBe(2);
  const duringRetry=await page.evaluate(()=>({scrollY:window.scrollY,height:document.documentElement.scrollHeight}));
+ const summaryDuring=await summary.boundingBox();
  releaseRetry();
  expect(duringRetry.scrollY).toBeCloseTo(beforeRetry.scrollY,0);
  expect(duringRetry.height).toBeCloseTo(beforeRetry.height,0);
+ expect(summaryDuring!.height).toBe(summaryBefore!.height);
  await expect(page.getByRole('button',{name:'Распознать текст',exact:true})).toBeEnabled();
  await page.setViewportSize({width:800,height:1024});
  const narrowImage=await page.getByAltText('Проверочный снимок',{exact:true}).boundingBox(),narrowText=await page.locator('.camera-ocr-result').boundingBox();

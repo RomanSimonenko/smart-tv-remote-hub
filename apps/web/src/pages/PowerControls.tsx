@@ -1,3 +1,5 @@
+import { getTvErrorMessage } from '../tv-connection.js';
+import { i18n, useTranslation } from '../i18n.js';
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { IconInfoCircle, IconPower, IconX } from "@tabler/icons-react";
@@ -34,16 +36,16 @@ function progress(
     if (operation.status === "succeeded") return "";
     if (operation.delivery === "sent") return "";
     if (operation.delivery === "unknown")
-      return "Результат отправки неизвестен. Ожидаем обновления статуса";
+      return i18n.t('unknownDelivery', { ns: 'devices' });
     return "";
   }
   if (operation.status === "succeeded") {
     if (platform === "tizen") return "";
-    return "Команда выключения отправлена. Соединение с телевизором потеряно; фактическое выключение не подтверждено.";
+    return i18n.t('shutdownUnconfirmed', { ns: 'devices' });
   }
   if (operation.delivery === "sent") return "";
   if (operation.delivery === "unknown")
-    return "Выключение не подтверждено. Результат отправки неизвестен";
+    return i18n.t('shutdownDeliveryUnknown', { ns: 'devices' });
   return "";
 }
 
@@ -59,33 +61,33 @@ function terminalError(
     return "";
   if (operation.action === "wake" && operation.delivery === "not_sent" &&
     ["NETWORK_UNREACHABLE", "CONNECTION_LOST", "TV_UNAVAILABLE", "UNKNOWN"].includes(operation.error?.code ?? ""))
-    return "Не удалось отправить запрос включения. Проверьте сетевое подключение приложения.";
+    return i18n.t('wakeSendFailed', { ns: 'devices' });
   const messages: Readonly<Record<string, string>> = {
     ...(platform === "tizen"
       ? {
           NETWORK_UNREACHABLE:
-            "Не удалось установить соединение управления с телевизором.",
+            i18n.t('controlConnectFailed', { ns: 'devices' }),
         }
       : {}),
     RECOVERY_TIMEOUT:
       operation.action === "wake"
-        ? "Телевизор не ответил за отведённое время. Проверьте питание ТВ и настройки включения по сети."
-        : "Не удалось подключиться к телевизору за отведённое время. Проверьте, что телевизор включён и доступен по сети.",
+        ? i18n.t('wakeTimeout', { ns: 'devices' })
+        : i18n.t('connectTimeout', { ns: 'devices' }),
     AUTHORIZATION_FAILED:
-      "Телевизор отклонил сохранённый ключ. Повторите сопряжение.",
+      i18n.t('keyRejected', { ns: 'devices' }),
     INVALID_TV_RESPONSE:
-      "Ошибка совместимости с телевизором. Проверьте его поддержку.",
-    UNSUPPORTED_CAPABILITY: "Телевизор не поддерживает эту команду.",
+      i18n.t('compatibilityHint', { ns: 'devices' }),
+    UNSUPPORTED_CAPABILITY: i18n.t('commandUnsupported', { ns: 'devices' }),
     POWER_OFF_UNCONFIRMED:
-      "Не удалось подтвердить выключение. Проверьте телевизор",
-    CANCELLED: "Операция отменена. Уже отправленный сигнал отменить нельзя.",
+      i18n.t('checkShutdown', { ns: 'devices' }),
+    CANCELLED: i18n.t('operationCancelled', { ns: 'devices' }),
   };
   const detail =
     messages[operation.error?.code ?? ""] ||
-    operation.error?.message ||
-    "Операция не завершена.";
+    getTvErrorMessage(operation.error) ||
+    i18n.t('operationIncomplete', { ns: 'devices' });
   return operation.delivery === "unknown"
-    ? `Результат отправки неизвестен. ${detail}`
+    ? i18n.t('unknownDeliveryDetail', { ns: 'devices', detail })
     : detail;
 }
 
@@ -104,6 +106,7 @@ export function PowerControls({
   quietOffline = false,
   serverUnavailable = false,
 }: Props) {
+  useTranslation('devices');
   const networkHelpId = useId();
   const {
     state,
@@ -202,7 +205,7 @@ export function PowerControls({
     message ||
     (serverUnavailable ? "" : error) ||
     (conflicting
-      ? "Сервер вернул противоречивые разрешения питания. Обновите статус."
+      ? i18n.t('powerConflict', { ns: 'devices' })
       : terminalError(operation, platform));
   const backgroundDiagnostic =
     !message &&
@@ -245,24 +248,24 @@ export function PowerControls({
     state.observedPower !== "standby";
   const unavailable = samsung
     ? state?.observedPower === "standby"
-      ? "Питание сейчас недоступно. Обновите статус."
+      ? i18n.t('powerUnavailable', { ns: 'devices' })
       : state?.observedPower === "on"
-        ? "Питание сейчас недоступно. Обновите статус."
-        : "Статус питания неизвестен"
+        ? i18n.t('powerUnavailable', { ns: 'devices' })
+        : i18n.t('powerUnknown', { ns: 'devices' })
     : networkPowerUnsupported
-      ? "Включение по сети для этого телевизора пока недоступно в приложении."
+      ? i18n.t('wakeUnsupported', { ns: 'devices' })
       : !state?.mac
-        ? "Для включения сохраните MAC-адрес телевизора в настройках."
-        : "Питание сейчас недоступно. Обновите статус.";
+        ? i18n.t('needMac', { ns: 'devices' })
+        : i18n.t('powerUnavailable', { ns: 'devices' });
   // Only the retained background diagnostic owns autofocus; modal teardown
   // must not clear its ref while the background paragraph remains mounted.
   const suppressReadStatus = serverUnavailable && !message &&
     (!operation || (!running && operation.status !== "succeeded"));
   const activity = (withFocusRef: boolean) => (
     <>
-      <p role="status" aria-label="Питание телевизора" aria-live="polite">
+      <p role="status" aria-label={i18n.t('powerAria', { ns: 'devices' })} aria-live="polite">
         {suppressReadStatus ? "" : error || (unknownSamsungPower && !activityBusy)
-          ? "Статус питания неизвестен"
+          ? i18n.t('powerUnknown', { ns: 'devices' })
           : operation && (running || operation.status === "succeeded")
             ? progress(operation, platform)
             : !activityBusy && !powerAction && !diagnostic
@@ -287,8 +290,7 @@ export function PowerControls({
               disabled={busy}
               onClick={() => cancel(operation.id)}
             >
-              Отменить ожидание
-            </button>
+              {i18n.t('cancelWait', { ns: 'devices' })}</button>
           )}
         </div>
       )}
@@ -296,30 +298,26 @@ export function PowerControls({
   );
   const settings = samsung ? null : networkPowerUnsupported ? (
     <section className="settings-section">
-      <h3>Включение по сети</h3>
+      <h3>{i18n.t('networkWake', { ns: 'devices' })}</h3>
       {settingsOpen ? activity(false) : <p>{unavailable}</p>}
     </section>
   ) : (
     <section className="settings-section">
       <div className="settings-network-heading">
-        <h3>Включение по сети</h3>
+        <h3>{i18n.t('networkWake', { ns: 'devices' })}</h3>
         <button
           className="settings-help"
           type="button"
-          aria-label="О включении по сети"
+          aria-label={i18n.t('aboutNetworkWake', { ns: 'devices' })}
           aria-describedby={networkHelpId}
         >
           <IconInfoCircle aria-hidden="true" />
         </button>
         <div className="settings-tooltip" id={networkHelpId} role="tooltip">
           <p>
-            Для включения нужен MAC-адрес телевизора. После изменения IP
-            проверьте, что MAC принадлежит этому телевизору.
-          </p>
+            {i18n.t('networkMacHint', { ns: 'devices' })}</p>
           <p>
-            Отправка сигнала не гарантирует включение. Сервер должен находиться
-            в сети телевизора; WOL зависит от модели и настроек питания.
-          </p>
+            {i18n.t('wakeHint', { ns: 'devices' })}</p>
         </div>
       </div>
       {settingsOpen && activity(false)}
@@ -332,8 +330,7 @@ export function PowerControls({
         noValidate
       >
         <label>
-          MAC-адрес телевизора
-          <input
+          {i18n.t('mac', { ns: 'devices' })}<input
             autoComplete="off"
             value={mac}
             disabled={disabled}
@@ -341,8 +338,7 @@ export function PowerControls({
           />
         </label>
         <button className="settings-primary" type="submit" disabled={disabled}>
-          Сохранить MAC
-        </button>
+          {i18n.t('saveMac', { ns: 'devices' })}</button>
       </form>
       <div className="settings-actions">
         <button
@@ -350,11 +346,9 @@ export function PowerControls({
           disabled={disabled || !state?.mac}
           onClick={() => saveMac(null)}
         >
-          Очистить MAC
-        </button>
+          {i18n.t('clearMac', { ns: 'devices' })}</button>
         <button type="button" disabled={loading} onClick={refresh}>
-          Обновить статус питания
-        </button>
+          {i18n.t('refreshPower', { ns: 'devices' })}</button>
       </div>
     </section>
   );
@@ -385,15 +379,15 @@ export function PowerControls({
       ref={confirmationPanel}
       className="power-confirmation"
       role="dialog"
-      aria-label="Выключить телевизор?"
+      aria-label={i18n.t('powerOffTitle', { ns: 'devices' })}
     >
       <div className="power-confirm-heading">
         <IconPower aria-hidden="true" />
-        <h3>Выключить ТВ?</h3>
+        <h3>{i18n.t('powerOffShortTitle', { ns: 'devices' })}</h3>
         <button
           className="power-confirm-close"
           type="button"
-          aria-label="Закрыть подтверждение"
+          aria-label={i18n.t('closeConfirm', { ns: 'devices' })}
           onClick={dismissConfirmation}
         >
           <IconX aria-hidden="true" />
@@ -401,8 +395,7 @@ export function PowerControls({
       </div>
       <div className="power-confirm-actions">
         <button ref={confirmation} type="button" onClick={dismissConfirmation}>
-          Отмена
-        </button>
+          {i18n.t('cancel', { ns: 'devices' })}</button>
         <button
           className="power-confirm-submit"
           type="button"
@@ -412,17 +405,14 @@ export function PowerControls({
             start("power_off");
           }}
         >
-          Выключить
-        </button>
+          {i18n.t('powerOff', { ns: 'devices' })}</button>
       </div>
       {!samsung && (
         <details className="power-confirm-details">
           <summary>
-            <IconInfoCircle aria-hidden="true" />О статусе питания
-          </summary>
+            <IconInfoCircle aria-hidden="true" />{i18n.t('aboutPower', { ns: 'devices' })}</summary>
           <p>
-            Потеря соединения не подтверждает фактическое выключение телевизора.
-          </p>
+            {i18n.t('lostNotShutdown', { ns: 'devices' })}</p>
         </details>
       )}
     </div>
@@ -431,10 +421,10 @@ export function PowerControls({
     <div
       className="power-controls"
       role="group"
-      aria-label="Питание телевизора"
+      aria-label={i18n.t('powerAria', { ns: 'devices' })}
       aria-busy={busy}
     >
-      <h2 className="visually-hidden">Питание телевизора</h2>
+      <h2 className="visually-hidden">{i18n.t('powerAria', { ns: 'devices' })}</h2>
       {activityTarget
         ? createPortal(backgroundActivity, activityTarget)
         : backgroundActivity}
@@ -444,17 +434,17 @@ export function PowerControls({
         type="button"
         aria-label={
           powerAction === "power_off"
-            ? "Выключить ТВ"
+            ? i18n.t('powerOffShort', { ns: 'devices' })
             : powerAction === "wake"
-              ? "Включить ТВ"
-              : "Питание ТВ"
+              ? i18n.t('wakeShort', { ns: 'devices' })
+              : i18n.t('powerShort', { ns: 'devices' })
         }
         title={
           powerAction === "power_off"
-            ? "Выключить ТВ"
+            ? i18n.t('powerOffShort', { ns: 'devices' })
             : powerAction === "wake"
-              ? "Включить ТВ"
-              : "Питание ТВ"
+              ? i18n.t('wakeShort', { ns: 'devices' })
+              : i18n.t('powerShort', { ns: 'devices' })
         }
         disabled={powerDisabled}
         onClick={() => {

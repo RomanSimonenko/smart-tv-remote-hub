@@ -2,8 +2,9 @@ import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/reac
 import {afterEach,beforeEach,expect,test,vi} from 'vitest';
 import {TestRuns} from './TestRuns.js';
 import {api} from '../api.js';
-let intersect:()=>void;
+let intersect:(()=>void)|undefined;
 beforeEach(()=>{
+ intersect=undefined;
  vi.spyOn(api,'tvDevices').mockResolvedValue({devices:[]});
  vi.stubGlobal('IntersectionObserver',class {
   constructor(callback:IntersectionObserverCallback){intersect=()=>callback([{isIntersecting:true}] as IntersectionObserverEntry[],this as unknown as IntersectionObserver);}
@@ -19,7 +20,8 @@ test('scroll loads the next page once and preserves rows without manual controls
  await screen.findByText('Запуск 1 · v1');
  expect(screen.queryByRole('button',{name:'Обновить'})).toBeNull();
  expect(screen.queryByRole('button',{name:'Загрузить ещё'})).toBeNull();
- act(()=>{intersect();intersect();});
+ await waitFor(()=>expect(intersect).toBeTypeOf('function'));
+ act(()=>{intersect!();intersect!();});
  await waitFor(()=>expect(list).toHaveBeenCalledTimes(2));
  expect(list.mock.calls[1]?.[0]).toBe('page2');
  expect(screen.getByText('Запуск 1 · v1')).toBeTruthy();
@@ -42,7 +44,8 @@ test('page failure keeps rows and supports explicit retry without an automatic r
  const list=vi.spyOn(api,'listTestRuns').mockResolvedValueOnce({runs:[run('1')],next:'page2'}).mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce({runs:[run('2')],next:null});
  render(<TestRuns onOpen={()=>{}} onSessionExpired={()=>{}}/>);
  await screen.findByText('Запуск 1 · v1');
- act(()=>intersect());
+ await waitFor(()=>expect(intersect).toBeTypeOf('function'));
+ act(()=>intersect!());
  await screen.findByRole('alert');
  expect(screen.getByText('Запуск 1 · v1')).toBeTruthy();
  expect(list).toHaveBeenCalledTimes(2);

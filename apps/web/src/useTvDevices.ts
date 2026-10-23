@@ -1,3 +1,4 @@
+import { useUiMessage } from './i18n.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TvDevice, TvId } from '@remote-webos-tv/contracts';
 import { api, ApiFailure, friendlyError } from './api.js';
@@ -6,7 +7,7 @@ import { api, ApiFailure, friendlyError } from './api.js';
 export function useTvDevices(onSessionExpired: () => void, enabled = true) {
   const [devices, setDevices] = useState<TvDevice[] | null>(null);
   const [loading, setLoading] = useState(enabled);
-  const [error, setError] = useState('');
+  const [error, setError] = useUiMessage();
   const expired = useRef(onSessionExpired);
   expired.current = onSessionExpired;
   const requestRefresh = useRef<() => void>(() => {});
@@ -39,7 +40,7 @@ export function useTvDevices(onSessionExpired: () => void, enabled = true) {
       } catch (cause) {
         if (!active) return;
         if (cause instanceof ApiFailure && cause.status === 401) { active = false; expired.current(); }
-        else if (version === revision.current) setError(friendlyError(cause));
+        else if (version === revision.current) setError(() => (friendlyError(cause)));
       } finally {
         inFlight = false;
         if (active) { setLoading(false); schedule(); }

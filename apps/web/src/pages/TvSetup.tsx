@@ -1,3 +1,4 @@
+import { i18n, useTranslation, useUiMessage } from '../i18n.js';
 import {TvPairingPin} from '../components/TvPairingPin.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -9,7 +10,7 @@ import { DiagnosticWebcam } from '../components/DiagnosticWebcam.js';
 import { Remote } from './Remote.js';
 import { PowerControls } from './PowerControls.js';
 import { SettingsDialog } from '../components/SettingsDialog.js';
-import { connectionLabels } from '../tv-connection.js';
+import { connectionLabels, getTvErrorMessage } from '../tv-connection.js';
 import { TvBrand, tvPlatformLabel } from '../tv-presentation.js';
 
 interface Props { onRecordingChange?:(active:boolean)=>void; initialHost?: string; tvId?: TvId; platform?: TvPlatform; onReady?(): void; username?: string; csrfToken: string; identityTarget?: HTMLElement | null; onSessionExpired(): void; settingsOpen: boolean; onCloseSettings(): void; onConfirmationChange?(confirming: boolean): void; statusState?: ReturnType<typeof useTvStatus> }
@@ -22,9 +23,10 @@ function StandaloneTvSetup(props: Props) {
   return <TvSetupContent {...props} statusState={statusState} />;
 }
 function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, username, csrfToken, identityTarget, onSessionExpired, settingsOpen, onCloseSettings, onConfirmationChange, onRecordingChange, statusState }: Props & { statusState: ReturnType<typeof useTvStatus> }) {
+  useTranslation('devices');
   const { status, statusReadVersion, getReadVersion, loading, refreshing, error, serverUnavailable, refresh } = statusState;
   const [host, setHost] = useState(initialHost);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useUiMessage();
   const [manualOperationId, setManualOperationId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [powerObservation, setPowerObservation] = useState<{ observedPower: TvPowerState['observedPower']; lastOperation: TvPowerState['operation']; shutdownAfterReadVersion: number | null }>({ observedPower: undefined, lastOperation: null, shutdownAfterReadVersion: null });
@@ -75,10 +77,10 @@ function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, u
     const timer = setTimeout(() => setShowActivity(true), 400);
     return () => clearTimeout(timer);
   }, [activityBusy]);
-  const progress = running ? (operation.action === 'pair' || operation.action === 'repair' ? 'Сопряжение' : 'Подключение') : null;
+  const progress = running ? (operation.action === 'pair' || operation.action === 'repair' ? i18n.t('pairing', { ns: 'devices' }) : i18n.t('connecting', { ns: 'devices' })) : null;
   // Power controls own this terminal warning; the connection snapshot also
   // carries it, but must not announce the same result a second time.
-  const connectionDiagnostic = (failure: TvOperation['error']) => failure?.code === 'POWER_OFF_UNCONFIRMED' ? '' : failure?.message;
+  const connectionDiagnostic = (failure: TvOperation['error']) => failure?.code === 'POWER_OFF_UNCONFIRMED' ? '' : getTvErrorMessage(failure);
   const diagnostic = message || error || connectionDiagnostic(status?.error) || connectionDiagnostic(operation?.error) || '';
   const quietOffline = status?.connection === 'unavailable';
   const quietRemoteUnavailable = quietOffline || poweringOff || powerRunning || status?.connection === 'connecting' || status?.connection === 'reconnecting';
@@ -118,7 +120,7 @@ function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, u
     } catch (cause) {
       if (!active.current) return;
       if (cause instanceof ApiFailure && cause.status === 401) onSessionExpired();
-      else setMessage(friendlyError(cause));
+      else setMessage(() => (friendlyError(cause)));
     } finally {
       pending.current = false;
       if (active.current) setBusy(false);
@@ -127,64 +129,64 @@ function TvSetupContent({ tvId, initialHost = '', platform = 'webos', onReady, u
   function start(input: StartTvOperation) {
     if (pending.current || running || powerRunning) return;
     const parsed = startTvOperationSchema.safeParse(input);
-    if (!parsed.success) { setMessage('Введите локальный IP-адрес телевизора в формате IPv4, например 192.168.1.20. Без ссылки и номера порта.'); return; }
+    if (!parsed.success) { setMessage(() => (i18n.t('invalidIpExample', { ns: 'devices' }))); return; }
     void mutate((signal) => api.startTvOperation(parsed.data, csrfToken, signal, tvId));
   }
 
-  const connectionText = error ? 'Статус неизвестен' : poweringOff && platform !== 'tizen' ? 'Выключение' : progress || (status ? connectionLabels[status.connection] : 'Загрузка статуса…');
+  const connectionText = error ? i18n.t('statusUnknown', { ns: 'devices' }) : poweringOff && platform !== 'tizen' ? i18n.t('poweringOff', { ns: 'devices' }) : progress || (status ? connectionLabels[status.connection] : i18n.t('loadingStatus', { ns: 'devices' }));
   const connectionAppearance = error ? 'unknown' : poweringOff && platform !== 'tizen' ? 'connecting' : status?.connection;
   // Keep autofocus ownership on the retained background diagnostic, separate
   // from the modal copy that unmounts when settings close.
   const activity = (withFocusRef: boolean) => <>
     {(withFocusRef ? backgroundDiagnostic : diagnostic) && <p ref={withFocusRef ? alert : undefined} tabIndex={-1} role="alert" className="error">{withFocusRef ? backgroundDiagnostic : diagnostic}</p>}
     {running && !powerRunning && (!withFocusRef || !tv) && (operation.challenge ? <TvPairingPin key={operation.id} operationId={operation.id} expiresAt={operation.challenge.expiresAt} busy={busy} onSubmit={pin => mutate(signal => api.submitTvPin(operation.id,pin,csrfToken,signal,tvId))} onCancel={() => void mutate(signal => api.cancelTvOperation(operation.id,csrfToken,signal,tvId))}/> : <div>
-      {(operation.action === 'pair' || operation.action === 'repair') && <p>{platform === 'whale' ? 'Выполняем сопряжение с телевизором…' : 'Подтвердите доступ на экране телевизора.'}</p>}
-      <p>Осталось: {Math.max(0, Math.ceil((operation.deadlineAt - now) / 1000))} с</p>
-      <button type="button" disabled={busy} onClick={() => void mutate((signal) => api.cancelTvOperation(operation.id, csrfToken, signal, tvId))}>Отменить</button>
+      {(operation.action === 'pair' || operation.action === 'repair') && <p>{platform === 'whale' ? i18n.t('pairingTv', { ns: 'devices' }) : i18n.t('approveTv', { ns: 'devices' })}</p>}
+      <p>{i18n.t('remaining', { ns: 'devices', seconds: Math.max(0, Math.ceil((operation.deadlineAt - now) / 1000)) })}</p>
+      <button type="button" disabled={busy} onClick={() => void mutate((signal) => api.cancelTvOperation(operation.id, csrfToken, signal, tvId))}>{i18n.t('cancelAction', { ns: 'devices' })}</button>
     </div>)}
   </>;
   const addressForm = status && !running && <>
-    {!tv && <p>Телевизор должен быть включён и доступен серверу. Разрешите управление мобильными устройствами в настройках ТВ.</p>}
+    {!tv && <p>{i18n.t('setupHint', { ns: 'devices' })}</p>}
     <form className={tv ? 'settings-edit-row' : undefined} onSubmit={(event) => { event.preventDefault(); start({ action: tv ? 'change_address' : 'pair', host }); }} noValidate>
-      <label>IP-адрес телевизора<input inputMode="decimal" autoComplete="off" value={host} disabled={controlsBusy} onChange={(event) => setHost(event.target.value)} /></label>
-      <button className="settings-primary" type="submit" disabled={controlsBusy}>{tv ? 'Изменить адрес' : platform === 'whale' && operation?.error ? 'Получить новый код' : 'Подключить'}</button>
+      <label>{i18n.t('ip', { ns: 'devices' })}<input inputMode="decimal" autoComplete="off" value={host} disabled={controlsBusy} onChange={(event) => setHost(event.target.value)} /></label>
+      <button className="settings-primary" type="submit" disabled={controlsBusy}>{tv ? i18n.t('changeAddress', { ns: 'devices' }) : platform === 'whale' && operation?.error ? i18n.t('newCode', { ns: 'devices' }) : i18n.t('connect', { ns: 'devices' })}</button>
     </form>
     {tv && <div className="settings-actions">
-      <button type="button" disabled={controlsBusy} onClick={() => start({ action: 'reconnect' })}>Подключиться снова</button>
-      <button type="button" disabled={loading} onClick={refresh}>Обновить статус</button>
+      <button type="button" disabled={controlsBusy} onClick={() => start({ action: 'reconnect' })}>{i18n.t('reconnect', { ns: 'devices' })}</button>
+      <button type="button" disabled={loading} onClick={refresh}>{i18n.t('refreshStatus', { ns: 'devices' })}</button>
     </div>}
-    {tv && <details className="settings-advanced"><summary>Дополнительно</summary><p>Повторите сопряжение, если телевизор отозвал доступ. Потребуется подтверждение на экране ТВ.</p><button type="button" disabled={controlsBusy} onClick={() => start({ action: 'repair' })}>Повторить сопряжение</button></details>}
+    {tv && <details className="settings-advanced"><summary>{i18n.t('advanced', { ns: 'devices' })}</summary><p>{i18n.t('repairHint', { ns: 'devices' })}</p><button type="button" disabled={controlsBusy} onClick={() => start({ action: 'repair' })}>{i18n.t('repair', { ns: 'devices' })}</button></details>}
   </>;
   const identity = tv && <div className="tv-info"><TvBrand className="tv-brand" platform={platform} /><p className="tv-model">{tv.identity.model}</p></div>;
   const ledColor = error || status?.connection === 'authorization_error' || status?.connection === 'compatibility_error' || backgroundDiagnostic ? 'red' : progress || poweringOff || samsungNotOn ? 'gray' : connectionAppearance === 'available' ? 'green' : 'gray';
   const connectionIndicator = <div className={tv ? 'connection-led' : 'connection-row'} tabIndex={tv ? 0 : undefined} aria-describedby={tv ? 'connection-tooltip' : undefined} data-color={ledColor} data-active={activityBusy && showActivity || undefined} title={tv ? undefined : connectionText}>
-    <p className={tv ? 'visually-hidden' : 'connection-status'} data-connection={connectionAppearance} role="status" aria-label="Соединение с телевизором" aria-live="polite">{connectionText}</p>
-    <span className="activity-slot">{activityBusy && showActivity && <span className="led-activity" role="img" aria-label="Выполняется запрос" />}</span>
+    <p className={tv ? 'visually-hidden' : 'connection-status'} data-connection={connectionAppearance} role="status" aria-label={i18n.t('connectionAria', { ns: 'devices' })} aria-live="polite">{connectionText}</p>
+    <span className="activity-slot">{activityBusy && showActivity && <span className="led-activity" role="img" aria-label={i18n.t('requestBusy', { ns: 'devices' })} />}</span>
     {tv && <span id="connection-tooltip" role="tooltip" className="connection-tooltip">{connectionText}</span>}
   </div>;
   return <>{identityTarget ? createPortal(identity, identityTarget) : identity}<section className={tv ? 'tv-layout tv-layout-with-camera' : 'form-card'}>
-    {!tv && status && <h1>Телевизор ещё не настроен</h1>}
-    {!tv && !status && !error && showActivity && <p role="status">Загрузка телевизора…</p>}
+    {!tv && status && <h1>{i18n.t('notConfigured', { ns: 'devices' })}</h1>}
+    {!tv && !status && !error && showActivity && <p role="status">{i18n.t('loadingTv', { ns: 'devices' })}</p>}
     {tv && <div className="tv-card">
       <div className="remote-top">{connectionIndicator}</div>
       <PowerControls {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active serverUnavailable={serverUnavailable} quietOffline={quietOffline || running} settingsOpen={settingsOpen} settingsTarget={settingsTarget} activityTarget={powerActivityTarget} {...(onConfirmationChange ? { onConfirmationChange } : {})} onSessionExpired={onSessionExpired} onStateChange={observePowerState} onBusyChange={setPowerBusy} />
       <Remote {...(tvId ? { tvId } : {})} platform={platform} csrfToken={csrfToken} active serverUnavailable={serverUnavailable} quietOffline={quietRemoteUnavailable || samsungNotOn} interactionBlocked={settingsOpen || samsungNotOn || serverUnavailable} activityTarget={remoteActivityTarget} onSessionExpired={onSessionExpired} onBusyChange={setRemoteBusy} />
     </div>}
-    {tv && <DiagnosticWebcam recordingModel={tv.identity.model} {...(onRecordingChange?{onRecordingChange}:{})} csrfToken={csrfToken} onSessionExpired={onSessionExpired}/>}
+    {tv && <DiagnosticWebcam {...(tvId?{tvId}:{})} recordingModel={tv.identity.model} {...(onRecordingChange?{onRecordingChange}:{})} csrfToken={csrfToken} onSessionExpired={onSessionExpired}/>}
     <div className="tv-activity">
       {!tv && (status || error) && <div className={status?.connection === 'unconfigured' ? 'visually-hidden' : undefined}>{connectionIndicator}</div>}
       <div className={settingsOpen ? 'reserved-activity' : undefined} aria-hidden={settingsOpen || undefined} inert={settingsOpen}>{activity(true)}</div>
       <div className="power-activity" ref={setPowerActivityTarget} />
       <div ref={setRemoteActivityTarget} />
     </div>
-    {!tv && (status || error) && <>{addressForm}<button type="button" disabled={loading} onClick={refresh}>Обновить статус</button></>}
+    {!tv && (status || error) && <>{addressForm}<button type="button" disabled={loading} onClick={refresh}>{i18n.t('refreshStatus', { ns: 'devices' })}</button></>}
     <SettingsDialog open={settingsOpen} onClose={onCloseSettings}>
       {tv ? <><section className="settings-section">
-        <p className="settings-identity"><span className="settings-model">Модель: {tv.identity.model}</span>{settingsOpen && <span className="tv-version">{tv.identity.platformVersion ? tvPlatformLabel(platform, tv.identity) : platform === 'tizen' ? 'Tizen' : platform === 'whale' ? 'Whale OS — версия неизвестна' : 'Версия неизвестна'}</span>}</p>
-      </section><section className="settings-section"><h3>Подключение</h3>
-        {settingsOpen && activity(false)}<p>Соединение: {connectionText}</p><p>Сохранённый IP: {tv.host}</p>{addressForm}
-      </section></> : <>{settingsOpen && activity(false)}<p>Добавьте телевизор на основном экране.</p></>}
-      {tv&&<section className="settings-section"><h3>Запись видео</h3><p>Исходное видео камеры без звука. До {recordingLimitLabel}; затем запись автоматически завершается и скачивается на компьютер.</p></section>}
+        <p className="settings-identity"><span className="settings-model">{i18n.t('model', { ns: 'devices', name: tv.identity.model })}</span>{settingsOpen && <span className="tv-version">{tv.identity.platformVersion ? tvPlatformLabel(platform, tv.identity) : platform === 'tizen' ? 'Tizen' : platform === 'whale' ? i18n.t('versionUnknownWhale', { ns: 'devices' }) : i18n.t('versionUnknown', { ns: 'devices' })}</span>}</p>
+      </section><section className="settings-section"><h3>{i18n.t('connecting', { ns: 'devices' })}</h3>
+        {settingsOpen && activity(false)}<p>{i18n.t('connection', { ns: 'devices', status: connectionText })}</p><p>{i18n.t('savedIp', { ns: 'devices', host: tv.host })}</p>{addressForm}
+      </section></> : <>{settingsOpen && activity(false)}<p>{i18n.t('addOnMain', { ns: 'devices' })}</p></>}
+      {tv&&<section className="settings-section"><h3>{i18n.t('recordVideo', { ns: 'devices' })}</h3><p>{i18n.t('recordingHint', { ns: 'devices', limit: recordingLimitLabel() })}</p></section>}
       <div ref={setSettingsTarget} />
     </SettingsDialog>
   </section></>;

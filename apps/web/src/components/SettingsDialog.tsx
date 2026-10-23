@@ -1,9 +1,11 @@
+import {i18n,useTranslation} from '../i18n.js';
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { IconX } from '@tabler/icons-react';
 
 interface Props { busy?: boolean; open: boolean; onClose(): void; children: ReactNode; footer?: ReactNode; title?: string; closeLabel?: string; dismissOnBackdrop?: boolean; className?: string }
 
-export function SettingsDialog({ open, onClose, children, footer, title = 'Настройки телевизора', closeLabel = 'Закрыть настройки', busy = false, dismissOnBackdrop = true, className = '' }: Props) {
+export function SettingsDialog({ open, onClose, children, footer, title = i18n.t('auth:tvSettings'), closeLabel = i18n.t('auth:closeSettings'), busy = false, dismissOnBackdrop = true, className = '' }: Props) {
+  useTranslation('auth');
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(null);

@@ -2,14 +2,14 @@ import { IconUser, IconCat, IconDog, IconDeer, IconRobot, IconRocket, IconPlanet
 import type { OwnerProfile } from '@remote-webos-tv/contracts';
 
 export const avatarOptions = {
-  user: { label: 'Пользователь', Icon: IconUser }, cat: { label: 'Кот', Icon: IconCat },
-  dog: { label: 'Собака', Icon: IconDog }, deer: { label: 'Олень', Icon: IconDeer },
-  robot: { label: 'Робот', Icon: IconRobot }, rocket: { label: 'Ракета', Icon: IconRocket },
-  planet: { label: 'Планета', Icon: IconPlanet }, star: { label: 'Звезда', Icon: IconStar },
-  leaf: { label: 'Лист', Icon: IconLeaf }, tree: { label: 'Дерево', Icon: IconTree },
-  mountain: { label: 'Гора', Icon: IconMountain }, sun: { label: 'Солнце', Icon: IconSun },
-  moon: { label: 'Луна', Icon: IconMoon }, gamepad: { label: 'Геймпад', Icon: IconDeviceGamepad },
-  headphones: { label: 'Наушники', Icon: IconHeadphones }, monitor: { label: 'Монитор', Icon: IconDeviceDesktop },
+  user: { label: 'avatarUser', Icon: IconUser }, cat: { label: 'avatarCat', Icon: IconCat },
+  dog: { label: 'avatarDog', Icon: IconDog }, deer: { label: 'avatarDeer', Icon: IconDeer },
+  robot: { label: 'avatarRobot', Icon: IconRobot }, rocket: { label: 'avatarRocket', Icon: IconRocket },
+  planet: { label: 'avatarPlanet', Icon: IconPlanet }, star: { label: 'avatarStar', Icon: IconStar },
+  leaf: { label: 'avatarLeaf', Icon: IconLeaf }, tree: { label: 'avatarTree', Icon: IconTree },
+  mountain: { label: 'avatarMountain', Icon: IconMountain }, sun: { label: 'avatarSun', Icon: IconSun },
+  moon: { label: 'avatarMoon', Icon: IconMoon }, gamepad: { label: 'avatarGamepad', Icon: IconDeviceGamepad },
+  headphones: { label: 'avatarHeadphones', Icon: IconHeadphones }, monitor: { label: 'avatarMonitor', Icon: IconDeviceDesktop },
 };
 export function ProfileAvatar({ avatarId, displayName }: Pick<OwnerProfile, 'avatarId' | 'displayName'>) {
   const Icon = avatarId ? avatarOptions[avatarId].Icon : null;

@@ -202,7 +202,7 @@ test('forwards pending step validation to the leave dialog and clears it after a
  fireEvent.click(screen.getByRole('button',{name:'Добавить шаг'}));fireEvent.click(screen.getByRole('button',{name:'Добавить шаг Дано'}));
  fireEvent.change(screen.getByLabelText('Описание шага'),{target:{value:'Changed'}});
  fireEvent.click(screen.getByRole('button',{name:'Сохранить тест-кейс'}));
- expect(report).toHaveBeenLastCalledWith('Сначала нажмите «Сохранить шаг» для изменённых шагов.');
+ expect(report.mock.lastCall?.[0]()).toBe('Сначала нажмите «Сохранить шаг» для изменённых шагов.');
  fireEvent.click(screen.getByRole('button',{name:'Сохранить шаг'}));expect(report).toHaveBeenLastCalledWith('');
 });
 

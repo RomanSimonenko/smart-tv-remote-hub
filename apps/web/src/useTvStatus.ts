@@ -1,3 +1,4 @@
+import { useUiMessage } from './i18n.js';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { TvStatusResponse, TvId } from '@remote-webos-tv/contracts';
 import { api, ApiFailure, friendlyError } from './api.js';
@@ -10,7 +11,7 @@ export function useTvStatus(onSessionExpired: () => void, tvId?: TvId, enabled =
   // Only the initial read blocks the UI; background reads share inFlight below.
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useUiMessage();
   const [serverUnavailable, setServerUnavailable] = useState(false);
   const expired = useRef(onSessionExpired);
   expired.current = onSessionExpired;
@@ -48,7 +49,7 @@ export function useTvStatus(onSessionExpired: () => void, tvId?: TvId, enabled =
           expired.current();
         } else {
           setSnapshot({ status: null, readVersion });
-          setError(friendlyError(cause));
+          setError(() => (friendlyError(cause)));
           setServerUnavailable(cause instanceof ApiFailure && cause.code === 'NETWORK_ERROR');
         }
       } finally {

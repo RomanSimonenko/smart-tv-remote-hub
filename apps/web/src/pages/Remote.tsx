@@ -1,3 +1,4 @@
+import { i18n, useTranslation, useUiMessage } from '../i18n.js';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { RemoteLayout } from '../components/RemoteLayout.js';
@@ -9,30 +10,31 @@ import { useTvHold } from '../useTvHold.js';
 
 interface Props { tvId?: TvId; platform?: TvPlatform; csrfToken: string; active: boolean; onSessionExpired(): void; onBusyChange?(busy: boolean): void; interactionBlocked?: boolean; activityTarget?: HTMLElement | null; quietOffline?: boolean; serverUnavailable?: boolean }
 interface Runtime { active: boolean; pending: boolean; command: AbortController | null; refresh(): void }
-const unknownMessage = 'Результат команды неизвестен. Автоматический повтор не выполняется';
+const unknownMessage = () => i18n.t('unknownCommand', { ns: 'devices' });
 const reasons = {
-  UNAVAILABLE: 'Телевизор недоступен. Подключитесь снова.',
-  BUSY: 'Телевизор занят. Дождитесь завершения операции.',
-  UNSUPPORTED: 'Управление кнопками не поддерживается телевизором.',
+  get UNAVAILABLE() { return i18n.t('remoteUnavailable', { ns: 'devices' }); },
+  get BUSY() { return i18n.t('remoteBusy', { ns: 'devices' }); },
+  get UNSUPPORTED() { return i18n.t('remoteUnsupported', { ns: 'devices' }); },
 };
 const rejectionMessages = {
-  TV_UNAVAILABLE: reasons.UNAVAILABLE,
-  TV_BUSY: reasons.BUSY,
-  UNSUPPORTED_CAPABILITY: reasons.UNSUPPORTED,
-  COMMAND_NOT_SENT: 'Команда не отправлена. Попробуйте снова.',
-  APP_LIST_UNAVAILABLE: 'Не удалось получить список приложений телевизора. Запуск не выполнен.',
-  APP_NOT_AVAILABLE: 'Wink не найден среди установленных приложений или найдено несколько вариантов.',
-  RATE_LIMITED: 'Слишком много команд. Попробуйте позже.',
+  get TV_UNAVAILABLE() { return reasons.UNAVAILABLE; },
+  get TV_BUSY() { return reasons.BUSY; },
+  get UNSUPPORTED_CAPABILITY() { return reasons.UNSUPPORTED; },
+  get COMMAND_NOT_SENT() { return i18n.t('commandNotSent', { ns: 'devices' }); },
+  get APP_LIST_UNAVAILABLE() { return i18n.t('appsUnavailable', { ns: 'devices' }); },
+  get APP_NOT_AVAILABLE() { return i18n.t('appMissing', { ns: 'devices' }); },
+  get RATE_LIMITED() { return i18n.t('commandsRateLimited', { ns: 'devices' }); },
 };
 const keys: Readonly<Record<string, BasicTvButton>> = Object.fromEntries(tvActionCatalog
   .filter(action => action.kind === 'button').flatMap(action => action.keyboardKeys.map(key => [key, action.id as BasicTvButton])));
 
 export function Remote({ tvId, platform = 'webos', csrfToken, active, onSessionExpired, onBusyChange, interactionBlocked = false, activityTarget, quietOffline = false, serverUnavailable = false }: Props) {
+  useTranslation('devices');
   const repeatable = new Set(tvActionCatalog.filter(action => action.kind === 'button' && action.holdByPlatform[platform] === 'repeat').map(action => action.id as BasicTvButton));
   const [state, setState] = useState<TvRemoteState | null>(null);
-  const [readError, setReadError] = useState('');
+  const [readError, setReadError] = useUiMessage();
   const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState<{ text: string; alert: boolean } | null>(null);
+  const [feedback, setFeedback] = useState<{ text: () => string; alert: boolean } | null>(null);
   const runtime = useRef<Runtime | null>(null);
   const held = useRef<{ button: BasicTvButton; native?: boolean; key?: string; pointerId?: number; timer: ReturnType<typeof setTimeout> | undefined } | null>(null);
   const [heldButton, setHeldButton] = useState<BasicTvButton | null>(null);
@@ -45,9 +47,9 @@ export function Remote({ tvId, platform = 'webos', csrfToken, active, onSessionE
       if (parsed.success) {
         const result = parsed.data;
         if (result.outcome !== 'sent') stopHold();
-        setFeedback(result.outcome === 'sent' ? null : { text: result.outcome === 'unknown' ? unknownMessage : rejectionMessages[result.error.code], alert: true });
+        setFeedback(result.outcome === 'sent' ? null : { text: () => (result.outcome === 'unknown' ? unknownMessage() : rejectionMessages[result.error.code]), alert: true });
       } else if (value instanceof ApiFailure && value.status === 401) { stopHold(); expired.current(); }
-      else { stopHold(); setFeedback({ text: unknownMessage, alert: true }); }
+      else { stopHold(); setFeedback({ text: () => (unknownMessage()), alert: true }); }
     },
   });
   const stopHold = useCallback(() => {
@@ -132,7 +134,7 @@ export function Remote({ tvId, platform = 'webos', csrfToken, active, onSessionE
         setState(null);
         if (cause instanceof ApiFailure && cause.status === 401) {
           current.active = false; current.command?.abort(); expired.current();
-        } else setReadError('Не удалось проверить доступность пульта. Ожидаем обновления статуса.');
+        } else setReadError(() => (i18n.t('remoteReadFailed', { ns: 'devices' })));
       } finally { inFlight = false; schedule(); }
     }
     void read();
@@ -155,13 +157,13 @@ export function Remote({ tvId, platform = 'webos', csrfToken, active, onSessionE
       catch {
         stopHold();
         // No API call has started: this failure proves the command was not sent.
-        setFeedback({ text: 'Команда не отправлена. Не удалось подготовить идентификатор команды.', alert: true });
+        setFeedback({ text: () => i18n.t('commandIdFailed', { ns: 'devices' }), alert: true });
         return;
       }
       const result: TvCommandResult = await api.sendCommand(button === 'wink' ? { id, app: 'wink' } : { id, button }, csrfToken, current.command.signal, tvId);
       if (!current.active) return;
       if (result.outcome !== 'sent') stopHold();
-      setFeedback({ text: result.outcome === 'sent' ? 'Команда отправлена' : result.outcome === 'unknown' ? unknownMessage : rejectionMessages[result.error.code], alert: result.outcome !== 'sent' });
+      setFeedback({ text: () => (result.outcome === 'sent' ? i18n.t('commandSent', { ns: 'devices' }) : result.outcome === 'unknown' ? unknownMessage() : rejectionMessages[result.error.code]), alert: result.outcome !== 'sent' });
     } catch (cause) {
       if (!current.active) return;
       stopHold();
@@ -171,7 +173,7 @@ export function Remote({ tvId, platform = 'webos', csrfToken, active, onSessionE
         // Auth/schema rejection is before dispatch. All lost or malformed
         // command responses remain uncertain; no automatic POST retry.
         const rejected = cause instanceof ApiFailure && cause.commandRejectedBeforeDispatch;
-        setFeedback({ text: rejected ? 'Команда отклонена. Проверьте сессию и попробуйте снова.' : unknownMessage, alert: true });
+        setFeedback({ text: () => (rejected ? i18n.t('commandRejected', { ns: 'devices' }) : unknownMessage()), alert: true });
       }
     } finally {
       current.pending = false;
@@ -203,11 +205,11 @@ export function Remote({ tvId, platform = 'webos', csrfToken, active, onSessionE
 
   if (!active) return null;
   const disabled = interactionBlocked || busy || !state?.enabled;
-  const explanation = readError || (state ? state.enabled || (quietOffline && state.reason === 'UNAVAILABLE') ? '' : reasons[state.reason] : 'Проверяем доступность пульта…');
+  const explanation = readError || (state ? state.enabled || (quietOffline && state.reason === 'UNAVAILABLE') ? '' : reasons[state.reason] : i18n.t('checkingRemote', { ns: 'devices' }));
   const activity = <div className="remote-activity">
     {!serverUnavailable && explanation && !(state?.reason === 'BUSY' && !readError) && <p>{explanation}</p>}
-    <p role="status" aria-label="Команды телевизора" aria-live="polite">{!busy && feedback && !feedback.alert ? feedback.text : ''}</p>
-    {feedback?.alert && <p role="alert" className="error">{feedback.text}</p>}
+    <p role="status" aria-label={i18n.t('commandsAria', { ns: 'devices' })} aria-live="polite">{!busy && feedback && !feedback.alert ? feedback.text() : ''}</p>
+    {feedback?.alert && <p role="alert" className="error">{feedback.text()}</p>}
   </div>;
   return <><RemoteLayout groupProps={{'aria-describedby':'remote-help','aria-busy':busy,onKeyDown:keyDown,onBlur:stopHold}} buttonProps={action => {
     if(action==='wink')return {disabled:!!(disabled || state?.enabled && state.apps===false),onClick:()=>{stopHold();void send('wink');}};

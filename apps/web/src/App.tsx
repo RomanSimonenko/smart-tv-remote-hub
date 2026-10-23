@@ -1,30 +1,33 @@
+import {i18n,useTranslation,useUiMessage,m} from './i18n.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PasswordChangeRequest, SessionResponse } from '@remote-webos-tv/contracts';
 import { api, ApiFailure, friendlyError } from './api.js';
 import { Setup } from './pages/Setup.js';
 import { Login } from './pages/Login.js';
 import { Home } from './pages/Home.js';
+import {LanguageSelect} from './components/LanguageSelect.js';
 import { Brand } from './components/Brand.js';
 
 type View = 'loading' | 'setup' | 'login' | 'home' | 'error';
 
 function loginError(cause: unknown): string {
   if (cause instanceof ApiFailure) {
-    if (cause.status === 401 && cause.code === 'INVALID_CREDENTIALS') return 'Неверный логин или пароль.';
-    if (cause.code === 'INVALID_RESPONSE') return 'Не удалось подтвердить вход: сервер вернул некорректный ответ. Попробуйте снова.';
-    if (cause.status === 400) return 'Проверьте логин и пароль: логин — 1–64 символа, пароль — 6–128.';
-    if (cause.status === 403) return 'Вход отклонён сервером. Обновите страницу и попробуйте снова.';
+    if (cause.status === 401 && cause.code === 'INVALID_CREDENTIALS') return i18n.t('auth:'+'invalidCredentials');
+    if (cause.code === 'INVALID_RESPONSE') return i18n.t('auth:'+'invalidLoginResponse');
+    if (cause.status === 400) return i18n.t('auth:'+'loginLengths');
+    if (cause.status === 403) return i18n.t('auth:'+'loginRejected');
   }
   return friendlyError(cause);
 }
 
 export function App() {
+  const {t}=useTranslation('auth');
   const [reauthenticating,setReauthenticating]=useState(false);
   const unsavedCase=useRef(false);
   const markUnsavedCase=useCallback((dirty:boolean)=>{unsavedCase.current=dirty;},[]);
   const [view, setView] = useState<View>('loading');
   const [session, setSession] = useState<SessionResponse | null>(null);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useUiMessage('');
   const [busy, setBusy] = useState(false);
   const [credentialsInvalid, setCredentialsInvalid] = useState(false);
   const [tvActive, setTvActive] = useState(true);
@@ -34,7 +37,7 @@ export function App() {
   const errorRef = useRef<HTMLParagraphElement>(null);
   const expireSession = useCallback(() => {
     sessionVersion.current++; if(unsavedCase.current) setReauthenticating(true); else setSession(null); setView('login'); setTvActive(false);
-    setMessage('Сессия истекла. Войдите снова.');
+    setMessage(m('auth','sessionExpired'));
   }, []);
 
   useEffect(() => { if (message) errorRef.current?.focus(); }, [message]);
@@ -51,10 +54,10 @@ export function App() {
         } catch (error) {
           if (!active) return;
           if (error instanceof ApiFailure && error.status === 401) setView('login');
-          else { setMessage(friendlyError(error)); setView('error'); }
+          else { setMessage(()=>friendlyError(error)); setView('error'); }
         }
       } catch (error) {
-        if (active) { setMessage(friendlyError(error)); setView('error'); }
+        if (active) { setMessage(()=>friendlyError(error)); setView('error'); }
       }
     }
     void initialize();
@@ -74,7 +77,7 @@ export function App() {
       } catch (cause) {
         if (active && version === sessionVersion.current && !passwordPending.current) {
           if (cause instanceof ApiFailure && cause.status === 401) expireSession();
-          else setMessage(friendlyError(cause));
+          else setMessage(()=>friendlyError(cause));
         }
       }
     };
@@ -95,8 +98,8 @@ export function App() {
         try { setSession(await api.session()); }
         catch (recovery) {
           if (recovery instanceof ApiFailure && recovery.status === 401) {
-            expireSession(); setMessage('Пароль мог измениться. Войдите с новым паролем.');
-          } else setMessage('Не удалось проверить сессию. Обновите страницу перед продолжением.');
+            expireSession(); setMessage(m('auth','passwordMayChanged'));
+          } else setMessage(m('auth','sessionCheckFailed'));
         }
         throw new ApiFailure(0, 'PASSWORD_CHANGE_UNCERTAIN');
       }
@@ -117,22 +120,22 @@ export function App() {
         expireSession();
       } else {
         setCredentialsInvalid(view === 'login' && error instanceof ApiFailure && error.status === 401 && error.code === 'INVALID_CREDENTIALS');
-        setMessage(formatError(error));
+        setMessage(()=>formatError(error));
       }
     } finally { pending.current = false; setBusy(false); }
   }
 
   const error = message ? <p id="app-error" ref={errorRef} tabIndex={-1} role="alert" className="error">{message}</p> : null;
   return <main className={`shell${view !== 'home' ? ' auth-screen' : ' workspace-shell'}`}>
-    {view !== 'home' && <header className="auth-header"><Brand /></header>}
-    {view === 'loading' && <p className="form-card" role="status">Загрузка…</p>}
-    {view === 'error' && <section className="form-card"><h1>Не удалось загрузить приложение</h1>{error}<button type="button" onClick={() => window.location.reload()}>Повторить</button></section>}
+    {view !== 'home' && <header className="auth-header"><Brand /><LanguageSelect /></header>}
+    {view === 'loading' && <p className="form-card" role="status">{t('loading')}</p>}
+    {view === 'error' && <section className="form-card"><h1>{t('appLoadFailed')}</h1>{error}<button type="button" onClick={() => window.location.reload()}>{t('retry')}</button></section>}
     {view === 'setup' && <Setup busy={busy} error={error} onSubmit={(input) => submit(async () => {
       await api.setup(input);
       setView('login');
-      setMessage('Владелец создан. Теперь войдите.');
+      setMessage(m('auth','ownerCreated'));
     })} />}
-    {view === 'login' && <Login busy={busy} credentialsInvalid={credentialsInvalid} onEdit={() => { setMessage(''); setCredentialsInvalid(false); }} feedback={message === 'Владелец создан. Теперь войдите.' ? message : undefined} error={message === 'Владелец создан. Теперь войдите.' ? null : error} onSubmit={(input) => submit(async () => {
+    {view === 'login' && <Login busy={busy} credentialsInvalid={credentialsInvalid} onEdit={() => { setMessage(''); setCredentialsInvalid(false); }} feedback={message === t('ownerCreated') ? message : undefined} error={message === t('ownerCreated') ? null : error} onSubmit={(input) => submit(async () => {
       await api.login(input);
       const current = await api.session();
       setSession(current);

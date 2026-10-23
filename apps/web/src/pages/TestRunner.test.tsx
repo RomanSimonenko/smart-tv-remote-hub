@@ -1,7 +1,25 @@
-import {cleanup,render,screen,waitFor} from '@testing-library/react';import {afterEach,expect,test,vi} from 'vitest';
+import {act,cleanup,render,screen,waitFor} from '@testing-library/react';import {afterEach,expect,test,vi} from 'vitest';
+import {setLanguage} from '../i18n.js';
 import {TestRunner} from './TestRunner.js';import {api} from '../api.js';
 import type {TestRun} from '@remote-webos-tv/contracts';
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
+test('an existing unsupported-action diagnostic changes language without repeating capability requests',async()=>{
+ const id='00000000-0000-4000-8000-000000000001';
+ vi.spyOn(api,'getTestCase').mockResolvedValue({id,title:'Синтетический кейс',description:'',group:'',status:'ready',version:1,createdAt:1,updatedAt:1,steps:[{id,kind:'given',text:'Действие пользователя',actions:[{id,action:'wink',pauseAfterMs:0}]}]});
+ vi.spyOn(api,'tvDevices').mockResolvedValue({devices:[{tvId:id,platform:'webos',status:{tv:{host:'192.0.2.10',identity:{model:'Synthetic TV'}},connection:'available',operation:null}}]});
+ const remote=vi.spyOn(api,'remoteState').mockResolvedValue({enabled:true,reason:null,apps:false});
+ vi.spyOn(api,'powerState').mockResolvedValue({mac:null,operation:null,canPowerOff:true,canWake:false});
+ render(<TestRunner caseId={id} csrfToken="synthetic" onSessionExpired={()=>{}} onBack={()=>{}} onOpenRuns={()=>{}} onRunningChange={()=>{}}/>);
+ await waitFor(()=>expect(screen.getByText(/Запустить Wink/)).toBeTruthy());
+ const requests=remote.mock.calls.length;
+ try {
+  await act(async()=>{await setLanguage('en');});
+  expect(screen.getByText(/Launch Wink/)).toBeTruthy();
+  expect(screen.queryByText(/Запустить Wink/)).toBeNull();
+  expect(remote.mock.calls.length).toBe(requests);
+  expect(screen.getByText('Действие пользователя')).toBeTruthy();
+ } finally {await act(async()=>{await setLanguage('ru');});}
+});
 test('updates completed step checks during execution and waits for every action and OCR',async()=>{
  const execution=await import('../useTestRun.js');
  const id=crypto.randomUUID(),first=crypto.randomUUID(),second=crypto.randomUUID(),third=crypto.randomUUID();
