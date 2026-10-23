@@ -10,7 +10,7 @@ test('TV camera captures and recognizes in one action with side-by-side results'
   }});
  });
  await tv.setupAndLogin(page);
- await expect(page.getByRole('button',{name:'Настройки — появится позже',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Настройки',exact:true})).toBeEnabled();
  await page.getByRole('button',{name:'Добавить ТВ',exact:true}).click();
  await page.getByLabel('IP-адрес телевизора').fill(tvHost);
  await page.getByLabel(/MAC-адрес телевизора/).fill('02:00:00:00:00:03');

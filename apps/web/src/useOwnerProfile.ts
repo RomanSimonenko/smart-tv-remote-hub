@@ -1,3 +1,4 @@
+import {useUiMessage} from './i18n.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OwnerProfile, ProfileUpdate } from '@remote-webos-tv/contracts';
 import { api, ApiFailure, friendlyError } from './api.js';
@@ -6,7 +7,7 @@ export function useOwnerProfile(csrfToken: string, onSessionExpired: () => void,
   const [profile, setProfile] = useState<OwnerProfile | null>(null);
   const [loading, setLoading] = useState(active);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useUiMessage('');
   const [revision, setRevision] = useState(0);
   const expired = useRef(onSessionExpired);
   expired.current = onSessionExpired;
@@ -22,7 +23,7 @@ export function useOwnerProfile(csrfToken: string, onSessionExpired: () => void,
     }).catch((cause: unknown) => {
       if (controller.signal.aborted) return;
       if (cause instanceof ApiFailure && cause.status === 401) expired.current();
-      else setError(friendlyError(cause));
+      else setError(()=>friendlyError(cause));
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => { controller.abort(); lifecycle.current = null; };
   }, [active, revision]);
@@ -37,7 +38,7 @@ export function useOwnerProfile(csrfToken: string, onSessionExpired: () => void,
     } catch (cause) {
       if (!controller.signal.aborted) {
         if (cause instanceof ApiFailure && cause.status === 401) expired.current();
-        else setError(friendlyError(cause));
+        else setError(()=>friendlyError(cause));
       }
       return false;
     } finally { pending.current = false; if (!controller.signal.aborted) setSaving(false); }

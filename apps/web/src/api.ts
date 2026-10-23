@@ -1,3 +1,5 @@
+import { i18n } from './i18n.js';
+const t=(key:string,values:Record<string,unknown>={})=>i18n.t(key,{ns:'common',...values});
 import {ocrDiagnosticsSchema} from '@remote-webos-tv/contracts';
 import { testCasesResponseSchema, testCaseSchema, type CreateTestCase, type UpdateTestCase } from '@remote-webos-tv/contracts';
 import { profileResponseSchema, passwordChangeResponseSchema, type PasswordChangeRequest, type ProfileUpdate } from '@remote-webos-tv/contracts';
@@ -140,26 +142,26 @@ export const api = {
 
 export function friendlyError(error: unknown): string {
   if (error instanceof ApiFailure) {
-    if(error.code==='VERSION_CONFLICT')return 'Кейс изменён. Откройте подготовку заново, чтобы использовать сохранённую версию.';
-    if(error.code==='RUN_OWNED_BY_ANOTHER_SESSION')return 'Запуск управляется из другой сессии.';
-    if(error.code==='ARTIFACT_QUOTA_EXCEEDED')return 'Хранилище снимков заполнено. Запуск остановлен.';
-    if(error.code==='ARTIFACT_STORAGE_FAILED')return 'Не удалось сохранить снимок. Запуск остановлен.';
-    if(error.code==='RUN_CONFLICT'||error.code==='RUN_NOT_ACTIVE')return 'Состояние запуска изменилось. Откройте отчёт.';
-    if (error.code === 'OPERATION_CONFLICT') return 'Другая операция с телевизором ещё не завершена.';
-    if (error.code === 'INVALID_ACTION') return 'Это действие недоступно для текущей настройки телевизора.';
-    if (error.code === 'OPERATION_NOT_FOUND') return 'Операция с телевизором не найдена. Обновите статус.';
-    if (error.code === 'SERVICE_CLOSED') return 'Сервис телевизора остановлен.';
-    if (error.code === 'POWER_RECEIPT_CAPACITY') return 'Войдите заново, чтобы запустить новую операцию питания.';
-    if (error.code === 'WOL_NOT_CONFIGURED') return 'Сохраните MAC-адрес телевизора для включения.';
-    if (error.code === 'UNSUPPORTED_CAPABILITY') return 'Телевизор не поддерживает эту команду.';
-    if (error.code === 'TV_UNAVAILABLE') return 'Телевизор недоступен. Обновите статус.';
-    if (error.code === 'CLEANUP_FAILED') return 'Не удалось освободить соединение с телевизором. Проверьте сервис.';
-    if (error.code === 'INVALID_RESPONSE') return 'Сервер вернул некорректный ответ. Обновите статус.';
-    if (error.status === 401 && error.code === 'INVALID_CREDENTIALS') return 'Неверное имя или пароль.';
-    if (error.status === 429) return 'Слишком много попыток. Попробуйте позже.';
-    if (error.status === 403) return 'Действие отклонено. Проверьте данные и попробуйте снова.';
-    if (error.status === 400) return 'Проверьте введённые данные.';
-    if (error.code === 'NETWORK_ERROR') return 'Нет связи с сервером. Попробуйте снова.';
+    if(error.code==='VERSION_CONFLICT')return t('versionConflict');
+    if(error.code==='RUN_OWNED_BY_ANOTHER_SESSION')return t('runOwned');
+    if(error.code==='ARTIFACT_QUOTA_EXCEEDED')return t('quotaExceeded');
+    if(error.code==='ARTIFACT_STORAGE_FAILED')return t('artifactFailed');
+    if(error.code==='RUN_CONFLICT'||error.code==='RUN_NOT_ACTIVE')return t('runChanged');
+    if (error.code === 'OPERATION_CONFLICT') return t('operationConflict');
+    if (error.code === 'INVALID_ACTION') return t('invalidAction');
+    if (error.code === 'OPERATION_NOT_FOUND') return t('operationNotFound');
+    if (error.code === 'SERVICE_CLOSED') return t('serviceClosed');
+    if (error.code === 'POWER_RECEIPT_CAPACITY') return t('powerCapacity');
+    if (error.code === 'WOL_NOT_CONFIGURED') return t('wolMissing');
+    if (error.code === 'UNSUPPORTED_CAPABILITY') return t('unsupportedCapability');
+    if (error.code === 'TV_UNAVAILABLE') return t('tvUnavailable');
+    if (error.code === 'CLEANUP_FAILED') return t('cleanupFailed');
+    if (error.code === 'INVALID_RESPONSE') return t('invalidResponse');
+    if (error.status === 401 && error.code === 'INVALID_CREDENTIALS') return t('invalidCredentials');
+    if (error.status === 429) return t('tooManyAttempts');
+    if (error.status === 403) return t('forbidden');
+    if (error.status === 400) return t('invalidInput');
+    if (error.code === 'NETWORK_ERROR') return t('networkError');
   }
-  return 'Не удалось выполнить запрос. Попробуйте снова.';
+  return t('requestFailed');
 }

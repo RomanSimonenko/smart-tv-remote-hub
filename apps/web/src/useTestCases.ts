@@ -1,13 +1,14 @@
+import {useUiMessage,m} from './i18n.js';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import type {TestCase,TestCaseDraft} from '@remote-webos-tv/contracts';
 import {api,ApiFailure} from './api.js';
 export function useTestCases(csrfToken:string,onSessionExpired:()=>void, enabled=true,listActive=true) {
  const [conflict,setConflict]=useState(false);
  const [cases,setCases]=useState<TestCase[]>([]);const [current,setCurrent]=useState<TestCase|null>(null);
- const [loading,setLoading]=useState(true);const [opening,setOpening]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState('');const [editorKey,setEditorKey]=useState(0);
+ const [loading,setLoading]=useState(true);const [opening,setOpening]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useUiMessage();const [editorKey,setEditorKey]=useState(0);
  const openFailed=useRef(false);
  const mounted=useRef(true);const generation=useRef(0);const readController=useRef<AbortController|null>(null);const saveController=useRef<AbortController|null>(null);const saveBusy=useRef(false);const createId=useRef('');const expire=useRef(onSessionExpired);expire.current=onSessionExpired;
- const failure=useCallback((cause:unknown)=>{if(cause instanceof ApiFailure && cause.status===409)setConflict(true);if(cause instanceof ApiFailure&&cause.status===401)expire.current();setError(cause instanceof ApiFailure&&cause.status===409?'Кейс изменён в другой вкладке. Ваши правки сохранены в редакторе.':cause instanceof ApiFailure&&cause.status===429?'Слишком много запросов. Подождите и повторите.':'Не удалось выполнить запрос. Проверьте соединение и повторите.');},[]);
+ const failure=useCallback((cause:unknown)=>{if(cause instanceof ApiFailure && cause.status===409)setConflict(true);if(cause instanceof ApiFailure&&cause.status===401)expire.current();setError(cause instanceof ApiFailure&&cause.status===409?m('cases','conflict'):cause instanceof ApiFailure&&cause.status===429?m('cases','tooManyRequests'):m('cases','requestFailed'));},[]);
  const refresh=useCallback((explicit=true)=>{readController.current?.abort();const controller=new AbortController();readController.current=controller;const version=++generation.current;setLoading(true);if(explicit||!openFailed.current)setError('');if(explicit)openFailed.current=false;void api.listTestCases(controller.signal).then(result=>{if(mounted.current&&generation.current===version)setCases(result.cases);}).catch(cause=>{if(mounted.current&&!controller.signal.aborted&&generation.current===version)failure(cause);}).finally(()=>{if(mounted.current&&generation.current===version)setLoading(false);});},[failure]);
  useEffect(()=>{mounted.current=true;if(enabled&&listActive)refresh(false);return()=>{mounted.current=false;generation.current++;readController.current?.abort();saveController.current?.abort();};},[refresh,enabled,listActive]);
  function create(){openFailed.current=false;setConflict(false);readController.current?.abort();generation.current++;setLoading(false);setOpening(false);setCurrent(null);createId.current=crypto.randomUUID();setError('');setEditorKey(value=>value+1);}

@@ -1,9 +1,11 @@
+import {useTranslation} from '../i18n.js';
 import { useLayoutEffect, useRef, type RefObject } from 'react';
 import { IconLogout } from '@tabler/icons-react';
 
 interface Props { open: boolean; anchor: RefObject<HTMLButtonElement | null>; onClose(): void; onConfirm(): void }
 
 export function LogoutConfirmation({ open, anchor, onClose, onConfirm }: Props) {
+  const {t}=useTranslation('auth');
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
   const confirm = useRef<HTMLButtonElement>(null);
@@ -37,7 +39,7 @@ export function LogoutConfirmation({ open, anchor, onClose, onConfirm }: Props) 
     const bounds = event.currentTarget.getBoundingClientRect();
     if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
   }}>
-    <div className="power-confirm-heading"><IconLogout aria-hidden="true" /><h3 id="logout-title">Выйти из приложения?</h3></div>
-    <div className="power-confirm-actions"><button ref={cancel} type="button" onClick={onClose}>Отмена</button><button ref={confirm} className="power-confirm-submit" type="button" onClick={onConfirm}>Выйти</button></div>
+    <div className="power-confirm-heading"><IconLogout aria-hidden="true" /><h3 id="logout-title">{t('logoutQuestion')}</h3></div>
+    <div className="power-confirm-actions"><button ref={cancel} type="button" onClick={onClose}>{t('cancel')}</button><button ref={confirm} className="power-confirm-submit" type="button" onClick={onConfirm}>{t('logout')}</button></div>
   </dialog>;
 }

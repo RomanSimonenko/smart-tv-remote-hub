@@ -1,0 +1,3 @@
+import {useLanguage,useTranslation} from '../i18n.js';
+import {IconChevronDown} from '@tabler/icons-react';
+export function LanguageSelect(){const {language,setLanguage,error}=useLanguage();const {t}=useTranslation('common');return <div className="language-select"><label>{t('language')}<span className="platform-select"><select aria-label={t('language')} value={language} onChange={event=>void setLanguage(event.target.value==='en'?'en':'ru')}><option value="ru">Русский</option><option value="en">English</option></select><IconChevronDown aria-hidden="true" /></span></label>{error&&<p role="alert">{error}</p>}</div>;}
