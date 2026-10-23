@@ -12,7 +12,7 @@ test('switches RU/EN, restores the choice after reload and logout, and preserves
  await page.reload();
  await expect(page.getByLabel('Interface language')).toHaveValue('en');
  const contentStart=await page.locator('.app-content').evaluate(element=>element.getBoundingClientRect().left+parseFloat(getComputedStyle(element).paddingLeft));
- expect((await page.locator('.interface-settings').boundingBox())!.x).toBeCloseTo(contentStart,0);
+ expect((await page.locator('.app-settings').boundingBox())!.x).toBeCloseTo(contentStart,0);
  await page.screenshot({path:testInfo.outputPath('settings-en-1440.png')});
  await nav.getByRole('button',{name:'Test cases',exact:true}).click();
  await page.getByRole('button',{name:'Create test case',exact:true}).click();

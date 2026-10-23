@@ -137,4 +137,8 @@ export const schemaMigrations: readonly Migration[] = [
       ${tvDefaultTableSql};`);
     if (selected) sqlite.prepare('INSERT INTO tv_default VALUES (1, ?)').run(selected.tv_id);
   } },
+  { version: 11, up(sqlite) {
+    sqlite.exec(`CREATE TABLE storage_settings (id INTEGER PRIMARY KEY CHECK (id=1), document TEXT NOT NULL);
+      CREATE TABLE deleted_test_runs (id TEXT PRIMARY KEY NOT NULL, pending_files INTEGER NOT NULL CHECK (pending_files IN (0,1)));`);
+  } },
 ];

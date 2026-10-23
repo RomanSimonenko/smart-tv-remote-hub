@@ -20,6 +20,18 @@ async function mount(devices: unknown[] = [device()]) {
     ? { mac: null, canPowerOff: false, canWake: false, operation: null } : path.endsWith('/remote') ? { enabled: false, reason: 'UNAVAILABLE' } : saved));
   vi.stubGlobal('fetch', fetch); render(home()); await act(async () => {}); return fetch;
 }
+test('discarding changes when reopening Settings resets the draft and preserves later dirty protection',async()=>{
+ localStorage.clear();
+ vi.spyOn(api,'storageSummary').mockResolvedValue({policy:{automatic:false,days:30,keepUnsuccessful:true},databaseBytes:100,backupBytes:0,otherBytes:0,totalBytes:100,freeBytes:1000,reports:{count:0,bytes:0},snapshots:{count:0,bytes:0,quotaBytes:1000},pendingFiles:0});
+ await mount();const nav=within(document.querySelector('.app-sidebar')! as HTMLElement);
+ fireEvent.click(nav.getByRole('button',{name:'Настройки'}));fireEvent.click(screen.getByRole('button',{name:'Хранение'}));
+ fireEvent.change(await screen.findByLabelText('Срок хранения, дней'),{target:{value:'90'}});
+ fireEvent.click(nav.getByRole('button',{name:'Настройки'}));fireEvent.click(screen.getByRole('button',{name:'Не сохранять и продолжить'}));
+ expect(screen.getByLabelText('Язык интерфейса')).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'Хранение'}));
+ expect((await screen.findByLabelText('Срок хранения, дней') as HTMLInputElement).value).toBe('30');
+ fireEvent.change(screen.getByLabelText('Срок хранения, дней'),{target:{value:'60'}});fireEvent.click(nav.getByRole('button',{name:'Телевизоры'}));
+ expect(screen.getByRole('dialog',{name:'Несохранённые изменения'})).toBeTruthy();
+});
 test('opens the exact selected card and returns without mutations', async () => {
   const fetch = await mount([device(), device(second, { ...saved, tv: { ...saved.tv, identity: { model: 'Second TV' } } })]);
   fireEvent.keyDown(document.body, { key: 'ArrowUp' });

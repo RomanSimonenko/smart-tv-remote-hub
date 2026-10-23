@@ -9,11 +9,12 @@ export const testRunsTableSql=`CREATE TABLE test_runs (
 export class RunConflictError extends Error {readonly statusCode=409;readonly code='RUN_CONFLICT';}
 export interface RunHistoryFilters {query?:string;status?:TestRun['status'];tvId?:string;since?:number;until?:number}
 export function createTestRunRepository(sqlite:Database.Database){
+ const hasTombstones=!!sqlite.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name='deleted_test_runs'").get();
  sqlite.function('run_casefold',{deterministic:true},value=>typeof value==='string'?value.toLocaleLowerCase('ru'):'');
  const read=(id:string):TestRun|undefined=>{const row=sqlite.prepare('SELECT document FROM test_runs WHERE id=?').get(id) as {document:string}|undefined;return row?testRunSchema.parse(JSON.parse(row.document)):undefined;};
  return {
   read,
-  create(run:TestRun){const parsed=testRunSchema.parse(run);sqlite.prepare('INSERT INTO test_runs VALUES (?,?,?,?)').run(parsed.id,parsed.startedAt,parsed.revision,JSON.stringify(parsed));return read(parsed.id)!;},
+  create(run:TestRun){const parsed=testRunSchema.parse(run);if(hasTombstones&&sqlite.prepare('SELECT id FROM deleted_test_runs WHERE id=?').get(parsed.id))throw new RunConflictError('Run was deleted');sqlite.prepare('INSERT INTO test_runs VALUES (?,?,?,?)').run(parsed.id,parsed.startedAt,parsed.revision,JSON.stringify(parsed));return read(parsed.id)!;},
   replace(run:TestRun,expected:number){const parsed=testRunSchema.parse({...run,revision:expected+1});const result=sqlite.prepare('UPDATE test_runs SET revision=?,document=? WHERE id=? AND revision=?').run(parsed.revision,JSON.stringify(parsed),parsed.id,expected);if(result.changes!==1)throw new RunConflictError('Запуск изменён другим запросом');return parsed;},
   list(limit=25,before?:{time:number;id:string},filters:RunHistoryFilters={}){
    const conditions:string[]=[],values:(string|number)[]=[];

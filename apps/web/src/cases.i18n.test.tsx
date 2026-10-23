@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import {act,cleanup,fireEvent,render,renderHook,screen,waitFor} from '@testing-library/react';
-import {afterEach,expect,test,vi} from 'vitest';
+import {afterEach,beforeEach,expect,test,vi} from 'vitest';
 import {i18n} from './i18n.js';
 import {TestCaseEditor} from './pages/TestCaseEditor.js';
 import {BddImportDialog} from './components/BddImportDialog.js';
 import {useTestCases} from './useTestCases.js';
 
 afterEach(async()=>{cleanup();vi.unstubAllGlobals();await i18n.changeLanguage('ru');});
+beforeEach(()=>Object.defineProperties(HTMLDialogElement.prototype,{showModal:{configurable:true,writable:true,value:function(this:HTMLDialogElement){this.open=true;}},close:{configurable:true,writable:true,value:function(this:HTMLDialogElement){this.open=false;}}}));
 
 test('uses Russian and English step plurals including zero and compound counts',async()=>{
  const translate=(count:number)=>i18n.t('stepCount',{ns:'cases',count});
@@ -33,6 +34,7 @@ test('switches editor validation and notices while preserving draft and conditio
  expect(screen.getByText('Step saved to draft')).toBeTruthy();
  await act(()=>i18n.changeLanguage('ru'));
  expect(screen.getByText('Шаг сохранён в черновик')).toBeTruthy();
+ fireEvent.click(screen.getByRole('button',{name:/Выбрать шаг 1/}));
  expect((screen.getByLabelText('Описание шага') as HTMLTextAreaElement).value).toBe('Изменённый шаг');
  expect(save).not.toHaveBeenCalled();
 });

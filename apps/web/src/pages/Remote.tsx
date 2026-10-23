@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 're
 import { createPortal } from 'react-dom';
 import { RemoteLayout } from '../components/RemoteLayout.js';
 import type { BasicTvButton, TvRemoteState, TvCommandResult, TvId, TvPlatform } from '@remote-webos-tv/contracts';
-import { tvActionCatalog, getTvAction, tvCommandResultSchema } from '@remote-webos-tv/contracts';
+import { tvActionCatalog, getTvAction, tvCommandResultSchema, TV_HOLD_REPEAT_DELAY_MS, TV_HOLD_REPEAT_INTERVAL_MS } from '@remote-webos-tv/contracts';
 import { api, ApiFailure } from '../api.js';
 import { requestId } from '../requestId.js';
 import { useTvHold } from '../useTvHold.js';
@@ -76,9 +76,9 @@ export function Remote({ tvId, platform = 'webos', csrfToken, active, onSessionE
       if (held.current !== hold) return;
       // Never queue behind an outstanding command; missed ticks are discarded.
       if (!runtime.current?.pending) void sendLatest.current(button);
-      if (held.current === hold) hold.timer = setTimeout(tick, 200);
+      if (held.current === hold) hold.timer = setTimeout(tick, TV_HOLD_REPEAT_INTERVAL_MS);
     }
-    hold.timer = setTimeout(tick, 400);
+    hold.timer = setTimeout(tick, TV_HOLD_REPEAT_DELAY_MS);
   }
   useEffect(() => {
     if (!active || interactionBlocked || !state?.enabled && !(held.current?.native && state?.reason === 'BUSY')) stopHold();

@@ -139,7 +139,10 @@ test('PIN route validates CSRF, owner, one-use code and never logs secrets', asy
  expect(response.statusCode).toBe(202);expect(await pin).toBe('0123');expect(response.json().challenge).toBeUndefined();
  expect((await app.inject({method:'POST',url,headers,payload:{pin:'0123'}})).statusCode).toBe(409);
  h.service.cancel(id);adapter.pairResult.reject(new Error('cancelled synthetic pairing'));await drain();
- expect(logs.join('')).not.toContain('0123');expect(logs.join('')).not.toContain('synthetic-key');
+ // Timings and generated IDs can contain the PIN's digits without disclosing it.
+ logs.push(JSON.stringify({reqId:'00000123-0000-4000-8000-000000000000',responseTime:1.4889640000001236,msg:'request completed'})+'\n');
+ const payloads=logs.join('').trim().split('\n').map(line=>{const {time:_time,reqId:_reqId,responseTime:_responseTime,...payload}=JSON.parse(line);return payload;});
+ expect(JSON.stringify(payloads)).not.toContain('0123');expect(logs.join('')).not.toContain('synthetic-key');
 });
 
 test('third pairing still accepts its PIN after two invalid codes within one setup window',async()=>{

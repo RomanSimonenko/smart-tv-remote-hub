@@ -47,6 +47,14 @@ export async function createArtifactStore({dataDir,maxBytes=1024**3}:{dataDir:st
  let used=0;for(const file of await readdir(directory)){if(file.endsWith('.tmp'))await unlink(join(directory,file));else used+=(await lstat(join(directory,file))).size;}
  let serial=Promise.resolve();
  return {
+  usage:()=>({bytes:used,quotaBytes:maxBytes}),
+  async removeRun(runId:string){
+   const prefix=`${testCaseIdSchema.parse(runId)}_`;
+   const previous=serial;let release!:()=>void;serial=new Promise(resolve=>{release=resolve;});await previous;
+   try{for(const file of await readdir(directory))if(file.startsWith(prefix)&&file.endsWith('.jpg')){
+    const path=join(directory,file),size=(await lstat(path)).size;await unlink(path);used-=size;
+   }}catch(cause){throw new ArtifactError('ARTIFACT_STORAGE_FAILED',{cause});}finally{release();}
+  },
   async save(runId:string,itemId:string,data:Buffer){
    validateJpeg(data);const sha256=createHash('sha256').update(data).digest('hex');
    const previous=serial;let release!:()=>void;serial=new Promise(resolve=>{release=resolve;});await previous;

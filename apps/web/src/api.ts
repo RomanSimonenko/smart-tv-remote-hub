@@ -1,4 +1,5 @@
 import { i18n } from './i18n.js';
+import {storageSummarySchema,storagePolicySchema,cleanupPreviewSchema,cleanupResultSchema,diagnosticsSchema,type StoragePolicy} from '@remote-webos-tv/contracts';
 const t=(key:string,values:Record<string,unknown>={})=>i18n.t(key,{ns:'common',...values});
 import {ocrDiagnosticsSchema} from '@remote-webos-tv/contracts';
 import { testCasesResponseSchema, testCaseSchema, type CreateTestCase, type UpdateTestCase } from '@remote-webos-tv/contracts';
@@ -67,6 +68,11 @@ async function dispatchCommand(kind: 'commands' | 'holds', input: TvCommandReque
   return result;
 }
 export const api = {
+  async storageSummary(signal:AbortSignal){return parsed(await request('/settings/storage',{signal}),storageSummarySchema);},
+  async saveStoragePolicy(input:StoragePolicy,csrfToken:string,signal:AbortSignal){return parsed(await request('/settings/storage',{method:'PUT',headers:{...jsonHeaders,'x-csrf-token':csrfToken},body:JSON.stringify(input),signal}),storagePolicySchema);},
+  async previewCleanup(selection:{days:number;keepUnsuccessful:boolean},csrfToken:string,signal:AbortSignal){return parsed(await request('/settings/storage/preview',{method:'POST',headers:{...jsonHeaders,'x-csrf-token':csrfToken},body:JSON.stringify(selection),signal}),cleanupPreviewSchema);},
+  async cleanupStorage(token:string,csrfToken:string,signal:AbortSignal){return parsed(await request('/settings/storage/cleanup',{method:'POST',headers:{...jsonHeaders,'x-csrf-token':csrfToken},body:JSON.stringify({token,confirm:true}),signal}),cleanupResultSchema);},
+  async diagnostics(signal:AbortSignal){return parsed(await request('/settings/diagnostics',{signal}),diagnosticsSchema);},
   async diagnoseOcr(image:Blob,csrfToken:string,signal:AbortSignal){return parsed(await request('/camera/ocr',{method:'POST',headers:{'content-type':'image/jpeg','x-csrf-token':csrfToken},body:image,signal}),ocrDiagnosticsSchema);},
   async cameraPreview(image:Blob,csrfToken:string,prior:CameraPrior|undefined,signal:AbortSignal){return parsed(await request('/camera/preview',{method:'POST',headers:{'content-type':'image/png','x-csrf-token':csrfToken,...(prior?{'x-screen-prior':JSON.stringify(prior)}:{})},body:image,signal}),cameraPreviewSchema);},
   async cameraSnapshot(image:Blob,csrfToken:string,prior:CameraPrior,signal:AbortSignal){return parsed(await request('/camera/snapshot',{method:'POST',headers:{'content-type':'image/png','x-csrf-token':csrfToken,...(prior?{'x-screen-prior':JSON.stringify(prior)}:{})},body:image,signal}),cameraPreviewSchema);},

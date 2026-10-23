@@ -71,6 +71,8 @@ export function createTvHold(dependencies: {
   return {
     busy: () => active !== undefined,
     isHolding: (id: string, owner: string) => active?.input.id === id && active.owner === owner,
+    // Ownership remains busy during Release, but sustained pressing has ended.
+    isPressed: (id: string, owner: string) => active?.input.id === id && active.owner === owner && !active.release,
     has(input: TvHoldRequest, owner: string): boolean { prune(); return receipts.has(key(owner, input.id)); },
     press(input: TvHoldRequest, owner: string, adapter: TvAdapter, signal: AbortSignal, admit?: () => void): Promise<TvCommandResult> {
       prune();

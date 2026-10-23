@@ -35,7 +35,7 @@ export function RunStepEvidence({runId,step,index,items,status,selectedId,onSele
     <button type="button" data-verification={value.verification?.status} disabled={value.phase!=='saved'} aria-pressed={value.id===selectedId} onClick={()=>onSelect(value.id)}>
      {value.phase==='saved'&&<img src={snapshotUrl(runId,value.id)} alt="" loading="lazy"/>}
      <span><strong>{value.phase==='saved'?t('snapshot'):t('evidence')} {value.ordinal}</strong>
-      {value.action&&<small>{t('actionPause',{action:getActionLabel(value.action.action),pause:value.action.pauseAfterMs})}</small>}
+      {value.action&&<small>{t(value.action.holdForMs!==undefined?'holdPause':'actionPause',{action:getActionLabel(value.action.action),pause:value.action.pauseAfterMs,hold:value.action.holdForMs})}</small>}
       {value.phase==='saved'?<><SavedSnapshot/><small>{t('captured')}{new Intl.DateTimeFormat(formatLocale(),{timeStyle:'medium'}).format(value.capturedAt!)}</small></>:<small>{value.delivery?.outcome==='sent'?t('deliveredNoSnapshot'):value.delivery?.outcome==='unknown'||value.phase==='sending'?t('deliveryUnknown'):value.delivery?.outcome==='rejected'?t('commandRejected'):t('notRun')}</small>}
      </span>
     </button>

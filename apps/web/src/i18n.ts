@@ -6,10 +6,11 @@ import * as devices from './locales/devices.js';
 import * as cases from './locales/cases.js';
 import * as runs from './locales/runs.js';
 import * as auth from './locales/auth.js';
+import * as settings from './locales/settings.js';
 
 export type Language='ru'|'en';
-export type Namespace='common'|'devices'|'cases'|'runs'|'auth';
-export const resources={ru:{common:common.ru,devices:devices.ru,cases:cases.ru,runs:runs.ru,auth:auth.ru},en:{common:common.en,devices:devices.en,cases:cases.en,runs:runs.en,auth:auth.en}};
+export type Namespace='common'|'devices'|'cases'|'runs'|'auth'|'settings';
+export const resources={ru:{common:common.ru,devices:devices.ru,cases:cases.ru,runs:runs.ru,auth:auth.ru,settings:settings.ru},en:{common:common.en,devices:devices.en,cases:cases.en,runs:runs.en,auth:auth.en,settings:settings.en}};
 const storageKey='smart-tv-remote-hub.locale.v1';
 let storageError='';
 export function readLanguage():Language{

@@ -14,6 +14,10 @@ class Process extends EventEmitter {
 }
 function setup(){const child=new Process();const recognizer=createOcrRecognizer({spawn:()=>child as unknown as ChildProcessWithoutNullStreams});return{child,recognizer};}
 const result={blocks:[{text:'Мое кино'},{text:'Мои подписки'}],engine:'paddleocr-3.2.0',model:'PP-OCRv5_mobile_det+eslav_PP-OCRv5_mobile_rec'};
+test('diagnostics marks an unexpectedly exited idle worker as failed',async()=>{
+ const {child,recognizer}=setup();const pending=recognizer.recognize(Buffer.from('synthetic'),new AbortController().signal);child.respond(result);await pending;
+ expect(recognizer.status?.().state).toBe('ready');child.emit('close',1,null);expect(recognizer.status?.().state).toBe('failed');await recognizer.close();
+});
 afterEach(()=>vi.useRealTimers());
 test('returns validated local OCR blocks and sends original image through stdin',async()=>{
  const {child,recognizer}=setup();const chunks:Buffer[]=[];child.stdin.on('data',chunk=>chunks.push(chunk));
